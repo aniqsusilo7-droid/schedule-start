@@ -598,7 +598,7 @@ const App: React.FC = () => {
 
   if (isLoading) {
       return (
-          <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center">
+          <div className="h-screen w-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center">
               <RefreshCw className="w-12 h-12 text-blue-600 animate-spin mb-4" />
               <div className="text-slate-500 font-bold animate-pulse">Connecting to Supabase...</div>
           </div>
@@ -606,9 +606,9 @@ const App: React.FC = () => {
   }
 
   return (
-    <div className={`min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans text-sm relative transition-colors duration-300 ${config.theme}`}>
+    <div className={`h-screen w-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans text-sm relative transition-colors duration-300 overflow-hidden ${config.theme}`}>
       
-      {/* ... [Full Screen Alert Overlay - same as before] ... */}
+      {/* ... [Full Screen Alert Overlay] ... */}
       {fullScreenAlertItem && (
           <div className="fixed inset-0 z-[100] bg-red-600 flex flex-col items-center justify-center text-white animate-in fade-in duration-300">
               <button 
@@ -647,9 +647,9 @@ const App: React.FC = () => {
           </div>
       )}
 
-      {/* ... [Cycle Completed Banner - same as before] ... */}
+      {/* ... [Cycle Completed Banner] ... */}
        {isScheduleCompleted && !config.isStopped && currentView === 'scheduler' && (
-        <div className="bg-emerald-600 text-white p-3 text-center sticky top-0 z-50 shadow-lg animate-in slide-in-from-top flex flex-col md:flex-row items-center justify-center gap-4">
+        <div className="bg-emerald-600 text-white p-3 text-center absolute top-0 left-0 right-0 z-50 shadow-lg animate-in slide-in-from-top flex flex-col md:flex-row items-center justify-center gap-4">
             <div className="flex items-center gap-2">
                 <FastForward className="w-6 h-6 animate-pulse" />
                 <span className="font-bold text-lg tracking-wide animate-pulse">SEQUENCE COMPLETE</span>
@@ -671,9 +671,9 @@ const App: React.FC = () => {
         </div>
       )}
 
-      {/* ... [Stopped Banner - same as before] ... */}
+      {/* ... [Stopped Banner] ... */}
        {config.isStopped && (
-        <div className="bg-red-600 text-white p-4 text-center sticky top-0 z-50 shadow-2xl flex flex-col items-center justify-center">
+        <div className="bg-red-600 text-white p-4 text-center absolute top-0 left-0 right-0 z-50 shadow-2xl flex flex-col items-center justify-center">
             <div className="flex items-center gap-3 animate-pulse">
                 <Ban className="w-8 h-8" />
                 <span className="font-black text-2xl tracking-widest">SYSTEM STOPPED</span>
@@ -683,10 +683,10 @@ const App: React.FC = () => {
       )}
 
       {/* --- Header --- */}
-      <header className="bg-white dark:bg-slate-900 shadow-sm border-b border-slate-200 dark:border-slate-800 relative z-20 transition-colors duration-300">
+      <header className="flex-none bg-white dark:bg-slate-900 shadow-sm border-b border-slate-200 dark:border-slate-800 relative z-20 transition-colors duration-300">
         
         {/* Running Text Banner */}
-        <div className="bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-100 py-2 border-b border-yellow-200 dark:border-yellow-800 overflow-hidden relative flex items-center h-10 transition-colors">
+        <div className="bg-yellow-100 dark:bg-yellow-900/50 text-yellow-800 dark:text-yellow-100 py-1 border-b border-yellow-200 dark:border-yellow-800 overflow-hidden relative flex items-center h-8 transition-colors">
             {/* Gradients */}
             <div className="absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r from-yellow-100 dark:from-slate-900 to-transparent pointer-events-none"></div>
             <div className="absolute right-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-l from-yellow-100 dark:from-slate-900 to-transparent pointer-events-none"></div>
@@ -694,16 +694,16 @@ const App: React.FC = () => {
             <div className="flex whitespace-nowrap w-full">
                 <div className={`flex shrink-0 animate-marquee items-center min-w-full ${config.isMarqueePaused ? 'paused' : ''}`}>
                     {Array(5).fill(null).map((_, i) => (
-                        <span key={i} className="flex items-center gap-2 mx-8 font-black text-sm uppercase tracking-wider">
-                            <AlertTriangle className="w-5 h-5" />
+                        <span key={i} className="flex items-center gap-2 mx-8 font-black text-xs uppercase tracking-wider">
+                            <AlertTriangle className="w-4 h-4" />
                             {config.runningText}
                         </span>
                     ))}
                 </div>
                 <div className={`flex shrink-0 animate-marquee items-center min-w-full ${config.isMarqueePaused ? 'paused' : ''}`} aria-hidden="true">
                     {Array(5).fill(null).map((_, i) => (
-                        <span key={i + 10} className="flex items-center gap-2 mx-8 font-black text-sm uppercase tracking-wider">
-                            <AlertTriangle className="w-5 h-5" />
+                        <span key={i + 10} className="flex items-center gap-2 mx-8 font-black text-xs uppercase tracking-wider">
+                            <AlertTriangle className="w-4 h-4" />
                             {config.runningText}
                         </span>
                     ))}
@@ -711,56 +711,58 @@ const App: React.FC = () => {
             </div>
         </div>
 
-        <div className="w-full px-4 py-4">
-          <div className="flex flex-col xl:flex-row items-center justify-between gap-6">
+        <div className="w-full px-4 py-2">
+          <div className="flex flex-col xl:flex-row items-center justify-between gap-4">
             
             {/* Left: Title & Nav */}
-            <div className="flex items-center gap-6">
+            <div className="flex items-center gap-4">
               <div className="flex flex-col">
-                <h1 className="text-4xl md:text-5xl font-black text-slate-800 dark:text-slate-100 tracking-tighter flex items-center gap-2 leading-none">
+                <h1 className="text-2xl md:text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tighter flex items-center gap-2 leading-none">
                   <span className="text-blue-700 dark:text-blue-400">SCHEDULE</span> START
                 </h1>
-                <span className="text-xl md:text-2xl font-bold text-slate-500 dark:text-slate-400 tracking-widest mt-1">REAKTOR PVC 5</span>
+                <span className="text-xs font-bold text-slate-500 dark:text-slate-400 tracking-widest mt-0.5">REAKTOR PVC 5</span>
               </div>
             </div>
 
             {/* Right: Controls & View Switcher */}
-            <div className="flex items-center gap-6 flex-wrap justify-end">
+            <div className="flex items-center gap-4 flex-wrap justify-end">
                 
                 {/* View Switcher Pill */}
-                <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700">
-                    <button onClick={() => setCurrentView('scheduler')} className={`px-4 py-2 text-xs font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'scheduler' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-md transform scale-105' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}>
-                        <LayoutGrid className="w-4 h-4" /> Scheduler
+                <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
+                    <button onClick={() => setCurrentView('scheduler')} className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-md transition-all flex items-center gap-1 ${currentView === 'scheduler' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}>
+                        <LayoutGrid className="w-3 h-3" /> Scheduler
                     </button>
-                    <button onClick={() => setCurrentView('demonomer')} className={`px-4 py-2 text-xs font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'demonomer' ? 'bg-white dark:bg-slate-600 text-teal-700 dark:text-teal-300 shadow-md transform scale-105' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}>
-                        <Activity className="w-4 h-4" /> Demonomer
+                    <button onClick={() => setCurrentView('demonomer')} className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-md transition-all flex items-center gap-1 ${currentView === 'demonomer' ? 'bg-white dark:bg-slate-600 text-teal-700 dark:text-teal-300 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}>
+                        <Activity className="w-3 h-3" /> Demonomer
                     </button>
-                     <button onClick={() => setCurrentView('silo')} className={`px-4 py-2 text-xs font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'silo' ? 'bg-white dark:bg-slate-600 text-cyan-700 dark:text-cyan-300 shadow-md transform scale-105' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}>
-                        <Database className="w-4 h-4" /> Silo
+                     <button onClick={() => setCurrentView('silo')} className={`px-3 py-1.5 text-[10px] font-black uppercase rounded-md transition-all flex items-center gap-1 ${currentView === 'silo' ? 'bg-white dark:bg-slate-600 text-cyan-700 dark:text-cyan-300 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}>
+                        <Database className="w-3 h-3" /> Silo
                     </button>
                 </div>
 
                 {/* Interval Display */}
                 <div className="flex flex-col items-center">
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-1">INTERVAL</span>
-                    <div className="text-4xl md:text-5xl font-mono font-black text-gray-800 dark:text-white bg-blue-100 dark:bg-blue-900/50 px-6 py-3 rounded-lg shadow-inner border-2 border-blue-300 dark:border-blue-700 tracking-wider">
+                    <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">INTERVAL</span>
+                    <div className="text-xl font-mono font-black text-gray-800 dark:text-white bg-blue-100 dark:bg-blue-900/50 px-3 py-1 rounded shadow-inner border border-blue-300 dark:border-blue-700 tracking-wider leading-none">
                         {config.intervalHours.toString().padStart(2, '0')}:{config.intervalMinutes.toString().padStart(2, '0')}
                     </div>
                 </div>
 
                 {/* Current Time (Large) */}
                 <div className="flex flex-col items-center">
-                    <span className="text-[10px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest mb-1">CURRENT TIME</span>
-                    <Clock />
+                    <span className="text-[9px] text-slate-400 dark:text-slate-500 font-bold uppercase tracking-widest">TIME</span>
+                    <div className="scale-75 origin-top">
+                        <Clock />
+                    </div>
                 </div>
 
                 {/* Global Grade Selector */}
                 {currentView === 'scheduler' && (
-                  <div className="flex flex-col items-center bg-slate-100 dark:bg-slate-800 rounded-xl p-2 border border-slate-200 dark:border-slate-700">
-                      <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase px-2 mb-1 tracking-widest">ACTIVE GRADE</span>
-                      <div className="flex gap-2">
+                  <div className="flex flex-col items-center bg-slate-100 dark:bg-slate-800 rounded-lg p-1 border border-slate-200 dark:border-slate-700">
+                      <span className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase px-2 mb-0.5 tracking-widest">GRADE</span>
+                      <div className="flex gap-1">
                           {GRADES.map(g => (
-                              <button key={g} onClick={() => handleConfigChange('currentGrade', g)} className={`px-4 py-2 text-lg font-black rounded-lg transition-all shadow-sm ${config.currentGrade === g ? 'bg-blue-600 text-white shadow-blue-200 scale-105 ring-2 ring-blue-300 dark:ring-blue-500' : 'bg-white dark:bg-slate-700 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 hover:text-slate-600'}`}>
+                              <button key={g} onClick={() => handleConfigChange('currentGrade', g)} className={`px-2 py-1 text-xs font-black rounded transition-all shadow-sm ${config.currentGrade === g ? 'bg-blue-600 text-white shadow-blue-200 ring-1 ring-blue-300 dark:ring-blue-500' : 'bg-white dark:bg-slate-700 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-600 hover:text-slate-600'}`}>
                                   {g}
                               </button>
                           ))}
@@ -768,20 +770,17 @@ const App: React.FC = () => {
                   </div>
                 )}
 
-                <div className="flex items-center gap-3">
-                    <button onClick={toggleAudio} className={`flex flex-col items-center justify-center w-16 h-16 rounded-xl font-bold border-2 transition-all ${config.audioEnabled ? 'bg-green-100 text-green-700 border-green-400 dark:bg-green-900/30 dark:text-green-400' : 'bg-slate-50 dark:bg-slate-800 text-slate-300 dark:text-slate-600 border-slate-200 dark:border-slate-700'}`} title="Toggle Voice">
-                        {config.audioEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-                        <span className="text-[10px] uppercase font-black mt-1">{config.audioEnabled ? 'ON' : 'OFF'}</span>
+                <div className="flex items-center gap-2">
+                    <button onClick={toggleAudio} className={`flex flex-col items-center justify-center w-10 h-10 rounded-lg font-bold border transition-all ${config.audioEnabled ? 'bg-green-100 text-green-700 border-green-400 dark:bg-green-900/30 dark:text-green-400' : 'bg-slate-50 dark:bg-slate-800 text-slate-300 dark:text-slate-600 border-slate-200 dark:border-slate-700'}`} title="Toggle Voice">
+                        {config.audioEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
                     </button>
 
-                     <button onClick={toggleTheme} className={`flex flex-col items-center justify-center w-16 h-16 rounded-xl font-bold border-2 transition-all ${config.theme === 'dark' ? 'bg-slate-800 text-yellow-300 border-slate-600' : 'bg-yellow-50 text-orange-500 border-orange-200'}`} title="Toggle Theme">
-                        {config.theme === 'dark' ? <Moon className="w-6 h-6" /> : <Sun className="w-6 h-6" />}
-                        <span className="text-[10px] uppercase font-black mt-1">{config.theme === 'dark' ? 'DARK' : 'LIGHT'}</span>
+                     <button onClick={toggleTheme} className={`flex flex-col items-center justify-center w-10 h-10 rounded-lg font-bold border transition-all ${config.theme === 'dark' ? 'bg-slate-800 text-yellow-300 border-slate-600' : 'bg-yellow-50 text-orange-500 border-orange-200'}`} title="Toggle Theme">
+                        {config.theme === 'dark' ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
                     </button>
 
-                    <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`flex flex-col items-center justify-center w-16 h-16 rounded-xl font-bold border-2 transition-all ${isSettingsOpen ? 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'}`} title="Settings">
-                        <Settings className="w-6 h-6" />
-                        <span className="text-[10px] uppercase font-black mt-1">SET</span>
+                    <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`flex flex-col items-center justify-center w-10 h-10 rounded-lg font-bold border transition-all ${isSettingsOpen ? 'bg-blue-100 text-blue-700 border-blue-300 dark:bg-blue-900/30 dark:text-blue-400 dark:border-blue-700' : 'bg-slate-50 dark:bg-slate-800 text-slate-400 dark:text-slate-500 border-slate-200 dark:border-slate-700 hover:bg-slate-100 dark:hover:bg-slate-700'}`} title="Settings">
+                        <Settings className="w-4 h-4" />
                     </button>
                 </div>
             </div>
@@ -789,10 +788,10 @@ const App: React.FC = () => {
         </div>
 
         {isSettingsOpen && (
-          <div className="bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-4 animate-in slide-in-from-top-2 duration-200 transition-colors">
+          <div className="absolute top-full left-0 right-0 bg-slate-50 dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 px-4 py-4 animate-in slide-in-from-top-2 duration-200 transition-colors z-40 shadow-2xl">
             <div className="w-full px-4 mx-auto grid grid-cols-1 md:grid-cols-4 gap-6">
               
-              {/* ... [Next Sequence Preview - same as before] ... */}
+              {/* ... [Next Sequence Preview] ... */}
               <div className="md:col-span-1 bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-slate-800 dark:to-slate-800 border border-indigo-100 dark:border-slate-700 rounded-lg p-3 relative overflow-hidden group">
                   <div className="absolute top-0 right-0 bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-300 px-2 py-0.5 rounded-bl text-[9px] font-bold uppercase">Predicted</div>
                   <label className="text-xs font-bold text-indigo-800 dark:text-indigo-300 uppercase flex items-center gap-1 mb-2">
@@ -840,7 +839,7 @@ const App: React.FC = () => {
                 </div>
               </div>
 
-              {/* ... [Interval Inputs - same as before] ... */}
+              {/* ... [Interval Inputs] ... */}
               <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Interval (HH:MM)</label>
                 <div className="flex gap-2 items-center">
@@ -850,7 +849,7 @@ const App: React.FC = () => {
                 </div>
               </div>
               
-              {/* ... [View Cycles Input - same as before] ... */}
+              {/* ... [View Cycles Input] ... */}
                <div className="space-y-1">
                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">View Cycles</label>
                 <input type="number" min="1" max="10" value={config.columnsToDisplay} onChange={(e) => handleConfigChange('columnsToDisplay', parseInt(e.target.value) || 1)} className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded p-2 text-lg font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
@@ -899,22 +898,22 @@ const App: React.FC = () => {
       </header>
 
       {/* --- Main Content --- */}
-      <main className="flex-1 overflow-auto p-2">
+      <main className="flex-1 overflow-hidden relative">
         {currentView === 'scheduler' ? (
-        <div className="w-full h-full bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
+        <div className="w-full h-full bg-white dark:bg-slate-800 shadow-lg border-t border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
           
-          <div className="overflow-x-auto h-full">
-            <table className="w-full border-collapse h-full">
+          <div className="w-full h-full">
+            <table className="w-full h-full border-collapse">
               <thead>
-                <tr>
-                  <th className="w-40 bg-slate-800 dark:bg-slate-950 text-white p-4 text-left border-r border-slate-700 dark:border-slate-800">
-                    <span className="text-xl font-black font-serif tracking-widest">REAKTOR</span>
+                <tr className="h-12">
+                  <th className="w-32 bg-slate-800 dark:bg-slate-950 text-white px-2 text-left border-r border-slate-700 dark:border-slate-800">
+                    <span className="text-lg font-black font-serif tracking-widest">REACTOR</span>
                   </th>
                   {Array.from({ length: config.columnsToDisplay }).map((_, i) => (
-                    <th key={i} className="bg-cyan-500 dark:bg-cyan-700 text-white border-r border-cyan-600 dark:border-cyan-800 p-2 min-w-[180px]">
+                    <th key={i} className="bg-cyan-500 dark:bg-cyan-700 text-white border-r border-cyan-600 dark:border-cyan-800 px-2 min-w-[220px]">
                       <div className="flex items-center justify-center gap-2">
-                        <span className="font-bold text-lg opacity-80">CYCLE</span>
-                        <span className="font-black text-2xl">{i + 1}</span>
+                        <span className="font-bold text-sm opacity-80">CYCLE</span>
+                        <span className="font-black text-xl">{i + 1}</span>
                       </div>
                     </th>
                   ))}
@@ -922,11 +921,11 @@ const App: React.FC = () => {
               </thead>
               <tbody>
                 {REACTORS.map((reactor) => (
-                  <tr key={reactor.id} className="border-b border-slate-200 dark:border-slate-700 last:border-0 h-32">
+                  <tr key={reactor.id} className="border-b border-slate-200 dark:border-slate-700 last:border-0 h-1/5">
                     
-                    <td className={`${reactor.color} ${reactor.textColor} border-r border-slate-900/10 dark:border-slate-900/30 p-4 relative group`}>
+                    <td className={`${reactor.color} ${reactor.textColor} border-r border-slate-900/10 dark:border-slate-900/30 p-2 relative group`}>
                        <div className="flex flex-col items-center justify-center h-full">
-                          <span className="text-6xl font-black font-serif drop-shadow-md">{reactor.label}</span>
+                          <span className="text-7xl font-black font-serif drop-shadow-md">{reactor.label}</span>
                           
                           {/* Reactor Note Display */}
                           <div 
@@ -935,9 +934,9 @@ const App: React.FC = () => {
                             title="Click to edit note"
                           >
                              {config.reactorNotes[reactor.id] ? (
-                                 <span className="text-xs font-bold uppercase block leading-tight">{config.reactorNotes[reactor.id]}</span>
+                                 <span className="text-sm font-bold uppercase block leading-tight">{config.reactorNotes[reactor.id]}</span>
                              ) : (
-                                 <span className="text-[10px] opacity-50 block flex items-center justify-center gap-1"><Edit3 className="w-3 h-3" /> Note</span>
+                                 <span className="text-xs opacity-50 block flex items-center justify-center gap-1"><Edit3 className="w-3 h-3" /> Note</span>
                              )}
                           </div>
                        </div>
@@ -952,82 +951,82 @@ const App: React.FC = () => {
                       
                       const isAdjusted = item.config?.overrideTime || item.config?.grade || (item.config?.mode && item.config.mode !== 'CLOSE');
 
-                      // Dark Mode Strategy:
-                      // Future: slate-800 (Distinct card)
-                      // Past: slate-950 (Receded into bg)
-                      // Active: Red/Pulse
+                      // Calculate Delay String 00:00
+                      const delayHours = Math.floor(Math.abs(item.deltaMinutes) / 60).toString().padStart(2, '0');
+                      const delayMins = (Math.abs(item.deltaMinutes) % 60).toString().padStart(2, '0');
+                      const delayString = `${delayHours}:${delayMins}`;
 
                       let cellClasses = "bg-white dark:bg-slate-800 dark:text-slate-100 shadow-sm transition-colors"; 
                       if (isSkipped) cellClasses = "bg-stone-200 dark:bg-stone-950 text-stone-500 dark:text-stone-600 border-stone-300 dark:border-stone-800"; 
-                      else if (isActive) cellClasses = "bg-red-500 dark:bg-red-600 text-white animate-pulse ring-4 ring-red-300 dark:ring-red-900 z-10 relative"; 
+                      else if (isActive) cellClasses = "bg-red-500 dark:bg-red-600 text-white animate-pulse ring-inset ring-4 ring-red-300 dark:ring-red-900 z-10 relative"; 
                       else if (isPast) cellClasses = "bg-slate-800 dark:bg-slate-950 text-slate-500 dark:text-slate-600 shadow-inner"; 
                       
                       return (
                         <td 
                             key={item.id} 
                             onClick={() => openRescheduleModal(item)}
-                            className={`p-0 border-r border-slate-200 dark:border-slate-700 cursor-pointer transition-all duration-300 relative group hover:z-20 ${cellClasses} hover:ring-2 hover:ring-blue-400`}
+                            className={`p-0 border-r border-slate-200 dark:border-slate-700 cursor-pointer transition-all duration-300 relative group hover:z-20 ${cellClasses} hover:ring-4 hover:ring-blue-400`}
                         >
-                          <div className="h-full flex flex-col justify-between p-3">
+                          <div className="h-full w-full flex flex-col justify-between p-2 md:p-4">
                             
-                            {/* Top Row: Batch & Grade */}
-                            <div className="flex justify-between items-start mb-2">
+                            {/* Top Row: Batch & Grade - MAXIMIZED */}
+                            <div className="flex justify-between items-start mb-1">
                               <div className="flex flex-col">
-                                <span className={`text-[10px] font-bold uppercase tracking-wide ${isActive || isPast || isSkipped ? 'opacity-70' : 'text-slate-400 dark:text-slate-500'}`}>Batch</span>
+                                <span className={`text-xs font-bold uppercase tracking-wide ${isActive || isPast || isSkipped ? 'opacity-70' : 'text-slate-400 dark:text-slate-500'}`}>Batch</span>
                                 {!isSkipped ? (
-                                    <span className={`text-xl font-bold font-mono ${isActive ? 'text-white' : (reactor.id === 'S' || reactor.id === 'T' ? 'text-red-600 dark:text-red-400' : 'text-red-500 dark:text-red-400')} ${isPast ? '!text-inherit' : ''}`}>
+                                    <span className={`text-4xl font-bold font-mono leading-none ${isActive ? 'text-white' : (reactor.id === 'S' || reactor.id === 'T' ? 'text-red-600 dark:text-red-400' : 'text-red-500 dark:text-red-400')} ${isPast ? '!text-inherit' : ''}`}>
                                         {item.batchNumber}
                                     </span>
                                 ) : (
-                                    <span className="text-xl font-bold font-mono text-stone-400 dark:text-stone-600">---</span>
+                                    <span className="text-3xl font-bold font-mono text-stone-400 dark:text-stone-600">---</span>
                                 )}
                               </div>
                               <div className="text-right">
-                                <div className={`text-xs font-black px-1.5 rounded ${isActive ? 'bg-white text-red-600' : (isSkipped ? 'bg-stone-300 dark:bg-stone-800 text-stone-600 dark:text-stone-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300')}`}>
+                                <div className={`text-2xl font-black px-3 py-1 rounded-lg ${isActive ? 'bg-white text-red-600' : (isSkipped ? 'bg-stone-300 dark:bg-stone-800 text-stone-600 dark:text-stone-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300')}`}>
                                     {item.grade}
                                 </div>
                               </div>
                             </div>
 
-                            {/* Middle: Start Time & Badges */}
+                            {/* Middle: Start Time & Badges - MAXIMIZED */}
                             <div className="text-center py-1 relative flex flex-col items-center justify-center flex-1">
                               {isSkipped ? (
                                 <div className="flex flex-col items-center gap-1 opacity-60">
-                                    <Ban className="w-8 h-8" />
-                                    <span className="text-xs font-black uppercase tracking-wider">SKIPPED</span>
+                                    <Ban className="w-16 h-16" />
+                                    <span className="text-2xl font-black uppercase tracking-wider">SKIPPED</span>
                                 </div>
                               ) : (
                                 <>
-                                    {/* Unified Time Display */}
-                                    <div className={`text-3xl font-black tracking-tighter ${isActive ? 'text-white scale-110' : (isPast ? 'text-slate-600 dark:text-slate-500 line-through decoration-2 decoration-slate-500' : 'text-slate-800 dark:text-slate-100')} transition-transform`}>
+                                    {/* Unified Time Display - Huge */}
+                                    <div className={`text-6xl xl:text-7xl font-black tracking-tighter leading-none ${isActive ? 'text-white scale-110' : (isPast ? 'text-slate-600 dark:text-slate-500 line-through decoration-4 decoration-slate-500' : 'text-slate-800 dark:text-slate-100')} transition-transform`}>
                                         {formatTime(item.startTime)}
                                     </div>
                                     
-                                    {/* Status / Badges */}
+                                    {/* Status / Badges - Prominent below time */}
                                     {isPast ? (
-                                         <div className="flex items-center gap-1 text-[10px] font-black uppercase text-green-400 dark:text-green-500 mt-1">
-                                            <CheckCircle2 className="w-3 h-3" /> SUDAH START
+                                         <div className="flex items-center gap-1 text-lg font-black uppercase text-green-400 dark:text-green-500 mt-2">
+                                            <CheckCircle2 className="w-5 h-5" /> SUDAH START
                                          </div>
                                     ) : isActive ? (
-                                        <div className="text-xs font-black text-yellow-300 mt-1 uppercase tracking-widest animate-bounce">
+                                        <div className="text-2xl font-black text-yellow-300 mt-2 uppercase tracking-widest animate-bounce">
                                             START NOW
                                         </div>
                                     ) : (
-                                        <div className="flex justify-center gap-1 mt-1 flex-wrap">
-                                            {/* Adjusted Time Delta Badge */}
+                                        <div className="flex justify-center gap-2 mt-2 flex-wrap w-full">
+                                            {/* Adjusted Time Delta Badge HH:MM */}
                                             {item.deltaMinutes !== 0 && (
-                                                <div className={`text-[10px] font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-1 ${item.deltaMinutes > 0 ? 'bg-yellow-400 text-yellow-900' : 'bg-cyan-100 text-cyan-800'}`}>
-                                                    <Timer className="w-3 h-3" /> {item.deltaMinutes > 0 ? '+' : ''}{item.deltaMinutes}m
+                                                <div className={`text-sm md:text-base font-black px-2 py-1 rounded uppercase flex items-center gap-1 ${item.deltaMinutes > 0 ? 'bg-yellow-400 text-yellow-900' : 'bg-cyan-100 text-cyan-800'}`}>
+                                                    <Timer className="w-4 h-4" /> {item.deltaMinutes > 0 ? '+' : '-'}{delayString}
                                                 </div>
                                             )}
-                                            {/* Mode Badge */}
-                                            <div className={`text-[9px] font-bold px-1.5 py-0.5 rounded uppercase border ${mode === 'OPEN' ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border-cyan-200 dark:border-cyan-800' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600'}`}>
+                                            {/* Mode Badge - Large */}
+                                            <div className={`text-sm md:text-base font-bold px-2 py-1 rounded uppercase border ${mode === 'OPEN' ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border-cyan-200 dark:border-cyan-800' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600'}`}>
                                                 {mode} MODE
                                             </div>
                                             {/* Shift Indicator */}
                                             {item.config?.shiftSubsequent && (
-                                                <div className="text-[9px] font-bold bg-orange-100 text-orange-700 px-1.5 py-0.5 rounded uppercase border border-orange-200 flex items-center gap-1">
-                                                    <ArrowRightCircle className="w-3 h-3" /> SHIFT
+                                                <div className="text-sm md:text-base font-bold bg-orange-100 text-orange-700 px-2 py-1 rounded uppercase border border-orange-200 flex items-center gap-1">
+                                                    <ArrowRightCircle className="w-4 h-4" /> SHIFT
                                                 </div>
                                             )}
                                         </div>
@@ -1037,26 +1036,26 @@ const App: React.FC = () => {
 
                               {/* Edit Overlay Icon */}
                               <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
-                                  <div className="bg-blue-600 text-white rounded-full p-2 shadow-lg">
-                                      <Edit3 className="w-5 h-5" />
+                                  <div className="bg-blue-600 text-white rounded-full p-3 shadow-xl transform scale-125">
+                                      <Edit3 className="w-6 h-6" />
                                   </div>
                               </div>
                             </div>
 
-                            {/* Bottom: Notes & Stage Info */}
-                            <div className={`mt-2 flex justify-between items-end border-t pt-2 ${isActive ? 'border-white/30' : 'border-black/5 dark:border-white/10'}`}>
+                            {/* Bottom: Notes & Stage Info - Footer */}
+                            <div className={`mt-1 flex justify-between items-end border-t pt-1 ${isActive ? 'border-white/30' : 'border-black/5 dark:border-white/10'}`}>
                                 <div className="flex gap-1 items-center shrink-0">
                                     {item.config?.note && (
-                                        <FileText className={`w-3 h-3 ${isActive ? 'text-yellow-300' : 'text-blue-500 dark:text-blue-400'}`} />
+                                        <FileText className={`w-4 h-4 ${isActive ? 'text-yellow-300' : 'text-blue-500 dark:text-blue-400'}`} />
                                     )}
-                                    <span className={`text-xs font-bold ${isActive ? 'text-white/80' : 'text-slate-500 dark:text-slate-400'}`}>SM</span>
+                                    <span className={`text-sm font-bold ${isActive ? 'text-white/80' : 'text-slate-500 dark:text-slate-400'}`}>SM</span>
                                 </div>
                                 
                                 {stageInfo && (
-                                    <div className="flex-1 mx-2 overflow-hidden h-4 relative self-center">
+                                    <div className="flex-1 mx-2 overflow-hidden h-5 relative self-center">
                                         <div className={`absolute top-0 left-0 whitespace-nowrap animate-marquee-cell flex items-center h-full ${config.isMarqueePaused ? 'paused' : ''}`}>
                                             {Array(5).fill(null).map((_, idx) => (
-                                                <span key={idx} className={`mx-2 text-[10px] font-black uppercase tracking-wider ${isActive ? 'text-white' : (isPast ? 'text-yellow-400' : 'text-fuchsia-600 dark:text-fuchsia-400')}`}>
+                                                <span key={idx} className={`mx-4 text-xs font-black uppercase tracking-wider ${isActive ? 'text-white' : (isPast ? 'text-yellow-400' : 'text-fuchsia-600 dark:text-fuchsia-400')}`}>
                                                     {stageInfo}
                                                 </span>
                                             ))}
@@ -1064,7 +1063,7 @@ const App: React.FC = () => {
                                     </div>
                                 )}
 
-                                <span className={`text-[10px] font-bold shrink-0 ${isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`}>
+                                <span className={`text-sm md:text-base font-bold shrink-0 ${isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`}>
                                     {formatDate(item.startTime)}
                                 </span>
                             </div>
@@ -1084,7 +1083,7 @@ const App: React.FC = () => {
           <Silo />
         )}
         
-        <div className="max-w-7xl mx-auto mt-6 text-center text-slate-400 dark:text-slate-500 text-xs">
+        <div className="absolute bottom-1 left-0 right-0 text-center text-slate-400 dark:text-slate-500 text-[10px] pointer-events-none">
           AILO CORP | SCHEDULE START PVC 5
         </div>
       </main>
