@@ -1,12 +1,12 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { REACTORS } from './constants';
-import { AppState, ScheduleItem, ItemConfig, GradeType } from './types';
+import { AppState, ScheduleItem, ItemConfig, GradeType, SiloState, SiloData } from './types';
 import { addMinutes, formatDate, formatTime } from './utils/dateUtils';
 import { Clock } from './components/Clock';
 import { Demonomer } from './components/Demonomer';
 import { Silo } from './components/Silo';
-import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor } from 'lucide-react';
+import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 const GRADES: GradeType[] = ['SM', 'SLK', 'SLP', 'SE', 'SR'];
@@ -33,6 +33,17 @@ const App: React.FC = () => {
   // State for Reactor Note editing
   const [editingReactorNote, setEditingReactorNote] = useState<string | null>(null);
   const [tempReactorNote, setTempReactorNote] = useState("");
+
+  // State for Silo Modal
+  const [isSiloModalOpen, setIsSiloModalOpen] = useState(false);
+  
+  // State for Silo START Confirmation Modal
+  const [startSiloData, setStartSiloData] = useState<{
+      id: 'O' | 'P' | 'Q';
+      lotNumber: string;
+      capacitySet: string;
+      startTime: string;
+  } | null>(null);
   
   // Design Mode State
   const [isDesignMode, setIsDesignMode] = useState(false);
@@ -50,9 +61,27 @@ const App: React.FC = () => {
     g: { netto: '', bruto: '' }
   });
 
-  // Silo Charging State
-  const [siloCharging, setSiloCharging] = useState('O');
+  // --- Silo State ---
+  const [siloState, setSiloState] = useState<SiloState>(() => {
+      // Try to load from local storage or default
+      const saved = localStorage.getItem('app_silo_state');
+      if (saved) return JSON.parse(saved);
+      // Default empty state as requested
+      return {
+          activeSilo: null, // No active silo initially
+          silos: {
+              O: { id: 'O', lotNumber: '', capacitySet: '', startTime: '', finishTime: '', percentage: '', totalUpdate: '' },
+              P: { id: 'P', lotNumber: '', capacitySet: '', startTime: '', finishTime: '', percentage: '', totalUpdate: '' },
+              Q: { id: 'Q', lotNumber: '', capacitySet: '', startTime: '', finishTime: '', percentage: '', totalUpdate: '' }
+          }
+      };
+  });
   
+  // Persist Silo State
+  useEffect(() => {
+      localStorage.setItem('app_silo_state', JSON.stringify(siloState));
+  }, [siloState]);
+
   // Loading State
   const [isLoading, setIsLoading] = useState(true);
 
@@ -341,6 +370,74 @@ const App: React.FC = () => {
       ...prev,
       [row]: { ...prev[row], [field]: val }
     }));
+  };
+
+  // --- Silo Handlers ---
+  
+  // 1. Initial Click Handler: Opens the Confirmation Modal
+  const handleSiloSwitch = (newSiloId: 'O' | 'P' | 'Q') => {
+      if (newSiloId === siloState.activeSilo) return;
+
+      const currentTime = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
+      
+      // Initialize the modal with default values
+      setStartSiloData({
+          id: newSiloId,
+          lotNumber: '', // Empty initially
+          capacitySet: '', // Empty initially
+          startTime: currentTime
+      });
+  };
+
+  // 2. Commit Handler: Executed when user confirms inside the Modal
+  const handleConfirmSiloStart = () => {
+      if (!startSiloData) return;
+
+      const previousSiloId = siloState.activeSilo;
+      const { id: newSiloId, lotNumber, capacitySet, startTime } = startSiloData;
+
+      // Logic to switch silos
+      const updatedSilos = { ...siloState.silos };
+      
+      // Update new silo with form data
+      updatedSilos[newSiloId] = {
+          ...updatedSilos[newSiloId],
+          lotNumber: lotNumber,
+          capacitySet: capacitySet,
+          startTime: startTime,
+          finishTime: null, // Clear finish time for new active
+          percentage: '', // Reset progress for new batch
+          totalUpdate: '' // Reset update for new batch
+      };
+
+      // Update previous silo with finish time if exists (matches new start time)
+      if (previousSiloId) {
+          updatedSilos[previousSiloId] = {
+              ...updatedSilos[previousSiloId],
+              finishTime: startTime
+          };
+      }
+
+      setSiloState({
+          activeSilo: newSiloId,
+          silos: updatedSilos
+      });
+
+      // Close Modal
+      setStartSiloData(null);
+  };
+
+  const handleSiloDataChange = (siloId: 'O' | 'P' | 'Q', field: keyof SiloData, value: any) => {
+      setSiloState(prev => ({
+          ...prev,
+          silos: {
+              ...prev.silos,
+              [siloId]: {
+                  ...prev.silos[siloId],
+                  [field]: value
+              }
+          }
+      }));
   };
 
   // --- Reactor Note Handlers ---
@@ -1141,6 +1238,8 @@ const App: React.FC = () => {
       const colWidth2 = "w-[6em]";
       const colWidth3 = "w-[6em]";
 
+      const activeSiloData = siloState.activeSilo ? siloState.silos[siloState.activeSilo] : null;
+
       return (
            <div className="flex flex-col md:flex-row gap-8 items-start mt-4" style={{ fontSize: `${config.tableFontSize}px` }}>
                
@@ -1231,23 +1330,35 @@ const App: React.FC = () => {
 
                {/* 2. SILO SETTING WIDGET */}
                <div className="flex flex-col w-fit">
-                    <div className="bg-[#FFC000] text-black font-bold text-[1em] px-4 py-2 text-center border-t-2 border-l-2 border-r-2 border-white/0">
-                        CHANGE SILO TO SETTING
-                    </div>
+                    {/* Header Button to Open Modal */}
+                    <button 
+                        onClick={() => setIsSiloModalOpen(true)}
+                        className="bg-[#FFC000] hover:bg-[#E5AC00] text-black font-bold text-[1em] px-4 py-3 text-center border-t-2 border-l-2 border-r-2 border-white/0 flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                    >
+                        <Maximize2 className="w-4 h-4" />
+                        CHANGE SILO TO SETTING (ADJUST)
+                    </button>
+
+                    {/* Big Display for Active Silo */}
                     <div className="flex">
-                        <div className="bg-[#00B0F0] text-black font-bold text-[1em] px-4 py-2 flex items-center">
-                            SILO CHARGING NOW
-                        </div>
-                        <div className="bg-white px-2 py-1 flex items-center min-w-[100px]">
-                            <select 
-                                value={siloCharging} 
-                                onChange={(e) => setSiloCharging(e.target.value)}
-                                className="w-full h-full bg-transparent font-bold text-[1.2em] outline-none text-center cursor-pointer text-black"
-                            >
-                                <option value="O">O</option>
-                                <option value="P">P</option>
-                                <option value="Q">Q</option>
-                            </select>
+                        <div className="bg-[#00B0F0] text-black font-black p-4 flex items-center justify-center w-[16em] border-4 border-[#0090C0] shadow-inner relative overflow-hidden group">
+                             {/* Background Effect */}
+                             <div className="absolute inset-0 bg-white/10 skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
+
+                             {/* Silo Letter */}
+                             <span className="text-7xl mr-6 drop-shadow-md">{siloState.activeSilo || '-'}</span>
+                             
+                             {/* Details */}
+                             <div className="flex flex-col leading-tight text-left border-l-2 border-black/20 pl-4">
+                                 <div className="mb-2">
+                                     <span className="text-[0.6em] opacity-70 block font-bold">START TIME</span>
+                                     <span className="text-[1.5em] block bg-white/20 px-1 rounded">{activeSiloData?.startTime || '--:--'}</span>
+                                 </div>
+                                 <div>
+                                     <span className="text-[0.6em] opacity-70 block font-bold">SET AMOUNT</span>
+                                     <span className="text-[1.5em] block bg-white/20 px-1 rounded">{activeSiloData?.capacitySet || '0'} T</span>
+                                 </div>
+                             </div>
                         </div>
                     </div>
                </div>
@@ -1391,13 +1502,131 @@ const App: React.FC = () => {
           )}
           
           {currentView === 'silo' && (
-            <Silo />
+            <Silo 
+                activeSilo={siloState.activeSilo}
+                silos={siloState.silos}
+                onDataChange={handleSiloDataChange}
+                onSiloSelect={handleSiloSwitch}
+            />
           )}
       </div>
 
       <div className="max-w-7xl mx-auto mt-6 pb-6 text-center text-slate-400 dark:text-slate-500 text-xs">
           AILO CORP | SCHEDULE START PVC 5
       </div>
+
+      {/* --- START SILO CONFIRMATION MODAL --- */}
+      {startSiloData && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 ring-4 ring-emerald-500/50">
+                  {/* Header */}
+                  <div className="bg-emerald-600 text-white p-6 flex items-center justify-between">
+                      <div>
+                          <h3 className="text-2xl font-black flex items-center gap-2">
+                              <PlayCircle className="w-8 h-8 text-yellow-300" />
+                              START SILO {startSiloData.id}
+                          </h3>
+                          <p className="text-emerald-100 font-bold text-sm mt-1">Please confirm start details.</p>
+                      </div>
+                      <button onClick={() => setStartSiloData(null)} className="bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors">
+                          <X className="w-6 h-6" />
+                      </button>
+                  </div>
+
+                  {/* Body */}
+                  <div className="p-6 space-y-6">
+                      
+                      {/* Lot Number Input */}
+                      <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">Lot Number</label>
+                          <input 
+                              type="text" 
+                              autoFocus
+                              value={startSiloData.lotNumber}
+                              onChange={(e) => setStartSiloData({...startSiloData, lotNumber: e.target.value})}
+                              placeholder="e.g. E5ZB16"
+                              className="w-full text-center text-3xl font-black p-3 rounded-xl border-2 border-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 outline-none uppercase dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                          />
+                      </div>
+
+                      {/* Capacity Input */}
+                      <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">Capacity Set (T)</label>
+                          <input 
+                              type="number" 
+                              value={startSiloData.capacitySet}
+                              onChange={(e) => setStartSiloData({...startSiloData, capacitySet: e.target.value})}
+                              placeholder="e.g. 270"
+                              className="w-full text-center text-3xl font-black p-3 rounded-xl border-2 border-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                          />
+                      </div>
+
+                      {/* Time Input */}
+                      <div className="space-y-2 bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">Start Time Confirmation</label>
+                          <input 
+                              type="text" 
+                              value={startSiloData.startTime}
+                              onChange={(e) => setStartSiloData({...startSiloData, startTime: e.target.value})}
+                              className="w-full bg-transparent text-center font-mono font-bold text-xl outline-none border-b-2 border-slate-300 focus:border-emerald-500"
+                          />
+                      </div>
+
+                  </div>
+
+                  {/* Footer */}
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex gap-3">
+                      <button 
+                        onClick={() => setStartSiloData(null)}
+                        className="flex-1 py-4 font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                      >
+                          CANCEL
+                      </button>
+                      <button 
+                        onClick={handleConfirmSiloStart}
+                        disabled={!startSiloData.lotNumber || !startSiloData.capacitySet}
+                        className="flex-[2] bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg py-4 rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transform active:scale-95 transition-all"
+                      >
+                          <Check className="w-6 h-6" />
+                          CONFIRM & START
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* --- Silo Adjustment Modal (View All) --- */}
+      {isSiloModalOpen && (
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[90vh]">
+                  {/* Modal Header */}
+                  <div className="bg-slate-800 dark:bg-slate-950 text-white p-4 flex justify-between items-center shrink-0">
+                      <div>
+                          <h3 className="text-lg font-bold flex items-center gap-2">
+                              <Database className="w-5 h-5 text-cyan-400" />
+                              Silo Configuration
+                          </h3>
+                          <p className="text-xs text-slate-400">
+                              Manage Lot Numbers, Start/Finish Times, and Updates
+                          </p>
+                      </div>
+                      <button onClick={() => setIsSiloModalOpen(false)} className="text-slate-400 hover:text-white transition-colors">
+                          <X className="w-6 h-6" />
+                      </button>
+                  </div>
+                  
+                  {/* Modal Content */}
+                  <div className="p-4 overflow-y-auto bg-slate-100 dark:bg-slate-900">
+                      <Silo 
+                          activeSilo={siloState.activeSilo}
+                          silos={siloState.silos}
+                          onDataChange={handleSiloDataChange}
+                          onSiloSelect={handleSiloSwitch}
+                      />
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* ... [Reschedule Modal] ... */}
       {selectedItem && (

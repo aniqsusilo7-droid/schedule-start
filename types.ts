@@ -57,3 +57,19 @@ export interface AppState {
   tableRowHeight: number; // pixel height
   tableFontSize: number; // pixel font size base
 }
+
+// --- Silo Types ---
+export interface SiloData {
+  id: 'O' | 'P' | 'Q';
+  lotNumber: string;
+  capacitySet: string | number; // Changed to allow empty string
+  startTime: string | null; // HH:mm format
+  finishTime: string | null; // HH:mm format
+  percentage: string | number; // Changed to allow empty string
+  totalUpdate: string | number; // Changed to allow empty string
+}
+
+export interface SiloState {
+  activeSilo: 'O' | 'P' | 'Q' | null; // Allow null if none active initially
+  silos: Record<'O' | 'P' | 'Q', SiloData>;
+}
