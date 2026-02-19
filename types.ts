@@ -1,3 +1,4 @@
+
 export type GradeType = 'SM' | 'SLK' | 'SLP' | 'SE' | 'SR';
 
 export interface ReactorConfig {
@@ -48,5 +49,11 @@ export interface AppState {
   alertThresholdSeconds: number; // Seconds before start to show full screen alert
   runningText: string; // Dynamic marquee text
   isMarqueePaused: boolean; // Control running text animation
+  marqueeSpeed: number; // Duration in seconds for marquee animation
   theme: 'light' | 'dark'; // UI Theme
+  
+  // Design / Layout Props
+  layoutOrder: string[]; // Array of section IDs e.g. ['header', 'scheduler', 'catalyst']
+  tableRowHeight: number; // pixel height
+  tableFontSize: number; // pixel font size base
 }

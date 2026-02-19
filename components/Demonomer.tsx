@@ -1,6 +1,6 @@
 
-import React, { useState, useMemo } from 'react';
-import { ArrowRight, Settings2, Activity } from 'lucide-react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { ArrowRight, Settings2, Activity, RotateCcw, Calculator, Info, Database } from 'lucide-react';
 import { GradeType } from '../types';
 
 interface DemonomerProps {
@@ -10,49 +10,105 @@ interface DemonomerProps {
 
 type GradeKey = 'SM' | 'SLP' | 'SLK' | 'SE' | 'SR';
 
+const DEFAULT_PVC_FORMULA = "F2002*AI2802/1000*%PVC";
+const DEFAULT_STEAM_FORMULA = "PVC * Multiplier";
+
 export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChange }) => {
-  // --- State for Inputs ---
-  const [f2002, setF2002] = useState<number>(125);
-  const [aie2802, setAie2802] = useState<number>(1070);
-  const [pvcPercent, setPvcPercent] = useState<number>(25); // Matching Excel screenshot
-  
-  // State for "Nilai Untuk Grade" (Multipliers)
-  const [multipliers, setMultipliers] = useState<Record<GradeKey, number>>({
-    SM: 118,
-    SLP: 108,
-    SLK: 128,
-    SE: 140,
-    SR: 100
+  // --- State for Inputs (Initialized from LocalStorage) ---
+  const [f2002, setF2002] = useState<number>(() => {
+      const saved = localStorage.getItem('demonomer_f2002');
+      return saved ? parseFloat(saved) : 125;
   });
 
-  // --- Calculations ---
-  /**
-   * FORMULA ANALYSIS BASED ON USER FEEDBACK:
-   * Goal: Match Excel (1070, 25% -> 26.75) AND ensure F2002 affects the result.
-   * If F2002 base is 125:
-   * PVC = (AIE2802 * pvcPercent * f2002) / 125000
-   * (1070 * 25 * 125) / 125000 = 1070 * 25 / 1000 = 26.75.
-   */
-  const calculatedPVC = useMemo(() => {
-    return (aie2802 * pvcPercent * f2002) / 125000;
-  }, [aie2802, pvcPercent, f2002]);
+  const [aie2802, setAie2802] = useState<number>(() => {
+      const saved = localStorage.getItem('demonomer_aie2802');
+      return saved ? parseFloat(saved) : 1070;
+  });
 
-  /**
-   * FORMULA: PVC * Multiplier (Grade Based)
-   * Example: 26.75 * 128 (SLK) = 3424.
-   */
-  const calculatedSteam = useMemo(() => {
-    const mult = multipliers[currentGrade as GradeKey] || 0;
-    return calculatedPVC * mult;
-  }, [calculatedPVC, currentGrade, multipliers]);
+  const [pvcPercent, setPvcPercent] = useState<number>(() => {
+      const saved = localStorage.getItem('demonomer_pvc_percent');
+      return saved ? parseFloat(saved) : 25;
+  });
+  
+  // State for "Nilai Untuk Grade" (Multipliers)
+  const [multipliers, setMultipliers] = useState<Record<GradeKey, number>>(() => {
+      const saved = localStorage.getItem('demonomer_multipliers');
+      return saved ? JSON.parse(saved) : {
+        SM: 118,
+        SLP: 108,
+        SLK: 128,
+        SE: 140,
+        SR: 100
+      };
+  });
+
+  // --- Formula State ---
+  const [pvcFormula, setPvcFormula] = useState(() => localStorage.getItem('demonomer_pvc_formula') || DEFAULT_PVC_FORMULA);
+  const [steamFormula, setSteamFormula] = useState(() => localStorage.getItem('demonomer_steam_formula') || DEFAULT_STEAM_FORMULA);
+
+  // --- Persistence Effects (Auto-save to LocalStorage) ---
+  useEffect(() => localStorage.setItem('demonomer_f2002', f2002.toString()), [f2002]);
+  useEffect(() => localStorage.setItem('demonomer_aie2802', aie2802.toString()), [aie2802]);
+  useEffect(() => localStorage.setItem('demonomer_pvc_percent', pvcPercent.toString()), [pvcPercent]);
+  useEffect(() => localStorage.setItem('demonomer_multipliers', JSON.stringify(multipliers)), [multipliers]);
+  useEffect(() => localStorage.setItem('demonomer_pvc_formula', pvcFormula), [pvcFormula]);
+  useEffect(() => localStorage.setItem('demonomer_steam_formula', steamFormula), [steamFormula]);
+
+  // --- Handlers ---
+  const handleResetFormulas = () => {
+    if (window.confirm("Reset formulas to default factory settings?")) {
+        setPvcFormula(DEFAULT_PVC_FORMULA);
+        setSteamFormula(DEFAULT_STEAM_FORMULA);
+    }
+  };
 
   const handleMultiplierChange = (grade: GradeKey, val: string) => {
     const num = parseFloat(val) || 0;
     setMultipliers(prev => ({ ...prev, [grade]: num }));
   };
 
+  // --- Dynamic Calculation Logic ---
+  const evaluateMath = (expression: string, vars: Record<string, number>): number => {
+    let expr = expression;
+    // Sort keys by length desc to prevent partial replacement issues (e.g. replacing PVC inside %PVC)
+    const sortedKeys = Object.keys(vars).sort((a, b) => b.length - a.length);
+    
+    for (const key of sortedKeys) {
+        // Escape special regex characters in variable names (like %)
+        const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(escapedKey, 'g');
+        expr = expr.replace(regex, String(vars[key]));
+    }
+
+    try {
+        // Allow standard math operators and numbers
+        const cleanExpr = expr.replace(/[^0-9\.\+\-\*\/\(\)\s]/g, '');
+        if (!cleanExpr.trim()) return 0;
+        const result = new Function('return ' + expr)();
+        return isFinite(result) ? result : 0;
+    } catch (e) {
+        return 0;
+    }
+  };
+
+  const calculatedPVC = useMemo(() => {
+    return evaluateMath(pvcFormula, {
+        'AI2802': aie2802,
+        '%PVC': pvcPercent / 100,
+        'F2002': f2002
+    });
+  }, [aie2802, pvcPercent, f2002, pvcFormula]);
+
+  const calculatedSteam = useMemo(() => {
+    const mult = multipliers[currentGrade as GradeKey] || 0;
+    return evaluateMath(steamFormula, {
+        'PVC': calculatedPVC,
+        'Multiplier': mult
+    });
+  }, [calculatedPVC, currentGrade, multipliers, steamFormula]);
+
   return (
-    <div className="p-4 md:p-8 max-w-6xl mx-auto font-mono animate-in fade-in duration-500 flex flex-col gap-6">
+    <div className="p-4 md:p-8 max-w-6xl mx-auto font-mono animate-in fade-in duration-500 flex flex-col gap-6 relative">
       
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
@@ -62,7 +118,12 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
             </div>
             <div>
                 <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight uppercase">Demonomer Monitor</h2>
-                <p className="text-slate-500 font-bold uppercase text-xs tracking-wider">Operational Calculation Logic</p>
+                <div className="flex items-center gap-2">
+                    <p className="text-slate-500 font-bold uppercase text-xs tracking-wider">Operational Calculation Logic</p>
+                    <span className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-black px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 uppercase flex items-center gap-1">
+                        <Database className="w-3 h-3" /> Local Storage
+                    </span>
+                </div>
             </div>
           </div>
 
@@ -133,7 +194,7 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
 
           <div className="p-2 border-r-2 border-slate-800 flex flex-col items-center justify-center bg-teal-50 dark:bg-teal-900/10">
              <span className="text-4xl font-black tracking-tighter text-blue-700 dark:text-blue-400">
-                 {calculatedPVC.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                 {calculatedPVC.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
              </span>
              <span className="text-[9px] font-bold text-blue-600 uppercase mt-1">Resulting PVC</span>
           </div>
@@ -150,13 +211,13 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
         </div>
       </div>
 
-      {/* Settings Section (Moved Below the Table) */}
+      {/* Settings Section */}
       <div className="bg-[#FFFACD] dark:bg-slate-800 p-8 rounded-xl border-4 border-slate-800 shadow-[8px_8px_0px_0px_rgba(30,41,59,0.1)] transition-colors">
           <h3 className="text-slate-800 dark:text-slate-200 font-black text-lg mb-6 flex items-center gap-2 uppercase tracking-tight">
               <Settings2 className="w-6 h-6" /> Nilai Untuk Grade (Multipliers)
           </h3>
           
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
               {(Object.keys(multipliers) as GradeKey[]).map(g => (
                   <div 
                       key={g} 
@@ -181,39 +242,59 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
               ))}
           </div>
 
-          {/* Formula Indicator */}
-          <div className="mt-10 p-4 bg-white/40 dark:bg-slate-900/40 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl">
-               <div className="grid grid-cols-1 md:grid-cols-2 gap-8 text-center md:text-left">
+          {/* Editable Formula Section */}
+          <div className="mt-6 p-6 bg-white/60 dark:bg-slate-900/40 border-2 border-dashed border-slate-300 dark:border-slate-600 rounded-xl relative">
+               <div className="absolute top-0 right-0 p-4">
+                  <button onClick={handleResetFormulas} className="flex items-center gap-2 text-xs font-bold text-slate-400 hover:text-red-500 transition-colors uppercase" title="Reset to Factory Defaults">
+                      <RotateCcw className="w-3 h-3" /> Reset Formulas
+                  </button>
+               </div>
+               
+               <h4 className="text-slate-800 dark:text-slate-200 font-black text-sm mb-4 flex items-center gap-2 uppercase">
+                   <Calculator className="w-4 h-4" /> Formula Configuration (Editable)
+               </h4>
+
+               <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                   {/* PVC Formula Input */}
                    <div className="space-y-2">
-                       <span className="text-xs font-black text-slate-500 uppercase block tracking-widest">PVC Formula</span>
-                       <code className="text-sm font-bold text-blue-600 dark:text-blue-400 bg-white/50 dark:bg-slate-800 px-3 py-1 rounded-md">
-                           (AI2802 × %PVC × F2002) / 125000
-                       </code>
+                       <label className="text-xs font-black text-slate-500 uppercase block tracking-widest flex justify-between">
+                           <span>PVC Formula</span>
+                           <span className="text-[10px] normal-case opacity-70">Vars: AI2802, %PVC, F2002</span>
+                       </label>
+                       <div className="relative group">
+                            <input 
+                                type="text"
+                                value={pvcFormula}
+                                onChange={(e) => setPvcFormula(e.target.value)}
+                                className="w-full font-mono text-sm font-bold text-blue-700 dark:text-blue-300 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm"
+                            />
+                       </div>
+                       <p className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
+                           <Info className="w-3 h-3" /> Result: {calculatedPVC.toFixed(4)}
+                       </p>
                    </div>
+                   
+                   {/* Steam Formula Input */}
                    <div className="space-y-2">
-                       <span className="text-xs font-black text-slate-500 uppercase block tracking-widest">Steam Formula</span>
-                       <code className="text-sm font-bold text-red-600 dark:text-red-400 bg-white/50 dark:bg-slate-800 px-3 py-1 rounded-md">
-                           PVC × Multiplier({currentGrade})
-                       </code>
+                       <label className="text-xs font-black text-slate-500 uppercase block tracking-widest flex justify-between">
+                           <span>Steam Formula</span>
+                           <span className="text-[10px] normal-case opacity-70">Vars: PVC, Multiplier</span>
+                       </label>
+                       <div className="relative group">
+                            <input 
+                                type="text"
+                                value={steamFormula}
+                                onChange={(e) => setSteamFormula(e.target.value)}
+                                className="w-full font-mono text-sm font-bold text-red-700 dark:text-red-300 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-red-500 outline-none transition-all shadow-sm"
+                            />
+                       </div>
+                       <p className="text-[10px] text-slate-400 font-bold flex items-center gap-1">
+                           <Info className="w-3 h-3" /> Result: {calculatedSteam.toFixed(2)}
+                       </p>
                    </div>
                </div>
           </div>
       </div>
-
-       {/* Interactive Footer Module */}
-       <div className="bg-slate-100 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 border-dashed p-6 rounded-xl flex flex-col md:flex-row items-center gap-6 opacity-80">
-            <div className="p-3 bg-slate-200 dark:bg-slate-700 rounded-full">
-                 <Settings2 className="w-8 h-8 text-slate-500 dark:text-slate-400" />
-            </div>
-            <div className="text-center md:text-left text-slate-600 dark:text-slate-300">
-                <h4 className="font-black text-lg uppercase mb-1 tracking-tight">Interactive Logic & Layout Adjusted</h4>
-                <p className="text-sm font-medium">
-                    Calculations now respect changes to <strong>F2002</strong> while maintaining original Excel reference values. 
-                    The multiplier settings have been moved below the table for better visibility and layout consistency.
-                </p>
-            </div>
-       </div>
-
     </div>
   );
 };
