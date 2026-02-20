@@ -916,6 +916,33 @@ const App: React.FC = () => {
                       </div>
                   )}
 
+                  {/* NEXT PREDICTION START INFO */}
+                  <div className="md:col-span-4 bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-lg border border-emerald-200 dark:border-emerald-800 flex flex-col md:flex-row items-center justify-between gap-4">
+                      <div className="flex items-center gap-3 text-emerald-800 dark:text-emerald-300">
+                          <div className="p-2 bg-emerald-100 dark:bg-emerald-800 rounded-full">
+                              <FastForward className="w-6 h-6" />
+                          </div>
+                          <div>
+                              <h3 className="font-black text-lg uppercase">Next Cycle Prediction</h3>
+                              <p className="text-xs font-bold opacity-70">Auto-start parameters after current sequence</p>
+                          </div>
+                      </div>
+                      <div className="flex items-center gap-6">
+                          <div className="flex flex-col items-center">
+                              <span className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400">Next Batch</span>
+                              <span className="text-2xl font-mono font-black text-emerald-700 dark:text-emerald-200">#{nextStartParams.batch}</span>
+                          </div>
+                          <div className="h-8 w-px bg-emerald-200 dark:bg-emerald-700"></div>
+                          <div className="flex flex-col items-center">
+                              <span className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400">Est. Start Time</span>
+                              <span className="text-2xl font-mono font-black text-emerald-700 dark:text-emerald-200">
+                                  {new Date(nextStartParams.time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
+                                  <span className="text-xs ml-1 align-top opacity-60">{new Date(nextStartParams.time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+                              </span>
+                          </div>
+                      </div>
+                  </div>
+
                   {/* Standard Settings Below */}
                   <div className="space-y-1">
                     <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
