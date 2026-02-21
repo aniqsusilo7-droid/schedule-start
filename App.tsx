@@ -877,16 +877,16 @@ const App: React.FC = () => {
               {/* Widget: Interval & Time */}
               <div className="flex bg-slate-800 rounded-lg p-1 shadow-md shrink-0">
                      {/* Interval */}
-                     <div className="px-4 py-1 flex flex-col items-center justify-center border-r border-slate-700/50 min-w-[100px]">
+                     <div className="px-4 py-1 flex flex-col items-center justify-center border-r border-slate-700/50 min-w-[120px]">
                         <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider mb-0.5">INTERVAL</span>
-                        <div className="text-3xl font-mono font-black text-cyan-300 leading-none">
+                        <div className="text-4xl font-mono font-black text-cyan-300 leading-none">
                             {config.intervalHours.toString().padStart(2, '0')}:{config.intervalMinutes.toString().padStart(2, '0')}
                         </div>
                      </div>
                      {/* Time */}
-                     <div className="px-4 py-1 flex flex-col items-center justify-center min-w-[160px]">
+                     <div className="px-4 py-1 flex flex-col items-center justify-center min-w-[180px]">
                         <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">CURRENT TIME</span>
-                        <div className="bg-white w-full mx-2 text-slate-900 px-2 py-0.5 rounded shadow-sm font-mono font-black text-2xl tracking-widest leading-none flex items-center justify-center">
+                        <div className="bg-white w-full mx-2 text-slate-900 px-2 py-0.5 rounded shadow-sm font-mono font-black text-3xl tracking-widest leading-none flex items-center justify-center">
                             {now.toLocaleTimeString('en-GB', { hour12: false })}
                             <span className="text-[10px] ml-1 text-slate-500 font-bold self-end mb-0.5">s</span>
                         </div>
@@ -1283,7 +1283,9 @@ const App: React.FC = () => {
                                     
                                     {/* Status / Badges */}
                                     {isPast ? (
-                                        null
+                                        <div className="font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1 opacity-75" style={{ fontSize: '0.8em' }}>
+                                            SUDAH START
+                                        </div>
                                     ) : isActive ? (
                                         <div className="font-black text-yellow-300 uppercase tracking-widest animate-bounce mt-1" style={{ fontSize: '0.9em' }}>
                                             START NOW
@@ -1297,7 +1299,8 @@ const App: React.FC = () => {
                                                 </div>
                                             )}
                                             {/* Mode Badge - Visible for Open/Close Status */}
-                                            <div className={`font-bold px-1.5 py-0.5 rounded uppercase border ${mode === 'OPEN' ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border-cyan-200 dark:border-cyan-800' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600'}`} style={{ fontSize: '0.85em' }}>
+                                            <div className={`font-bold px-1.5 py-0.5 rounded uppercase border flex items-center gap-1 ${mode === 'OPEN' ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border-cyan-200 dark:border-cyan-800' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600'}`} style={{ fontSize: '0.85em' }}>
+                                                <span className="text-[0.7em] opacity-70 mr-0.5">MODE</span>
                                                 {mode}
                                             </div>
                                             {/* Shift Indicator */}
@@ -1872,7 +1875,9 @@ const App: React.FC = () => {
                                     {editForm.shiftSubsequent && <div className="w-2.5 h-2.5 bg-white rounded-sm" />}
                                 </div>
                                 <div className="flex-1">
-                                    <span className="block text-sm font-bold text-slate-700 dark:text-slate-300">Stop Running Interval (Shift Schedule)</span>
+                                    <span className="block text-sm font-bold text-slate-700 dark:text-slate-300">
+                                        {editForm.shiftSubsequent ? 'Continue Interval (Shift Active)' : 'Stop Running Interval (Shift Schedule)'}
+                                    </span>
                                     <span className="block text-xs text-slate-500 dark:text-slate-500">Delay will push all subsequent batches forward</span>
                                 </div>
                                 <PauseCircle className="w-5 h-5 text-orange-400" />

@@ -85,17 +85,19 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
             {['O', 'P', 'Q'].map((siloId) => (
                 <div key={`action-${siloId}`} className={`p-2 flex items-center justify-center ${getColumnClass(siloId as 'O'|'P'|'Q')}`}>
                      {activeSilo === siloId ? (
-                         <div className="flex items-center gap-1 bg-emerald-600 text-white px-3 py-1.5 rounded-full font-bold text-xs shadow-lg animate-pulse">
-                             <CheckCircle2 className="w-4 h-4" />
-                             CHARGING NOW
+                         <div className="w-full h-full flex items-center justify-center">
+                            <div className="flex items-center justify-center gap-1 bg-emerald-600 text-white px-3 py-2 rounded font-bold text-xs shadow-lg animate-pulse w-full border-2 border-emerald-400">
+                                <CheckCircle2 className="w-4 h-4" />
+                                CHARGING
+                            </div>
                          </div>
                      ) : (
                          <button 
                             onClick={() => onSiloSelect && onSiloSelect(siloId as 'O'|'P'|'Q')}
-                            className="flex items-center gap-1 bg-white hover:bg-blue-50 text-slate-500 hover:text-blue-600 px-3 py-1.5 rounded-full font-bold text-xs border border-slate-300 hover:border-blue-400 transition-all shadow-sm"
+                            className="w-full flex items-center justify-center gap-1 bg-white hover:bg-blue-50 text-slate-500 hover:text-blue-600 px-3 py-2 rounded font-bold text-[10px] border border-slate-300 hover:border-blue-400 transition-all shadow-sm uppercase whitespace-nowrap"
                          >
                              <Play className="w-3 h-3" />
-                             SELECT & START
+                             CHANGE SILO
                          </button>
                      )}
                 </div>
