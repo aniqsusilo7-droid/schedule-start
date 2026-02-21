@@ -12,6 +12,64 @@ import { supabase } from './supabaseClient';
 const GRADES: GradeType[] = ['SM', 'SLK', 'SLP', 'SE', 'SR'];
 const STAGE_OPTIONS = ['Sample Blowing', 'Sample Washing', 'Sample Air Slurry'];
 
+// Web Audio API Sound Effect (Rocket/Firecracker)
+const playRocketSound = () => {
+    try {
+        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+        if (!AudioContext) return;
+        const ctx = new AudioContext();
+
+        const t = ctx.currentTime;
+
+        // 1. Rocket Whistle (Rising Pitch)
+        const osc = ctx.createOscillator();
+        const oscGain = ctx.createGain();
+        
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(200, t);
+        osc.frequency.exponentialRampToValueAtTime(1000, t + 0.5);
+        
+        oscGain.gain.setValueAtTime(0.1, t);
+        oscGain.gain.linearRampToValueAtTime(0.1, t + 0.4);
+        oscGain.gain.linearRampToValueAtTime(0, t + 0.5);
+
+        osc.connect(oscGain);
+        oscGain.connect(ctx.destination);
+        osc.start(t);
+        osc.stop(t + 0.5);
+
+        // 2. Explosion (Noise Burst) at t + 0.5
+        const bufferSize = ctx.sampleRate * 1.5; // 1.5 seconds
+        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < bufferSize; i++) {
+            data[i] = Math.random() * 2 - 1;
+        }
+
+        const noise = ctx.createBufferSource();
+        noise.buffer = buffer;
+
+        const noiseFilter = ctx.createBiquadFilter();
+        noiseFilter.type = 'lowpass';
+        noiseFilter.frequency.setValueAtTime(1000, t + 0.5);
+        noiseFilter.frequency.exponentialRampToValueAtTime(100, t + 1.5);
+
+        const noiseGain = ctx.createGain();
+        noiseGain.gain.setValueAtTime(1, t + 0.5);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 1.5);
+
+        noise.connect(noiseFilter);
+        noiseFilter.connect(noiseGain);
+        noiseGain.connect(ctx.destination);
+        
+        noise.start(t + 0.5);
+        noise.stop(t + 2.0);
+
+    } catch (e) {
+        console.error("Web Audio API Error:", e);
+    }
+};
+
 // Available Sections for Layout
 const SECTIONS = {
     header: 'Header & Controls',
@@ -48,13 +106,10 @@ const App: React.FC = () => {
   // Design Mode State
   const [isDesignMode, setIsDesignMode] = useState(false);
 
-  // Zoom State (Local Storage Persistence)
-  const [zoomLevel, setZoomLevel] = useState<number>(() => {
-    const saved = localStorage.getItem('app_zoom_level');
-    return saved ? parseFloat(saved) : 1;
-  });
+  // Zoom State (Supabase Persistence)
+  const [zoomLevel, setZoomLevel] = useState<number>(1);
 
-  // Catalyst State
+  // Catalyst State (Supabase Persistence)
   const [catalystData, setCatalystData] = useState({
     f: { netto: '24,9', bruto: '' },
     h: { netto: '10,8', bruto: '' },
@@ -62,26 +117,15 @@ const App: React.FC = () => {
   });
 
   // --- Silo State ---
-  const [siloState, setSiloState] = useState<SiloState>(() => {
-      // Try to load from local storage or default
-      const saved = localStorage.getItem('app_silo_state');
-      if (saved) return JSON.parse(saved);
-      // Default empty state as requested
-      return {
-          activeSilo: null, // No active silo initially
-          silos: {
-              O: { id: 'O', lotNumber: '', capacitySet: '', startTime: '', finishTime: '', percentage: '', totalUpdate: '' },
-              P: { id: 'P', lotNumber: '', capacitySet: '', startTime: '', finishTime: '', percentage: '', totalUpdate: '' },
-              Q: { id: 'Q', lotNumber: '', capacitySet: '', startTime: '', finishTime: '', percentage: '', totalUpdate: '' }
-          }
-      };
+  const [siloState, setSiloState] = useState<SiloState>({
+      activeSilo: null, // No active silo initially
+      silos: {
+          O: { id: 'O', lotNumber: '', capacitySet: '', startTime: '', finishTime: '', percentage: '', totalUpdate: '' },
+          P: { id: 'P', lotNumber: '', capacitySet: '', startTime: '', finishTime: '', percentage: '', totalUpdate: '' },
+          Q: { id: 'Q', lotNumber: '', capacitySet: '', startTime: '', finishTime: '', percentage: '', totalUpdate: '' }
+      }
   });
   
-  // Persist Silo State
-  useEffect(() => {
-      localStorage.setItem('app_silo_state', JSON.stringify(siloState));
-  }, [siloState]);
-
   // Loading State
   const [isLoading, setIsLoading] = useState(true);
 
@@ -133,14 +177,20 @@ const App: React.FC = () => {
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Default closed to look cleaner on load
   const announcedBatches = useRef<Set<string>>(new Set());
+  const [audioAllowed, setAudioAllowed] = useState(false); // Track if audio is allowed
+
+  // Temp State for Settings Inputs
+  const [tempBaseBatchNumber, setTempBaseBatchNumber] = useState(config.baseBatchNumber);
+  const [tempBaseStartTime, setTempBaseStartTime] = useState(config.baseStartTime);
+
+  // Sync temp state with config when config loads/changes
+  useEffect(() => {
+    setTempBaseBatchNumber(config.baseBatchNumber);
+    setTempBaseStartTime(config.baseStartTime);
+  }, [config.baseBatchNumber, config.baseStartTime]);
 
   // --- Effects ---
   
-  // Persist Zoom Level
-  useEffect(() => {
-    localStorage.setItem('app_zoom_level', zoomLevel.toString());
-  }, [zoomLevel]);
-
   // --- Supabase Data Loading ---
   useEffect(() => {
     const loadData = async () => {
@@ -213,6 +263,22 @@ const App: React.FC = () => {
                 tableRowHeight: settingsData.table_row_height || 95,
                 tableFontSize: settingsData.table_font_size || 24,
             });
+
+            // Load Zoom Level
+            if (settingsData.zoom_level) {
+                setZoomLevel(settingsData.zoom_level);
+            }
+
+            // Load Catalyst Data
+            if (settingsData.catalyst_data) {
+                setCatalystData(settingsData.catalyst_data);
+            }
+
+            // Load Silo State
+            if (settingsData.silo_state) {
+                setSiloState(settingsData.silo_state);
+            }
+
         } else {
              // Init defaults if no settings exist
              await supabase.from('app_settings').insert([{ id: 1 }]);
@@ -270,9 +336,20 @@ const App: React.FC = () => {
   };
 
   // Zoom Handlers
-  const handleZoomIn = () => setZoomLevel(prev => Math.min(prev + 0.1, 2.0));
-  const handleZoomOut = () => setZoomLevel(prev => Math.max(prev - 0.1, 0.5));
-  const handleZoomReset = () => setZoomLevel(1);
+  const handleZoomIn = () => {
+      const newZoom = Math.min(zoomLevel + 0.1, 2.0);
+      setZoomLevel(newZoom);
+      updateGlobalSetting({ zoom_level: newZoom });
+  };
+  const handleZoomOut = () => {
+      const newZoom = Math.max(zoomLevel - 0.1, 0.5);
+      setZoomLevel(newZoom);
+      updateGlobalSetting({ zoom_level: newZoom });
+  };
+  const handleZoomReset = () => {
+      setZoomLevel(1);
+      updateGlobalSetting({ zoom_level: 1 });
+  };
 
   // --- Layout Reordering Handlers ---
   const moveSection = (index: number, direction: 'up' | 'down') => {
@@ -295,13 +372,10 @@ const App: React.FC = () => {
     return () => clearInterval(timer);
   }, [config.isStopped]);
 
-  const setBaseToNow = () => {
-    const n = new Date();
-    const coeff = 1000 * 60 * 5;
-    const rounded = new Date(Math.round(n.getTime() / coeff) * coeff);
-    const newTime = rounded.toISOString();
-    
-    handleConfigChange('baseStartTime', newTime);
+  const handleApply = () => {
+    handleConfigChange('baseBatchNumber', tempBaseBatchNumber);
+    handleConfigChange('baseStartTime', tempBaseStartTime);
+    alert("Settings Applied!");
   };
 
   const toggleAudio = () => {
@@ -327,7 +401,7 @@ const App: React.FC = () => {
         const rounded = new Date(Math.round(n.getTime() / coeff) * coeff);
         
         await supabase.from('app_settings').update({
-            base_batch_number: 5164,
+            base_batch_number: 0,
             base_start_time: rounded.toISOString(),
             interval_hours: 1,
             interval_minutes: 30,
@@ -340,7 +414,7 @@ const App: React.FC = () => {
         await supabase.from('schedule_overrides').delete().neq('id', 'placeholder');
 
         setConfig({
-            baseBatchNumber: 5164,
+            baseBatchNumber: 0,
             baseStartTime: rounded.toISOString(),
             intervalHours: 1,
             intervalMinutes: 30,
@@ -366,10 +440,12 @@ const App: React.FC = () => {
 
   // --- Catalyst Handlers ---
   const handleCatalystChange = (row: 'f' | 'h' | 'g', field: 'netto' | 'bruto', val: string) => {
-    setCatalystData(prev => ({
-      ...prev,
-      [row]: { ...prev[row], [field]: val }
-    }));
+    const newData = {
+      ...catalystData,
+      [row]: { ...catalystData[row], [field]: val }
+    };
+    setCatalystData(newData);
+    updateGlobalSetting({ catalyst_data: newData });
   };
 
   // --- Silo Handlers ---
@@ -418,26 +494,31 @@ const App: React.FC = () => {
           };
       }
 
-      setSiloState({
+      const newSiloState = {
           activeSilo: newSiloId,
           silos: updatedSilos
-      });
+      };
+
+      setSiloState(newSiloState);
+      updateGlobalSetting({ silo_state: newSiloState });
 
       // Close Modal
       setStartSiloData(null);
   };
 
   const handleSiloDataChange = (siloId: 'O' | 'P' | 'Q', field: keyof SiloData, value: any) => {
-      setSiloState(prev => ({
-          ...prev,
+      const newSiloState = {
+          ...siloState,
           silos: {
-              ...prev.silos,
+              ...siloState.silos,
               [siloId]: {
-                  ...prev.silos[siloId],
+                  ...siloState.silos[siloId],
                   [field]: value
               }
           }
-      }));
+      };
+      setSiloState(newSiloState);
+      updateGlobalSetting({ silo_state: newSiloState });
   };
 
   // --- Reactor Note Handlers ---
@@ -731,14 +812,20 @@ const App: React.FC = () => {
 
     Object.values(scheduleMatrix).flat().forEach(item => {
         if (item.status === 'active' && !announcedBatches.current.has(item.id)) {
-            const modeText = item.config?.mode === 'OPEN' ? 'Mode Open.' : '';
-            const utterance = new SpeechSynthesisUtterance();
-            utterance.text = `Perhatian. Waktunya Start Reaktor ${item.reactorId}. Batch ${item.batchNumber}. Grade ${item.grade}. ${modeText}`;
-            utterance.lang = 'id-ID';
-            utterance.rate = 0.9;
-            utterance.pitch = 1;
-            window.speechSynthesis.speak(utterance);
+            playRocketSound();
             announcedBatches.current.add(item.id);
+            
+            // Check if audio context is allowed (simple check)
+            const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
+            if (AudioContext) {
+                const ctx = new AudioContext();
+                if (ctx.state === 'suspended') {
+                    setAudioAllowed(false);
+                } else {
+                    setAudioAllowed(true);
+                }
+                ctx.close();
+            }
         }
     });
 
@@ -746,6 +833,12 @@ const App: React.FC = () => {
         announcedBatches.current.clear();
     }
   }, [scheduleMatrix, config.audioEnabled, config.isStopped]);
+
+  // Handler to enable audio manually
+  const enableAudio = () => {
+      playRocketSound();
+      setAudioAllowed(true);
+  };
 
 
   // Full Screen Alert Logic
@@ -815,11 +908,14 @@ const App: React.FC = () => {
           </div>
 
           {/* Center Section: Title */}
-          <div className="flex flex-col items-center justify-center shrink-0 mx-4">
-            <h1 className="text-2xl font-black text-slate-800 dark:text-slate-100 tracking-tighter leading-none uppercase flex items-center gap-1.5">
-               <span className="text-blue-700 dark:text-blue-400">SCHEDULE</span> START
+          <div className="flex flex-col items-center justify-center shrink-0 mx-8 p-2 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-sm">
+            <h1 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm">
+               <span className="text-blue-600 dark:text-blue-400">SCHEDULE</span> 
+               <span className="text-slate-800 dark:text-slate-200">START</span>
             </h1>
-            <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 tracking-[0.2em] block w-full text-left uppercase">REAKTOR PVC 5</span>
+            <span className="text-xl font-black text-slate-500 dark:text-slate-400 tracking-[0.3em] block w-full text-center uppercase mt-1 border-t-2 border-slate-200 dark:border-slate-700 pt-1">
+                REAKTOR PVC 5
+            </span>
           </div>
 
           {/* Right Section: Grades & Controls */}
@@ -950,8 +1046,8 @@ const App: React.FC = () => {
                     </label>
                     <input 
                       type="number" 
-                      value={config.baseBatchNumber}
-                      onChange={(e) => handleConfigChange('baseBatchNumber', parseInt(e.target.value) || 0)}
+                      value={tempBaseBatchNumber}
+                      onChange={(e) => setTempBaseBatchNumber(parseInt(e.target.value) || 0)}
                       className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded p-2 text-lg font-mono focus:ring-2 focus:ring-blue-500 outline-none"
                     />
                   </div>
@@ -963,12 +1059,12 @@ const App: React.FC = () => {
                     <div className="flex gap-2">
                       <input 
                         type="datetime-local" 
-                        value={config.baseStartTime.slice(0, 16)}
-                        onChange={(e) => handleConfigChange('baseStartTime', e.target.value)}
+                        value={tempBaseStartTime.slice(0, 16)}
+                        onChange={(e) => setTempBaseStartTime(e.target.value)}
                         className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded p-2 font-mono text-sm focus:ring-2 focus:ring-blue-500 outline-none"
                       />
-                      <button onClick={setBaseToNow} className="bg-blue-600 text-white px-3 rounded hover:bg-blue-700 transition-colors" title="Set to Now">
-                        <RefreshCw className="w-4 h-4" />
+                      <button onClick={handleApply} className="bg-blue-600 text-white px-3 rounded hover:bg-blue-700 transition-colors font-bold text-xs" title="Apply Settings">
+                        APPLY
                       </button>
                     </div>
                   </div>
@@ -1026,7 +1122,7 @@ const App: React.FC = () => {
                                 <input 
                                     type="range" 
                                     min="5" 
-                                    max="120" 
+                                    max="180" 
                                     step="1"
                                     value={config.marqueeSpeed} 
                                     onChange={(e) => handleConfigChange('marqueeSpeed', parseInt(e.target.value))} 
@@ -1114,18 +1210,20 @@ const App: React.FC = () => {
                     
                     <td className={`${reactor.color} ${reactor.textColor} border-r border-slate-900/10 dark:border-slate-900/30 p-2 relative group w-[140px]`}>
                        <div className="flex flex-col items-center justify-center h-full">
-                          <span className="text-6xl font-black font-serif drop-shadow-md">{reactor.label}</span>
+                          <span className="font-black font-serif drop-shadow-md leading-none" style={{ fontSize: '3.5em' }}>{reactor.label}</span>
                           
                           {/* Reactor Note Display */}
                           <div 
-                            className="mt-1 text-center w-full cursor-pointer hover:bg-white/20 rounded px-1 transition-colors"
+                            className="mt-2 w-full cursor-pointer hover:scale-105 transition-transform"
                             onClick={() => openReactorNoteModal(reactor.id)}
                             title="Click to edit note"
                           >
                              {config.reactorNotes[reactor.id] ? (
-                                 <span className="text-[10px] font-bold uppercase block leading-tight truncate px-1">{config.reactorNotes[reactor.id]}</span>
+                                 <div className="bg-yellow-400 text-black font-black text-center rounded px-1 uppercase tracking-tighter border-2 border-red-600 shadow-sm overflow-hidden text-ellipsis whitespace-nowrap" style={{ fontSize: '0.85em' }}>
+                                     {config.reactorNotes[reactor.id]}
+                                 </div>
                              ) : (
-                                 <span className="text-[10px] opacity-50 block flex items-center justify-center gap-1 scale-75"><Edit3 className="w-4 h-4" /></span>
+                                 <div className="opacity-50 flex items-center justify-center scale-75"><Edit3 className="w-4 h-4" /></div>
                              )}
                           </div>
                        </div>
@@ -1230,14 +1328,8 @@ const App: React.FC = () => {
                                 </div>
                                 
                                 {stageInfo && (
-                                    <div className="flex-1 mx-1 overflow-hidden h-4 relative self-center">
-                                        <div className={`absolute top-0 left-0 whitespace-nowrap animate-marquee-cell flex items-center h-full ${config.isMarqueePaused ? 'paused' : ''}`}>
-                                            {Array(5).fill(null).map((_, idx) => (
-                                                <span key={idx} className={`mx-2 font-black uppercase tracking-wider ${isActive ? 'text-white' : (isPast ? 'text-yellow-400' : 'text-fuchsia-600 dark:text-fuchsia-400')}`} style={{ fontSize: '0.9em' }}>
-                                                    {stageInfo}
-                                                </span>
-                                            ))}
-                                        </div>
+                                    <div className="flex-1 mx-1 self-center bg-yellow-400 text-black font-black text-center animate-pulse rounded px-1 uppercase tracking-tighter border-2 border-red-600 shadow-sm overflow-hidden text-ellipsis whitespace-nowrap" style={{ fontSize: '0.85em' }}>
+                                        {stageInfo}
                                     </div>
                                 )}
 
@@ -1516,6 +1608,16 @@ const App: React.FC = () => {
         </div>
       )}
 
+      {/* Audio Permission Banner */}
+      {!audioAllowed && config.audioEnabled && (
+          <div className="bg-yellow-500 text-black p-2 text-center sticky top-0 z-50 cursor-pointer hover:bg-yellow-400 transition-colors" onClick={enableAudio}>
+              <div className="flex items-center justify-center gap-2 font-bold">
+                  <VolumeX className="w-5 h-5" />
+                  <span>Audio is enabled but blocked by browser. Click here to enable sound effects!</span>
+              </div>
+          </div>
+      )}
+
       {/* Dynamic Layout Rendering */}
       <div className="flex-1 overflow-auto p-2 flex flex-col gap-4">
           {config.layoutOrder.map((sectionId, index) => renderSection(sectionId, index))}
@@ -1690,6 +1792,15 @@ const App: React.FC = () => {
                             <button onClick={() => setEditForm(prev => ({...prev, stageInfo: ''}))} className={`px-3 py-2 text-xs font-bold rounded-lg border transition-all ${editForm.stageInfo === '' ? 'bg-slate-200 text-slate-500 border-slate-300 dark:bg-slate-600 dark:text-slate-300 dark:border-slate-500' : 'bg-white dark:bg-slate-700 text-slate-400 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
                                 Clear
                             </button>
+                        </div>
+                        <div className="mt-3">
+                            <input 
+                                type="text" 
+                                value={editForm.stageInfo} 
+                                onChange={(e) => setEditForm(prev => ({...prev, stageInfo: e.target.value}))}
+                                placeholder="Or type custom label..."
+                                className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded p-2 text-sm font-bold focus:ring-2 focus:ring-fuchsia-500 outline-none"
+                            />
                         </div>
                     </div>
 
