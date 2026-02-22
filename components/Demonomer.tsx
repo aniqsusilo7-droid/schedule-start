@@ -80,10 +80,10 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
                 <Activity className="w-8 h-8" />
             </div>
             <div>
-                <h2 className="text-3xl font-black text-slate-800 dark:text-slate-100 tracking-tight uppercase">Demonomer Monitor</h2>
+                <h2 className="text-4xl font-black text-slate-800 dark:text-slate-100 tracking-tight uppercase">Demonomer Monitor</h2>
                 <div className="flex items-center gap-2">
-                    <p className="text-slate-500 font-bold uppercase text-xs tracking-wider">Operational Calculation Logic</p>
-                    <span className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-black px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 uppercase flex items-center gap-1">
+                    <p className="text-slate-500 font-bold uppercase text-sm tracking-wider">Operational Calculation Logic</p>
+                    <span className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-black px-2 py-1 rounded border border-slate-300 dark:border-slate-600 uppercase flex items-center gap-1">
                         <Database className="w-3 h-3" /> Supabase Synced
                     </span>
                 </div>
@@ -91,13 +91,13 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
           </div>
 
           <div className="bg-white dark:bg-slate-800 p-2 rounded-xl border-2 border-slate-800 flex items-center gap-4">
-              <span className="text-xs font-black text-slate-500 uppercase px-2">ACTIVE GRADE</span>
+              <span className="text-sm font-black text-slate-500 uppercase px-2">ACTIVE GRADE</span>
               <div className="flex gap-1">
                   {(Object.keys(data.multipliers) as GradeKey[]).map(g => (
                       <button 
                         key={g} 
                         onClick={() => onGradeChange(g as GradeType)}
-                        className={`px-4 py-1 rounded font-black transition-all ${currentGrade === g ? 'bg-teal-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 hover:text-slate-600'}`}
+                        className={`px-6 py-2 rounded font-black text-lg transition-all ${currentGrade === g ? 'bg-teal-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 hover:text-slate-600'}`}
                       >
                           {g}
                       </button>
@@ -110,65 +110,65 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
       <div className="bg-white dark:bg-slate-900 border-4 border-slate-800 shadow-[8px_8px_0px_0px_rgba(30,41,59,0.2)] overflow-hidden rounded-xl">
         {/* Header Row */}
         <div className="grid grid-cols-5 border-b-4 border-slate-800 bg-[#FFF8DC] dark:bg-slate-800 transition-colors uppercase">
-          <div className="p-4 border-r-2 border-slate-800 font-black text-center text-xl text-slate-800 dark:text-slate-200">F2002</div>
-          <div className="p-4 border-r-2 border-slate-800 font-black text-center text-xl text-slate-800 dark:text-slate-200">AI2802</div>
-          <div className="p-4 border-r-2 border-slate-800 font-black text-center text-xl text-slate-800 dark:text-slate-200">%PVC</div>
-          <div className="p-4 border-r-2 border-slate-800 font-black text-center text-xl text-slate-800 dark:text-slate-200">PVC</div>
-          <div className="p-4 font-black text-center text-xl text-slate-800 dark:text-slate-200">Steam</div>
+          <div className="p-6 border-r-2 border-slate-800 font-black text-center text-2xl text-slate-800 dark:text-slate-200">F2002</div>
+          <div className="p-6 border-r-2 border-slate-800 font-black text-center text-2xl text-slate-800 dark:text-slate-200">AI2802</div>
+          <div className="p-6 border-r-2 border-slate-800 font-black text-center text-2xl text-slate-800 dark:text-slate-200">%PVC</div>
+          <div className="p-6 border-r-2 border-slate-800 font-black text-center text-2xl text-slate-800 dark:text-slate-200">PVC</div>
+          <div className="p-6 font-black text-center text-2xl text-slate-800 dark:text-slate-200">Steam</div>
         </div>
 
         {/* Interactive Value Row */}
-        <div className="grid grid-cols-5 bg-white dark:bg-slate-900 min-h-[100px] transition-colors">
-          <div className="p-2 border-r-2 border-slate-800 flex items-center justify-center">
+        <div className="grid grid-cols-5 bg-white dark:bg-slate-900 min-h-[120px] transition-colors">
+          <div className="p-4 border-r-2 border-slate-800 flex items-center justify-center">
              <div className="relative w-full px-2">
                 <input 
                     type="number"
                     value={data.f2002}
                     onChange={(e) => onDataChange('f2002', parseFloat(e.target.value) || 0)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded p-2 text-3xl font-black text-center text-slate-800 dark:text-white focus:outline-none focus:ring-4 focus:ring-teal-100 transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded p-3 text-4xl font-black text-center text-slate-800 dark:text-white focus:outline-none focus:ring-4 focus:ring-teal-100 transition-all"
                 />
-                <span className="absolute -top-1 left-4 text-[9px] font-black text-slate-400 uppercase">Lot Factor</span>
+                <span className="absolute -top-2 left-4 text-[10px] font-black text-slate-400 uppercase bg-white dark:bg-slate-800 px-1">Lot Factor</span>
              </div>
           </div>
           
-          <div className="p-2 border-r-2 border-slate-800 flex items-center justify-center">
+          <div className="p-4 border-r-2 border-slate-800 flex items-center justify-center">
             <div className="relative w-full px-2">
                 <input 
                     type="number"
                     value={data.aie2802}
                     onChange={(e) => onDataChange('aie2802', parseFloat(e.target.value) || 0)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded p-2 text-3xl font-black text-center text-slate-800 dark:text-white focus:outline-none focus:ring-4 focus:ring-teal-100 transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded p-3 text-4xl font-black text-center text-slate-800 dark:text-white focus:outline-none focus:ring-4 focus:ring-teal-100 transition-all"
                 />
-                <span className="absolute -top-1 left-4 text-[9px] font-black text-slate-400 uppercase">Input Qty</span>
+                <span className="absolute -top-2 left-4 text-[10px] font-black text-slate-400 uppercase bg-white dark:bg-slate-800 px-1">Input Qty</span>
              </div>
           </div>
 
-          <div className="p-2 border-r-2 border-slate-800 flex items-center justify-center">
+          <div className="p-4 border-r-2 border-slate-800 flex items-center justify-center">
              <div className="relative w-full px-2">
                 <input 
                     type="number"
                     value={data.pvcPercent}
                     onChange={(e) => onDataChange('pvcPercent', parseFloat(e.target.value) || 0)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded p-2 text-3xl font-black text-center text-slate-800 dark:text-white focus:outline-none focus:ring-4 focus:ring-teal-100 transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded p-3 text-4xl font-black text-center text-slate-800 dark:text-white focus:outline-none focus:ring-4 focus:ring-teal-100 transition-all"
                 />
-                <span className="absolute -top-1 left-4 text-[9px] font-black text-slate-400 uppercase">Percent %</span>
+                <span className="absolute -top-2 left-4 text-[10px] font-black text-slate-400 uppercase bg-white dark:bg-slate-800 px-1">Percent %</span>
              </div>
           </div>
 
-          <div className="p-2 border-r-2 border-slate-800 flex flex-col items-center justify-center bg-teal-50 dark:bg-teal-900/10">
-             <span className="text-4xl font-black tracking-tighter text-blue-700 dark:text-blue-400">
+          <div className="p-4 border-r-2 border-slate-800 flex flex-col items-center justify-center bg-teal-50 dark:bg-teal-900/10">
+             <span className="text-5xl font-black tracking-tighter text-blue-700 dark:text-blue-400">
                  {calculatedPVC.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
              </span>
-             <span className="text-[9px] font-bold text-blue-600 uppercase mt-1">Resulting PVC</span>
+             <span className="text-[11px] font-bold text-blue-600 uppercase mt-2">Resulting PVC</span>
           </div>
 
-          <div className="p-2 flex items-center justify-center relative bg-white dark:bg-slate-900 overflow-hidden">
+          <div className="p-4 flex items-center justify-center relative bg-white dark:bg-slate-900 overflow-hidden">
              <div className="absolute inset-0 opacity-5 bg-red-100 dark:bg-red-900"></div>
              <div className="flex flex-col items-center z-10">
-                <span className="text-6xl font-black text-red-600 tracking-tighter drop-shadow-sm">
+                <span className="text-7xl font-black text-red-600 tracking-tighter drop-shadow-sm">
                     {Math.round(calculatedSteam)}
                 </span>
-                <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Calculated Steam</span>
+                <span className="text-xs font-bold text-red-400 uppercase tracking-widest mt-1">Calculated Steam</span>
              </div>
           </div>
         </div>

@@ -54,49 +54,49 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
                 <Database className="w-8 h-8" />
             </div>
             <div>
-                <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">SILO MONITOR</h2>
-                <p className="text-slate-500 dark:text-slate-400 font-bold uppercase text-xs tracking-wider">O - P - Q Control</p>
+                <h2 className="text-4xl font-black text-slate-800 dark:text-white tracking-tight">SILO MONITOR</h2>
+                <p className="text-slate-500 dark:text-slate-400 font-bold uppercase text-sm tracking-wider">O - P - Q Control</p>
             </div>
           </div>
-          <div className="bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg text-xs font-bold border border-yellow-200 animate-pulse">
+          <div className="bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg text-sm font-bold border border-yellow-200 animate-pulse">
              LIVE DATA
           </div>
       </div>
 
-      <div className="bg-slate-200 border-4 border-slate-800 shadow-[8px_8px_0px_0px_rgba(30,41,59,0.2)] overflow-hidden rounded-xl max-w-5xl">
+      <div className="bg-white dark:bg-slate-900 border-4 border-slate-800 shadow-[8px_8px_0px_0px_rgba(30,41,59,0.2)] overflow-hidden rounded-xl max-w-6xl transition-colors">
         
         {/* Main Grid: Labels + 3 Silos */}
-        <div className="grid grid-cols-[140px_1fr_1fr_1fr] gap-[2px] bg-slate-800 border-b-[2px] border-slate-800">
+        <div className="grid grid-cols-[160px_1fr_1fr_1fr] gap-[2px] bg-slate-800 border-b-[2px] border-slate-800">
             
             {/* Header Row */}
-            <div className="bg-cyan-200 p-2 flex items-center justify-center font-black text-lg text-black">SILO</div>
-            <div className={`text-white p-4 flex items-center justify-center font-black text-3xl tracking-widest relative transition-all duration-300 ${getHeaderClass('O')}`}>
+            <div className="bg-[#FFF8DC] dark:bg-slate-800 p-4 flex items-center justify-center font-black text-xl text-slate-800 dark:text-slate-200 border-r-2 border-slate-800">SILO</div>
+            <div className={`p-6 flex items-center justify-center font-black text-5xl tracking-widest relative transition-all duration-300 border-r-2 border-slate-800 ${activeSilo === 'O' ? 'bg-teal-600 text-white animate-pulse ring-4 ring-teal-300 dark:ring-teal-900 z-10' : 'bg-[#FFF8DC] dark:bg-slate-800 text-slate-800 dark:text-slate-200'}`}>
                 O
             </div>
-            <div className={`text-white p-4 flex items-center justify-center font-black text-3xl tracking-widest relative transition-all duration-300 ${getHeaderClass('P')}`}>
+            <div className={`p-6 flex items-center justify-center font-black text-5xl tracking-widest relative transition-all duration-300 border-r-2 border-slate-800 ${activeSilo === 'P' ? 'bg-teal-600 text-white animate-pulse ring-4 ring-teal-300 dark:ring-teal-900 z-10' : 'bg-[#FFF8DC] dark:bg-slate-800 text-slate-800 dark:text-slate-200'}`}>
                 P
             </div>
-            <div className={`text-white p-4 flex items-center justify-center font-black text-3xl tracking-widest relative transition-all duration-300 ${getHeaderClass('Q')}`}>
+            <div className={`p-6 flex items-center justify-center font-black text-5xl tracking-widest relative transition-all duration-300 ${activeSilo === 'Q' ? 'bg-teal-600 text-white animate-pulse ring-4 ring-teal-300 dark:ring-teal-900 z-10' : 'bg-[#FFF8DC] dark:bg-slate-800 text-slate-800 dark:text-slate-200'}`}>
                 Q
             </div>
 
             {/* ACTION / STATUS Row */}
-            <div className="bg-cyan-200 p-2 flex items-center justify-center text-xs font-black uppercase text-center leading-tight text-black">ACTION</div>
+            <div className="bg-slate-100 dark:bg-slate-700 p-2 flex items-center justify-center text-sm font-black uppercase text-center leading-tight text-slate-600 dark:text-slate-300 border-r-2 border-slate-800">ACTION</div>
             {['O', 'P', 'Q'].map((siloId) => (
-                <div key={`action-${siloId}`} className={`p-2 flex items-center justify-center ${getColumnClass(siloId as 'O'|'P'|'Q')}`}>
+                <div key={`action-${siloId}`} className={`p-3 flex items-center justify-center bg-white dark:bg-slate-900 border-r-2 border-slate-800 last:border-r-0`}>
                      {activeSilo === siloId ? (
                          <div className="w-full h-full flex items-center justify-center">
-                            <div className="flex items-center justify-center gap-1 bg-emerald-600 text-white px-3 py-2 rounded font-bold text-xs shadow-lg animate-pulse w-full border-2 border-emerald-400">
-                                <CheckCircle2 className="w-4 h-4" />
+                            <div className="flex items-center justify-center gap-1 bg-emerald-600 text-white px-4 py-3 rounded font-bold text-sm shadow-lg animate-pulse w-full border-2 border-emerald-400">
+                                <CheckCircle2 className="w-5 h-5" />
                                 CHARGING
                             </div>
                          </div>
                      ) : (
                          <button 
                             onClick={() => onSiloSelect && onSiloSelect(siloId as 'O'|'P'|'Q')}
-                            className="w-full flex items-center justify-center gap-1 bg-white hover:bg-blue-50 text-slate-500 hover:text-blue-600 px-3 py-2 rounded font-bold text-[10px] border border-slate-300 hover:border-blue-400 transition-all shadow-sm uppercase whitespace-nowrap"
+                            className="w-full flex items-center justify-center gap-1 bg-slate-100 hover:bg-blue-50 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 px-4 py-3 rounded font-bold text-xs border-2 border-slate-200 dark:border-slate-700 hover:border-blue-400 transition-all shadow-sm uppercase whitespace-nowrap"
                          >
-                             <Play className="w-3 h-3" />
+                             <Play className="w-4 h-4" />
                              CHANGE SILO
                          </button>
                      )}
@@ -104,142 +104,142 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
             ))}
 
             {/* Lot Number Row */}
-            <div className="bg-cyan-200 p-2 flex items-center justify-center text-xs font-black uppercase text-center leading-tight text-black">LOT NUMBER</div>
-            <div className={`p-1 ${getColumnClass('O')}`}>
+            <div className="bg-slate-100 dark:bg-slate-700 p-2 flex items-center justify-center text-sm font-black uppercase text-center leading-tight text-slate-600 dark:text-slate-300 border-r-2 border-slate-800">LOT NUMBER</div>
+            <div className="p-2 bg-white dark:bg-slate-900 border-r-2 border-slate-800">
                 <input 
                     type="text" 
                     value={silos.O.lotNumber} 
                     onChange={(e) => handleChange('O', 'lotNumber', e.target.value)}
-                    className={getInputClass(silos.O.lotNumber, 'text-red-600')} 
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded p-2 text-xl font-bold text-center text-red-600 dark:text-red-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
                     placeholder="---"
                 />
             </div>
-            <div className={`p-1 ${getColumnClass('P')}`}>
+            <div className="p-2 bg-white dark:bg-slate-900 border-r-2 border-slate-800">
                 <input 
                     type="text" 
                     value={silos.P.lotNumber}
                     onChange={(e) => handleChange('P', 'lotNumber', e.target.value)} 
-                    className={getInputClass(silos.P.lotNumber, 'text-emerald-600')} 
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded p-2 text-xl font-bold text-center text-emerald-600 dark:text-emerald-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
                     placeholder="---"
                 />
             </div>
-            <div className={`p-1 ${getColumnClass('Q')}`}>
+            <div className="p-2 bg-white dark:bg-slate-900">
                 <input 
                     type="text" 
                     value={silos.Q.lotNumber}
                     onChange={(e) => handleChange('Q', 'lotNumber', e.target.value)} 
-                    className={getInputClass(silos.Q.lotNumber, 'text-black')} 
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded p-2 text-xl font-bold text-center text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
                     placeholder="---"
                 />
             </div>
 
             {/* Set Row */}
-            <div className="bg-cyan-200 p-2 flex items-center justify-center text-xs font-black uppercase text-black">SET</div>
+            <div className="bg-slate-100 dark:bg-slate-700 p-2 flex items-center justify-center text-sm font-black uppercase text-slate-600 dark:text-slate-300 border-r-2 border-slate-800">SET</div>
             
-            <div className={`p-2 flex items-center justify-between px-4 font-bold text-xl ${getColumnClass('O')}`}>
+            <div className="p-3 bg-white dark:bg-slate-900 border-r-2 border-slate-800 flex items-center justify-between px-6 font-bold text-2xl">
                 <input 
                     type="number" 
                     value={silos.O.capacitySet} 
                     onChange={(e) => handleChange('O', 'capacitySet', e.target.value)}
-                    className={getInputClass(silos.O.capacitySet, 'text-red-600')}
+                    className="w-full bg-transparent text-center text-red-600 dark:text-red-400 outline-none"
                     placeholder="-"
                 /> 
-                <span className="text-sm text-black ml-2">T</span>
+                <span className="text-base text-slate-400 ml-2">T</span>
             </div>
             
-            <div className={`p-2 flex items-center justify-between px-4 font-bold text-xl ${getColumnClass('P')}`}>
+            <div className="p-3 bg-white dark:bg-slate-900 border-r-2 border-slate-800 flex items-center justify-between px-6 font-bold text-2xl">
                  <input 
                     type="number" 
                     value={silos.P.capacitySet} 
                     onChange={(e) => handleChange('P', 'capacitySet', e.target.value)}
-                    className={getInputClass(silos.P.capacitySet, 'text-emerald-600')}
+                    className="w-full bg-transparent text-center text-emerald-600 dark:text-emerald-400 outline-none"
                     placeholder="-"
                 /> 
-                <span className="text-sm text-black ml-2">T</span>
+                <span className="text-base text-slate-400 ml-2">T</span>
             </div>
             
-             <div className={`p-2 flex items-center justify-between px-4 font-bold text-xl ${getColumnClass('Q')}`}>
+             <div className="p-3 bg-white dark:bg-slate-900 flex items-center justify-between px-6 font-bold text-2xl">
                  <input 
                     type="number" 
                     value={silos.Q.capacitySet} 
                     onChange={(e) => handleChange('Q', 'capacitySet', e.target.value)}
-                    className={getInputClass(silos.Q.capacitySet, 'text-black')}
+                    className="w-full bg-transparent text-center text-slate-800 dark:text-slate-200 outline-none"
                     placeholder="-"
                 /> 
-                <span className="text-sm text-black ml-2">T</span>
+                <span className="text-base text-slate-400 ml-2">T</span>
             </div>
 
             {/* Start Row */}
-            <div className="bg-cyan-200 p-2 flex items-center justify-center text-xs font-black uppercase text-black">START</div>
-            <div className={`p-1 ${getColumnClass('O')}`}>
+            <div className="bg-slate-100 dark:bg-slate-700 p-2 flex items-center justify-center text-sm font-black uppercase text-slate-600 dark:text-slate-300 border-r-2 border-slate-800">START</div>
+            <div className="p-2 bg-white dark:bg-slate-900 border-r-2 border-slate-800">
                 <input 
                     type="text"
                     placeholder="--:--" 
                     value={silos.O.startTime || ''}
                     onChange={(e) => handleChange('O', 'startTime', e.target.value)}
-                    className={getInputClass(silos.O.startTime, 'text-black', true)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded p-2 text-lg font-bold text-center text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
                 />
             </div>
-            <div className={`p-1 ${getColumnClass('P')}`}>
+            <div className="p-2 bg-white dark:bg-slate-900 border-r-2 border-slate-800">
                 <input 
                     type="text" 
                     placeholder="--:--"
                     value={silos.P.startTime || ''}
                     onChange={(e) => handleChange('P', 'startTime', e.target.value)}
-                    className={getInputClass(silos.P.startTime, 'text-black', true)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded p-2 text-lg font-bold text-center text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
                 />
             </div>
-            <div className={`p-1 ${getColumnClass('Q')}`}>
+            <div className="p-2 bg-white dark:bg-slate-900">
                  <input 
                     type="text" 
                     placeholder="--:--"
                     value={silos.Q.startTime || ''}
                     onChange={(e) => handleChange('Q', 'startTime', e.target.value)}
-                    className={getInputClass(silos.Q.startTime, 'text-black', true)}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded p-2 text-lg font-bold text-center text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
                 />
             </div>
 
              {/* Finish Row */}
-            <div className="bg-cyan-200 p-2 flex items-center justify-center text-xs font-black uppercase text-black">FINISH</div>
-            <div className={`p-1 ${getColumnClass('O')}`}>
+            <div className="bg-slate-100 dark:bg-slate-700 p-2 flex items-center justify-center text-sm font-black uppercase text-slate-600 dark:text-slate-300 border-r-2 border-slate-800">FINISH</div>
+            <div className="p-2 bg-white dark:bg-slate-900 border-r-2 border-slate-800">
                 <input 
                     type="text" 
                     placeholder="--:--"
                     value={silos.O.finishTime || ''}
                     onChange={(e) => handleChange('O', 'finishTime', e.target.value)}
-                    className={getInputClass(silos.O.finishTime, 'text-red-600')}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded p-2 text-lg font-bold text-center text-red-600 dark:text-red-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
                 />
             </div>
-            <div className={`p-1 ${getColumnClass('P')}`}>
+            <div className="p-2 bg-white dark:bg-slate-900 border-r-2 border-slate-800">
                 <input 
                     type="text" 
                     placeholder="--:--"
                     value={silos.P.finishTime || ''}
                     onChange={(e) => handleChange('P', 'finishTime', e.target.value)}
-                    className={getInputClass(silos.P.finishTime, 'text-emerald-600')}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded p-2 text-lg font-bold text-center text-emerald-600 dark:text-emerald-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
                 />
             </div>
-            <div className={`p-1 ${getColumnClass('Q')}`}>
+            <div className="p-2 bg-white dark:bg-slate-900">
                 <input 
                     type="text" 
                     placeholder="--:--"
                     value={silos.Q.finishTime || ''}
                     onChange={(e) => handleChange('Q', 'finishTime', e.target.value)}
-                    className={getInputClass(silos.Q.finishTime, 'text-black')}
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded p-2 text-lg font-bold text-center text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
                 />
             </div>
         </div>
 
         {/* Update Section */}
-        <div className="grid grid-cols-[140px_1fr] bg-slate-800 gap-[2px]">
+        <div className="grid grid-cols-[160px_1fr] bg-slate-800 gap-[2px]">
             {/* Left Label */}
-             <div className="bg-cyan-200 flex flex-col items-center justify-center gap-4 py-2 text-black">
-                 <div className="text-xs font-black bg-white/50 w-full text-center py-1">UPDATE</div>
+             <div className="bg-slate-100 dark:bg-slate-700 flex flex-col items-center justify-center gap-4 py-2 text-slate-800 dark:text-slate-200 border-r-2 border-slate-800">
+                 <div className="text-sm font-black bg-slate-200 dark:bg-slate-600 w-full text-center py-1">UPDATE</div>
                  
                  <div className="flex flex-col gap-6 w-full px-2">
-                     <div className="bg-slate-100 border-2 border-slate-400 p-1 text-center font-bold text-lg text-slate-400">06:00</div>
-                     <div className="bg-slate-100 border-2 border-slate-400 p-1 text-center font-bold text-lg text-slate-400">14:00</div>
-                     <div className="bg-slate-100 border-2 border-slate-400 p-1 text-center font-bold text-lg text-slate-400">22:00</div>
+                     <div className="bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 p-1 text-center font-bold text-xl text-slate-500 dark:text-slate-400">06:00</div>
+                     <div className="bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 p-1 text-center font-bold text-xl text-slate-500 dark:text-slate-400">14:00</div>
+                     <div className="bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 p-1 text-center font-bold text-xl text-slate-500 dark:text-slate-400">22:00</div>
                  </div>
              </div>
 

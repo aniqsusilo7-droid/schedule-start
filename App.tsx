@@ -920,20 +920,20 @@ const App: React.FC = () => {
 
               {/* Navigation Pill */}
               <div className="hidden md:flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <button onClick={() => setCurrentView('scheduler')} className={`px-4 py-2 text-xs font-black uppercase rounded transition-all flex items-center gap-2 ${currentView === 'scheduler' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
-                        <LayoutGrid className="w-4 h-4" /> <span className="hidden xl:inline">SCHEDULER</span>
+                    <button onClick={() => setCurrentView('scheduler')} className={`px-5 py-2.5 text-sm font-black uppercase rounded transition-all flex items-center gap-2 ${currentView === 'scheduler' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+                        <LayoutGrid className="w-5 h-5" /> <span className="hidden xl:inline">SCHEDULER</span>
                     </button>
-                    <button onClick={() => setCurrentView('demonomer')} className={`px-4 py-2 text-xs font-black uppercase rounded transition-all flex items-center gap-2 ${currentView === 'demonomer' ? 'bg-white dark:bg-slate-600 text-teal-700 dark:text-teal-300 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
-                        <Activity className="w-4 h-4" /> <span className="hidden xl:inline">DEMONOMER</span>
+                    <button onClick={() => setCurrentView('demonomer')} className={`px-5 py-2.5 text-sm font-black uppercase rounded transition-all flex items-center gap-2 ${currentView === 'demonomer' ? 'bg-white dark:bg-slate-600 text-teal-700 dark:text-teal-300 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+                        <Activity className="w-5 h-5" /> <span className="hidden xl:inline">DEMONOMER</span>
                     </button>
-                     <button onClick={() => setCurrentView('silo')} className={`px-4 py-2 text-xs font-black uppercase rounded transition-all flex items-center gap-2 ${currentView === 'silo' ? 'bg-white dark:bg-slate-600 text-cyan-700 dark:text-cyan-300 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
-                        <Database className="w-4 h-4" /> <span className="hidden xl:inline">SILO</span>
+                     <button onClick={() => setCurrentView('silo')} className={`px-5 py-2.5 text-sm font-black uppercase rounded transition-all flex items-center gap-2 ${currentView === 'silo' ? 'bg-white dark:bg-slate-600 text-cyan-700 dark:text-cyan-300 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+                        <Database className="w-5 h-5" /> <span className="hidden xl:inline">SILO</span>
                     </button>
               </div>
           </div>
 
           {/* Center Section: Title */}
-          <div className="flex flex-col items-center justify-center shrink-0 mx-8 p-2 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-sm">
+          <div className="flex flex-col items-center justify-center shrink-0 mx-8 p-2 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-sm animate-pulse">
             <h1 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm">
                <span className="text-blue-600 dark:text-blue-400">SCHEDULE</span> 
                <span className="text-slate-800 dark:text-slate-200">START</span>
@@ -950,7 +950,7 @@ const App: React.FC = () => {
               {currentView === 'scheduler' && (
                   <div className="flex gap-1">
                       {GRADES.map(g => (
-                          <button key={g} onClick={() => handleConfigChange('currentGrade', g)} className={`px-3 py-1.5 text-sm font-black rounded border transition-all ${config.currentGrade === g ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-600'}`}>
+                          <button key={g} onClick={() => handleConfigChange('currentGrade', g)} className={`px-4 py-2 text-base font-black rounded border transition-all ${config.currentGrade === g ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-600'}`}>
                               {g}
                           </button>
                       ))}
@@ -964,27 +964,27 @@ const App: React.FC = () => {
               <div className="flex items-center gap-2">
                     {/* Zoom */}
                     <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700 p-0.5 shadow-sm">
-                        <button onClick={handleZoomOut} className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors hover:bg-white dark:hover:bg-slate-700 rounded">
-                            <ZoomOut className="w-4 h-4" />
+                        <button onClick={handleZoomOut} className="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors hover:bg-white dark:hover:bg-slate-700 rounded">
+                            <ZoomOut className="w-5 h-5" />
                         </button>
-                        <span className="text-[10px] font-bold w-10 text-center text-slate-600 dark:text-slate-300 cursor-pointer select-none" onClick={handleZoomReset} title="Reset Zoom">
+                        <span className="text-xs font-bold w-12 text-center text-slate-600 dark:text-slate-300 cursor-pointer select-none" onClick={handleZoomReset} title="Reset Zoom">
                             {Math.round(zoomLevel * 100)}%
                         </span>
-                        <button onClick={handleZoomIn} className="p-1.5 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors hover:bg-white dark:hover:bg-slate-700 rounded">
-                            <ZoomIn className="w-4 h-4" />
+                        <button onClick={handleZoomIn} className="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors hover:bg-white dark:hover:bg-slate-700 rounded">
+                            <ZoomIn className="w-5 h-5" />
                         </button>
                     </div>
 
-                    <button onClick={toggleAudio} className={`p-2 rounded-md border transition-all shadow-sm ${config.audioEnabled ? 'bg-green-100 text-green-600 border-green-200 hover:bg-green-200' : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 hover:text-slate-600'}`} title="Toggle Voice">
-                        {config.audioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+                    <button onClick={toggleAudio} className={`p-2.5 rounded-md border transition-all shadow-sm ${config.audioEnabled ? 'bg-green-100 text-green-600 border-green-200 hover:bg-green-200' : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 hover:text-slate-600'}`} title="Toggle Voice">
+                        {config.audioEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
                     </button>
 
-                    <button onClick={toggleTheme} className={`p-2 rounded-md border transition-all shadow-sm ${config.theme === 'dark' ? 'bg-slate-800 text-yellow-400 border-slate-700 hover:bg-slate-700' : 'bg-yellow-50 text-orange-500 border-orange-200 hover:bg-yellow-100'}`} title="Toggle Theme">
-                        {config.theme === 'dark' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                    <button onClick={toggleTheme} className={`p-2.5 rounded-md border transition-all shadow-sm ${config.theme === 'dark' ? 'bg-slate-800 text-yellow-400 border-slate-700 hover:bg-slate-700' : 'bg-yellow-50 text-orange-500 border-orange-200 hover:bg-yellow-100'}`} title="Toggle Theme">
+                        {config.theme === 'dark' ? <Moon className="w-6 h-6" /> : <Sun className="w-6 h-6" />}
                     </button>
 
-                    <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`p-2 rounded-md border transition-all shadow-sm ${isSettingsOpen ? 'bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200' : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 hover:text-slate-600'}`} title="Settings">
-                        <Settings className="w-5 h-5" />
+                    <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`p-2.5 rounded-md border transition-all shadow-sm ${isSettingsOpen ? 'bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200' : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 hover:text-slate-600'}`} title="Settings">
+                        <Settings className="w-6 h-6" />
                     </button>
               </div>
 
@@ -1261,7 +1261,7 @@ const App: React.FC = () => {
                       const mode = item.config?.mode || 'CLOSE';
                       const stageInfo = item.config?.stageInfo;
                       
-                      let cellClasses = "bg-white dark:bg-slate-800 dark:text-slate-100 shadow-sm transition-colors"; 
+                      let cellClasses = "bg-white dark:bg-slate-700 dark:text-white shadow-sm transition-colors dark:border dark:border-slate-600/50"; 
                       if (isSkipped) cellClasses = "bg-stone-200 dark:bg-stone-950 text-stone-500 dark:text-stone-600 border-stone-300 dark:border-stone-800"; 
                       else if (isActive) cellClasses = "bg-red-500 dark:bg-red-600 text-white animate-pulse ring-4 ring-red-300 dark:ring-red-900 z-10 relative"; 
                       else if (isPast) cellClasses = "bg-slate-800 dark:bg-slate-950 text-slate-500 dark:text-slate-600 shadow-inner"; 
@@ -1391,119 +1391,117 @@ const App: React.FC = () => {
            <div className="flex flex-col md:flex-row gap-8 items-start mt-4" style={{ fontSize: `${config.tableFontSize}px` }}>
                
                {/* 1. CATALYST TABLE */}
-               <div className="border-[3px] border-black w-fit flex flex-col bg-white dark:bg-slate-800 shadow-md">
+               <div className="border-4 border-slate-800 dark:border-slate-700 w-fit flex flex-col bg-white dark:bg-slate-800 shadow-[8px_8px_0px_0px_rgba(30,41,59,0.2)] rounded-xl overflow-hidden">
                     {/* Headers */}
-                    <div className="flex text-center font-bold text-black border-b-[2px] border-black">
-                         <div className={`${colWidth1} bg-[#00B050] border-r border-black py-2 flex items-center justify-center`}>
-                            <span className="text-[0.9em]">CATALYST</span>
+                    <div className="flex text-center font-black text-white border-b-4 border-slate-800 dark:border-slate-700">
+                         <div className={`${colWidth1} bg-emerald-600 border-r-2 border-slate-800 dark:border-slate-700 py-3 flex items-center justify-center`}>
+                            <span className="text-[0.9em] tracking-wider">CATALYST</span>
                          </div>
-                         <div className={`${colWidth2} bg-[#00B050] border-r border-black py-2 flex items-center justify-center`}>
-                            <span className="text-[0.9em]">NETO</span>
+                         <div className={`${colWidth2} bg-emerald-600 border-r-2 border-slate-800 dark:border-slate-700 py-3 flex items-center justify-center`}>
+                            <span className="text-[0.9em] tracking-wider">NETO</span>
                          </div>
-                         <div className={`${colWidth3} bg-[#00B050] py-2 flex items-center justify-center`}>
-                            <span className="text-[0.9em]">BRUTO</span>
+                         <div className={`${colWidth3} bg-emerald-600 py-3 flex items-center justify-center`}>
+                            <span className="text-[0.9em] tracking-wider">BRUTO</span>
                          </div>
                     </div>
 
                     {/* Row F */}
-                    <div className="flex h-[2.5em] border-b border-black last:border-0">
-                        <div className={`${colWidth1} bg-black text-white font-black flex items-center justify-center border-r border-black`}>
-                            <span className="text-[1.25em]">F</span>
+                    <div className="flex h-[3.5em] border-b-2 border-slate-200 dark:border-slate-700 last:border-0">
+                        <div className={`${colWidth1} bg-slate-900 text-white font-black flex items-center justify-center border-r-2 border-slate-800 dark:border-slate-700`}>
+                            <span className="text-[1.5em]">F</span>
                         </div>
-                        <div className={`${colWidth2} bg-white border-r border-black p-[1px]`}>
+                        <div className={`${colWidth2} bg-white dark:bg-slate-800 border-r-2 border-slate-200 dark:border-slate-700 p-1`}>
                             <input 
                                 type="text" 
                                 value={catalystData.f.netto} 
                                 onChange={(e) => handleCatalystChange('f', 'netto', e.target.value)}
-                                className="w-full h-full bg-transparent text-black text-center font-bold text-[1.125em] outline-none"
+                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.25em] outline-none"
                             />
                         </div>
-                        <div className={`${colWidth3} bg-white p-[1px]`}>
+                        <div className={`${colWidth3} bg-white dark:bg-slate-800 p-1`}>
                             <input 
                                 type="text" 
                                 value={catalystData.f.bruto} 
                                 onChange={(e) => handleCatalystChange('f', 'bruto', e.target.value)}
-                                className="w-full h-full bg-transparent text-black text-center font-bold text-[1.125em] outline-none"
+                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.25em] outline-none"
                             />
                         </div>
                     </div>
 
                      {/* Row H */}
-                     <div className="flex h-[2.5em] border-b border-black last:border-0">
-                        <div className={`${colWidth1} bg-[#FFFF00] text-black font-black flex items-center justify-center border-r border-black`}>
-                            <span className="text-[1.25em]">H</span>
+                     <div className="flex h-[3.5em] border-b-2 border-slate-200 dark:border-slate-700 last:border-0">
+                        <div className={`${colWidth1} bg-yellow-400 text-black font-black flex items-center justify-center border-r-2 border-slate-800 dark:border-slate-700`}>
+                            <span className="text-[1.5em]">H</span>
                         </div>
-                        <div className={`${colWidth2} bg-white border-r border-black p-[1px]`}>
+                        <div className={`${colWidth2} bg-white dark:bg-slate-800 border-r-2 border-slate-200 dark:border-slate-700 p-1`}>
                             <input 
                                 type="text" 
                                 value={catalystData.h.netto} 
                                 onChange={(e) => handleCatalystChange('h', 'netto', e.target.value)}
-                                className="w-full h-full bg-transparent text-black text-center font-bold text-[1.125em] outline-none"
+                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.25em] outline-none"
                             />
                         </div>
-                        <div className={`${colWidth3} bg-white p-[1px]`}>
+                        <div className={`${colWidth3} bg-white dark:bg-slate-800 p-1`}>
                             <input 
                                 type="text" 
                                 value={catalystData.h.bruto} 
                                 onChange={(e) => handleCatalystChange('h', 'bruto', e.target.value)}
-                                className="w-full h-full bg-transparent text-black text-center font-bold text-[1.125em] outline-none"
+                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.25em] outline-none"
                             />
                         </div>
                     </div>
 
                     {/* Row G */}
-                    <div className="flex h-[2.5em] border-b border-black last:border-0">
-                        <div className={`${colWidth1} bg-[#7030A0] text-white font-black flex items-center justify-center border-r border-black`}>
-                            <span className="text-[1.25em]">G</span>
+                    <div className="flex h-[3.5em] border-b-2 border-slate-200 dark:border-slate-700 last:border-0">
+                        <div className={`${colWidth1} bg-purple-700 text-white font-black flex items-center justify-center border-r-2 border-slate-800 dark:border-slate-700`}>
+                            <span className="text-[1.5em]">G</span>
                         </div>
-                        <div className={`${colWidth2} bg-white border-r border-black p-[1px]`}>
+                        <div className={`${colWidth2} bg-white dark:bg-slate-800 border-r-2 border-slate-200 dark:border-slate-700 p-1`}>
                             <input 
                                 type="text" 
                                 value={catalystData.g.netto} 
                                 onChange={(e) => handleCatalystChange('g', 'netto', e.target.value)}
-                                className="w-full h-full bg-transparent text-black text-center font-bold text-[1.125em] outline-none"
+                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.25em] outline-none"
                             />
                         </div>
-                        <div className={`${colWidth3} bg-white p-[1px]`}>
+                        <div className={`${colWidth3} bg-white dark:bg-slate-800 p-1`}>
                             <input 
                                 type="text" 
                                 value={catalystData.g.bruto} 
                                 onChange={(e) => handleCatalystChange('g', 'bruto', e.target.value)}
-                                className="w-full h-full bg-transparent text-black text-center font-bold text-[1.125em] outline-none"
+                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.25em] outline-none"
                             />
                         </div>
                     </div>
                </div>
 
                {/* 2. SILO SETTING WIDGET */}
-               <div className="flex flex-col w-fit">
+               <div className="flex flex-col w-fit shadow-[8px_8px_0px_0px_rgba(30,41,59,0.2)] rounded-xl">
                     {/* Header Button to Open Modal */}
                     <button 
                         onClick={() => setIsSiloModalOpen(true)}
-                        className="bg-[#FFC000] hover:bg-[#E5AC00] text-black font-bold text-[1em] px-4 py-3 text-center border-t-2 border-l-2 border-r-2 border-white/0 flex items-center justify-center gap-2 transition-colors cursor-pointer"
+                        className="bg-amber-500 hover:bg-amber-600 text-white font-black text-[1em] px-6 py-4 text-center border-4 border-slate-800 dark:border-slate-700 border-b-0 rounded-t-xl flex items-center justify-center gap-2 transition-colors cursor-pointer w-full uppercase tracking-tight"
                     >
-                        <Maximize2 className="w-4 h-4" />
-                        CHANGE SILO TO SETTING (ADJUST)
+                        <Maximize2 className="w-5 h-5" />
+                        CHANGE SILO TO SETTING
                     </button>
 
                     {/* Big Display for Active Silo */}
                     <div className="flex">
-                        <div className="bg-[#00B0F0] text-black font-black p-4 flex items-center justify-center w-[16em] border-4 border-[#0090C0] shadow-inner relative overflow-hidden group">
-                             {/* Background Effect */}
-                             <div className="absolute inset-0 bg-white/10 skew-x-12 -translate-x-full group-hover:translate-x-full transition-transform duration-1000"></div>
-
-                             {/* Silo Letter */}
-                             <span className="text-7xl mr-6 drop-shadow-md">{siloState.activeSilo || '-'}</span>
+                        <div className="bg-white dark:bg-slate-800 text-slate-800 dark:text-white font-black p-6 flex items-center justify-center w-[20em] border-4 border-slate-800 dark:border-slate-700 rounded-b-xl relative overflow-hidden group">
+                             
+                             {/* Silo Letter - Blinking Animation */}
+                             <span className="text-8xl mr-8 drop-shadow-sm text-cyan-600 dark:text-cyan-400 animate-pulse">{siloState.activeSilo || '-'}</span>
                              
                              {/* Details */}
-                             <div className="flex flex-col leading-tight text-left border-l-2 border-black/20 pl-4">
-                                 <div className="mb-2">
-                                     <span className="text-[0.6em] opacity-70 block font-bold">START TIME</span>
-                                     <span className="text-[1.5em] block bg-white/20 px-1 rounded">{activeSiloData?.startTime || '--:--'}</span>
+                             <div className="flex flex-col leading-tight text-left border-l-4 border-slate-200 dark:border-slate-700 pl-6 gap-3">
+                                 <div>
+                                     <span className="text-[0.7em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">START TIME</span>
+                                     <span className="text-[1.8em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.startTime || '--:--'}</span>
                                  </div>
                                  <div>
-                                     <span className="text-[0.6em] opacity-70 block font-bold">SET AMOUNT</span>
-                                     <span className="text-[1.5em] block bg-white/20 px-1 rounded">{activeSiloData?.capacitySet || '0'} T</span>
+                                     <span className="text-[0.7em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">SET AMOUNT</span>
+                                     <span className="text-[1.8em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.capacitySet || '0'} T</span>
                                  </div>
                              </div>
                         </div>
@@ -1564,7 +1562,7 @@ const App: React.FC = () => {
       
       {/* ... [Full Screen Alert Overlay] ... */}
       {fullScreenAlertItem && (
-          <div className="fixed inset-0 z-[100] bg-red-600 flex flex-col items-center justify-center text-white animate-in fade-in duration-300">
+          <div className={`fixed inset-0 z-[100] flex flex-col items-center justify-center text-white animate-in fade-in duration-300 ${REACTORS.find(r => r.id === fullScreenAlertItem.reactorId)?.color || 'bg-red-600'} ${REACTORS.find(r => r.id === fullScreenAlertItem.reactorId)?.textColor || 'text-white'}`}>
               <button 
                   onClick={() => setDismissedAlerts(prev => new Set(prev).add(fullScreenAlertItem.id))}
                   className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/30 rounded-full transition-colors backdrop-blur-sm group"
@@ -1572,7 +1570,7 @@ const App: React.FC = () => {
                   <X className="w-8 h-8 opacity-70 group-hover:opacity-100" />
               </button>
               <div className="animate-pulse flex flex-col items-center">
-                  <AlertTriangle className="w-32 h-32 mb-8 text-yellow-300" />
+                  <AlertTriangle className={`w-32 h-32 mb-8 ${REACTORS.find(r => r.id === fullScreenAlertItem.reactorId)?.id === 'U' ? 'text-black' : 'text-yellow-300'}`} />
                   <h1 className="text-6xl font-black tracking-tighter mb-4">PREPARE TO START</h1>
                   <div className="bg-white text-red-600 px-12 py-6 rounded-2xl shadow-xl flex flex-col items-center mb-8">
                       <span className="text-2xl font-bold uppercase tracking-widest text-slate-500">REACTOR</span>
@@ -1588,7 +1586,7 @@ const App: React.FC = () => {
                           <span className="text-5xl font-mono font-black">{formatTime(fullScreenAlertItem.startTime)}</span>
                       </div>
                   </div>
-                  <div className="mt-12 text-2xl font-bold animate-bounce text-yellow-300 bg-red-800/50 px-6 py-2 rounded-full mb-8">
+                  <div className={`mt-12 text-2xl font-bold animate-bounce px-6 py-2 rounded-full mb-8 ${REACTORS.find(r => r.id === fullScreenAlertItem.reactorId)?.id === 'U' ? 'bg-black/20 text-black' : 'text-yellow-300 bg-red-800/50'}`}>
                       STARTING IN {Math.ceil((fullScreenAlertItem.startTime.getTime() - now.getTime()) / 1000)} SECONDS
                   </div>
                   <button 
