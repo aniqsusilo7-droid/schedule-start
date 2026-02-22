@@ -12,58 +12,39 @@ import { supabase } from './supabaseClient';
 const GRADES: GradeType[] = ['SM', 'SLK', 'SLP', 'SE', 'SR'];
 const STAGE_OPTIONS = ['Sample Blowing', 'Sample Washing', 'Sample Air Slurry'];
 
-// Web Audio API Sound Effect (Rocket/Firecracker)
-const playRocketSound = () => {
+// Web Audio API Sound Effect (Siren)
+const playSirenSound = () => {
     try {
         const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
         if (!AudioContext) return;
         const ctx = new AudioContext();
 
         const t = ctx.currentTime;
+        const duration = 3.0; // 3 seconds siren
 
-        // 1. Rocket Whistle (Rising Pitch)
         const osc = ctx.createOscillator();
-        const oscGain = ctx.createGain();
-        
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(200, t);
-        osc.frequency.exponentialRampToValueAtTime(1000, t + 0.5);
-        
-        oscGain.gain.setValueAtTime(0.1, t);
-        oscGain.gain.linearRampToValueAtTime(0.1, t + 0.4);
-        oscGain.gain.linearRampToValueAtTime(0, t + 0.5);
+        const gainNode = ctx.createGain();
 
-        osc.connect(oscGain);
-        oscGain.connect(ctx.destination);
-        osc.start(t);
-        osc.stop(t + 0.5);
-
-        // 2. Explosion (Noise Burst) at t + 0.5
-        const bufferSize = ctx.sampleRate * 1.5; // 1.5 seconds
-        const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) {
-            data[i] = Math.random() * 2 - 1;
+        osc.type = 'square'; // Square wave for harsh siren sound
+        
+        // Modulate frequency up and down
+        osc.frequency.setValueAtTime(600, t);
+        for (let i = 0; i < duration * 2; i++) {
+            osc.frequency.linearRampToValueAtTime(1200, t + i * 0.5 + 0.25);
+            osc.frequency.linearRampToValueAtTime(600, t + i * 0.5 + 0.5);
         }
 
-        const noise = ctx.createBufferSource();
-        noise.buffer = buffer;
+        // Fade in and out
+        gainNode.gain.setValueAtTime(0, t);
+        gainNode.gain.linearRampToValueAtTime(0.1, t + 0.1);
+        gainNode.gain.setValueAtTime(0.1, t + duration - 0.5);
+        gainNode.gain.linearRampToValueAtTime(0, t + duration);
 
-        const noiseFilter = ctx.createBiquadFilter();
-        noiseFilter.type = 'lowpass';
-        noiseFilter.frequency.setValueAtTime(1000, t + 0.5);
-        noiseFilter.frequency.exponentialRampToValueAtTime(100, t + 1.5);
+        osc.connect(gainNode);
+        gainNode.connect(ctx.destination);
 
-        const noiseGain = ctx.createGain();
-        noiseGain.gain.setValueAtTime(1, t + 0.5);
-        noiseGain.gain.exponentialRampToValueAtTime(0.01, t + 1.5);
-
-        noise.connect(noiseFilter);
-        noiseFilter.connect(noiseGain);
-        noiseGain.connect(ctx.destination);
-        
-        noise.start(t + 0.5);
-        noise.stop(t + 2.0);
+        osc.start(t);
+        osc.stop(t + duration);
 
     } catch (e) {
         console.error("Web Audio API Error:", e);
@@ -837,7 +818,7 @@ const App: React.FC = () => {
 
     Object.values(scheduleMatrix).flat().forEach(item => {
         if (item.status === 'active' && !announcedBatches.current.has(item.id)) {
-            playRocketSound();
+            playSirenSound();
             announcedBatches.current.add(item.id);
             
             // Check if audio context is allowed (simple check)
@@ -861,7 +842,7 @@ const App: React.FC = () => {
 
   // Handler to enable audio manually
   const enableAudio = () => {
-      playRocketSound();
+      playSirenSound();
       setAudioAllowed(true);
   };
 
