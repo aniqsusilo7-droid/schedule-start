@@ -73,3 +73,12 @@ export interface SiloState {
   activeSilo: 'O' | 'P' | 'Q' | null; // Allow null if none active initially
   silos: Record<'O' | 'P' | 'Q', SiloData>;
 }
+
+export interface DemonomerData {
+  f2002: number;
+  aie2802: number;
+  pvcPercent: number;
+  multipliers: Record<GradeType, number>;
+  pvcFormula: string;
+  steamFormula: string;
+}

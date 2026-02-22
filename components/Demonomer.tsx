@@ -1,11 +1,13 @@
 
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useMemo } from 'react';
 import { ArrowRight, Settings2, Activity, RotateCcw, Calculator, Info, Database } from 'lucide-react';
-import { GradeType } from '../types';
+import { GradeType, DemonomerData } from '../types';
 
 interface DemonomerProps {
   currentGrade: GradeType;
   onGradeChange: (grade: GradeType) => void;
+  data: DemonomerData;
+  onDataChange: (field: keyof DemonomerData, value: any) => void;
 }
 
 type GradeKey = 'SM' | 'SLP' | 'SLK' | 'SE' | 'SR';
@@ -13,58 +15,19 @@ type GradeKey = 'SM' | 'SLP' | 'SLK' | 'SE' | 'SR';
 const DEFAULT_PVC_FORMULA = "F2002*AI2802/1000*%PVC";
 const DEFAULT_STEAM_FORMULA = "PVC * Multiplier";
 
-export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChange }) => {
-  // --- State for Inputs (Initialized from LocalStorage) ---
-  const [f2002, setF2002] = useState<number>(() => {
-      const saved = localStorage.getItem('demonomer_f2002');
-      return saved ? parseFloat(saved) : 125;
-  });
-
-  const [aie2802, setAie2802] = useState<number>(() => {
-      const saved = localStorage.getItem('demonomer_aie2802');
-      return saved ? parseFloat(saved) : 1070;
-  });
-
-  const [pvcPercent, setPvcPercent] = useState<number>(() => {
-      const saved = localStorage.getItem('demonomer_pvc_percent');
-      return saved ? parseFloat(saved) : 25;
-  });
+export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChange, data, onDataChange }) => {
   
-  // State for "Nilai Untuk Grade" (Multipliers)
-  const [multipliers, setMultipliers] = useState<Record<GradeKey, number>>(() => {
-      const saved = localStorage.getItem('demonomer_multipliers');
-      return saved ? JSON.parse(saved) : {
-        SM: 118,
-        SLP: 108,
-        SLK: 128,
-        SE: 140,
-        SR: 100
-      };
-  });
-
-  // --- Formula State ---
-  const [pvcFormula, setPvcFormula] = useState(() => localStorage.getItem('demonomer_pvc_formula') || DEFAULT_PVC_FORMULA);
-  const [steamFormula, setSteamFormula] = useState(() => localStorage.getItem('demonomer_steam_formula') || DEFAULT_STEAM_FORMULA);
-
-  // --- Persistence Effects (Auto-save to LocalStorage) ---
-  useEffect(() => localStorage.setItem('demonomer_f2002', f2002.toString()), [f2002]);
-  useEffect(() => localStorage.setItem('demonomer_aie2802', aie2802.toString()), [aie2802]);
-  useEffect(() => localStorage.setItem('demonomer_pvc_percent', pvcPercent.toString()), [pvcPercent]);
-  useEffect(() => localStorage.setItem('demonomer_multipliers', JSON.stringify(multipliers)), [multipliers]);
-  useEffect(() => localStorage.setItem('demonomer_pvc_formula', pvcFormula), [pvcFormula]);
-  useEffect(() => localStorage.setItem('demonomer_steam_formula', steamFormula), [steamFormula]);
-
   // --- Handlers ---
   const handleResetFormulas = () => {
     if (window.confirm("Reset formulas to default factory settings?")) {
-        setPvcFormula(DEFAULT_PVC_FORMULA);
-        setSteamFormula(DEFAULT_STEAM_FORMULA);
+        onDataChange('pvcFormula', DEFAULT_PVC_FORMULA);
+        onDataChange('steamFormula', DEFAULT_STEAM_FORMULA);
     }
   };
 
   const handleMultiplierChange = (grade: GradeKey, val: string) => {
     const num = parseFloat(val) || 0;
-    setMultipliers(prev => ({ ...prev, [grade]: num }));
+    onDataChange('multipliers', { ...data.multipliers, [grade]: num });
   };
 
   // --- Dynamic Calculation Logic ---
@@ -92,20 +55,20 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
   };
 
   const calculatedPVC = useMemo(() => {
-    return evaluateMath(pvcFormula, {
-        'AI2802': aie2802,
-        '%PVC': pvcPercent / 100,
-        'F2002': f2002
+    return evaluateMath(data.pvcFormula, {
+        'AI2802': data.aie2802,
+        '%PVC': data.pvcPercent / 100,
+        'F2002': data.f2002
     });
-  }, [aie2802, pvcPercent, f2002, pvcFormula]);
+  }, [data.aie2802, data.pvcPercent, data.f2002, data.pvcFormula]);
 
   const calculatedSteam = useMemo(() => {
-    const mult = multipliers[currentGrade as GradeKey] || 0;
-    return evaluateMath(steamFormula, {
+    const mult = data.multipliers[currentGrade as GradeKey] || 0;
+    return evaluateMath(data.steamFormula, {
         'PVC': calculatedPVC,
         'Multiplier': mult
     });
-  }, [calculatedPVC, currentGrade, multipliers, steamFormula]);
+  }, [calculatedPVC, currentGrade, data.multipliers, data.steamFormula]);
 
   return (
     <div className="p-4 md:p-8 max-w-6xl mx-auto font-mono animate-in fade-in duration-500 flex flex-col gap-6 relative">
@@ -121,7 +84,7 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
                 <div className="flex items-center gap-2">
                     <p className="text-slate-500 font-bold uppercase text-xs tracking-wider">Operational Calculation Logic</p>
                     <span className="bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[9px] font-black px-1.5 py-0.5 rounded border border-slate-300 dark:border-slate-600 uppercase flex items-center gap-1">
-                        <Database className="w-3 h-3" /> Local Storage
+                        <Database className="w-3 h-3" /> Supabase Synced
                     </span>
                 </div>
             </div>
@@ -130,7 +93,7 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
           <div className="bg-white dark:bg-slate-800 p-2 rounded-xl border-2 border-slate-800 flex items-center gap-4">
               <span className="text-xs font-black text-slate-500 uppercase px-2">ACTIVE GRADE</span>
               <div className="flex gap-1">
-                  {(Object.keys(multipliers) as GradeKey[]).map(g => (
+                  {(Object.keys(data.multipliers) as GradeKey[]).map(g => (
                       <button 
                         key={g} 
                         onClick={() => onGradeChange(g as GradeType)}
@@ -160,8 +123,8 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
              <div className="relative w-full px-2">
                 <input 
                     type="number"
-                    value={f2002}
-                    onChange={(e) => setF2002(parseFloat(e.target.value) || 0)}
+                    value={data.f2002}
+                    onChange={(e) => onDataChange('f2002', parseFloat(e.target.value) || 0)}
                     className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded p-2 text-3xl font-black text-center text-slate-800 dark:text-white focus:outline-none focus:ring-4 focus:ring-teal-100 transition-all"
                 />
                 <span className="absolute -top-1 left-4 text-[9px] font-black text-slate-400 uppercase">Lot Factor</span>
@@ -172,8 +135,8 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
             <div className="relative w-full px-2">
                 <input 
                     type="number"
-                    value={aie2802}
-                    onChange={(e) => setAie2802(parseFloat(e.target.value) || 0)}
+                    value={data.aie2802}
+                    onChange={(e) => onDataChange('aie2802', parseFloat(e.target.value) || 0)}
                     className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded p-2 text-3xl font-black text-center text-slate-800 dark:text-white focus:outline-none focus:ring-4 focus:ring-teal-100 transition-all"
                 />
                 <span className="absolute -top-1 left-4 text-[9px] font-black text-slate-400 uppercase">Input Qty</span>
@@ -184,8 +147,8 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
              <div className="relative w-full px-2">
                 <input 
                     type="number"
-                    value={pvcPercent}
-                    onChange={(e) => setPvcPercent(parseFloat(e.target.value) || 0)}
+                    value={data.pvcPercent}
+                    onChange={(e) => onDataChange('pvcPercent', parseFloat(e.target.value) || 0)}
                     className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded p-2 text-3xl font-black text-center text-slate-800 dark:text-white focus:outline-none focus:ring-4 focus:ring-teal-100 transition-all"
                 />
                 <span className="absolute -top-1 left-4 text-[9px] font-black text-slate-400 uppercase">Percent %</span>
@@ -218,7 +181,7 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
           </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
-              {(Object.keys(multipliers) as GradeKey[]).map(g => (
+              {(Object.keys(data.multipliers) as GradeKey[]).map(g => (
                   <div 
                       key={g} 
                       className={`flex flex-col gap-2 p-4 rounded-xl border-2 transition-all cursor-pointer ${currentGrade === g ? 'bg-[#EEE8AA] dark:bg-teal-900/40 border-teal-600 shadow-md ring-2 ring-teal-200' : 'bg-white/50 dark:bg-slate-700/50 border-slate-200 dark:border-slate-700 opacity-60 hover:opacity-100'}`}
@@ -231,7 +194,7 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
                       <div className="flex items-center gap-2">
                           <input 
                               type="number"
-                              value={multipliers[g]}
+                              value={data.multipliers[g]}
                               onClick={(e) => e.stopPropagation()}
                               onChange={(e) => handleMultiplierChange(g, e.target.value)}
                               className="w-full bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded p-1 text-2xl font-bold text-teal-700 dark:text-teal-400 text-center focus:ring-2 focus:ring-teal-400 outline-none transition-all"
@@ -264,8 +227,8 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
                        <div className="relative group">
                             <input 
                                 type="text"
-                                value={pvcFormula}
-                                onChange={(e) => setPvcFormula(e.target.value)}
+                                value={data.pvcFormula}
+                                onChange={(e) => onDataChange('pvcFormula', e.target.value)}
                                 className="w-full font-mono text-sm font-bold text-blue-700 dark:text-blue-300 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none transition-all shadow-sm"
                             />
                        </div>
@@ -283,8 +246,8 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
                        <div className="relative group">
                             <input 
                                 type="text"
-                                value={steamFormula}
-                                onChange={(e) => setSteamFormula(e.target.value)}
+                                value={data.steamFormula}
+                                onChange={(e) => onDataChange('steamFormula', e.target.value)}
                                 className="w-full font-mono text-sm font-bold text-red-700 dark:text-red-300 bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded-lg p-3 focus:ring-2 focus:ring-red-500 outline-none transition-all shadow-sm"
                             />
                        </div>

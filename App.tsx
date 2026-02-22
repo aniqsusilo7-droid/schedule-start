@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { REACTORS } from './constants';
-import { AppState, ScheduleItem, ItemConfig, GradeType, SiloState, SiloData } from './types';
+import { AppState, ScheduleItem, ItemConfig, GradeType, SiloState, SiloData, DemonomerData } from './types';
 import { addMinutes, formatDate, formatTime } from './utils/dateUtils';
 import { Clock } from './components/Clock';
 import { Demonomer } from './components/Demonomer';
@@ -114,6 +114,16 @@ const App: React.FC = () => {
     f: { netto: '24,9', bruto: '' },
     h: { netto: '10,8', bruto: '' },
     g: { netto: '', bruto: '' }
+  });
+
+  // Demonomer State (Supabase Persistence)
+  const [demonomerData, setDemonomerData] = useState<DemonomerData>({
+      f2002: 125,
+      aie2802: 1070,
+      pvcPercent: 25,
+      multipliers: { SM: 118, SLP: 108, SLK: 128, SE: 140, SR: 100 },
+      pvcFormula: "F2002*AI2802/1000*%PVC",
+      steamFormula: "PVC * Multiplier"
   });
 
   // --- Silo State ---
@@ -279,6 +289,11 @@ const App: React.FC = () => {
                 setSiloState(settingsData.silo_state);
             }
 
+            // Load Demonomer Data
+            if (settingsData.demonomer_data) {
+                setDemonomerData(settingsData.demonomer_data);
+            }
+
         } else {
              // Init defaults if no settings exist
              await supabase.from('app_settings').insert([{ id: 1 }]);
@@ -386,6 +401,10 @@ const App: React.FC = () => {
     handleConfigChange('isStopped', !config.isStopped);
   };
 
+  // State for Reset Modal
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [resetParams, setResetParams] = useState({ batch: 0, time: '' });
+
   const toggleTheme = () => {
       handleConfigChange('theme', config.theme === 'light' ? 'dark' : 'light');
   };
@@ -394,48 +413,47 @@ const App: React.FC = () => {
       handleConfigChange('isMarqueePaused', !config.isMarqueePaused);
   };
 
-  const handleResetSequence = async () => {
-    if (window.confirm("RESET SYSTEM: Mengembalikan semua ke pengaturan awal? Data di Database akan di-reset.")) {
-        const n = new Date();
-        const coeff = 1000 * 60 * 5;
-        const rounded = new Date(Math.round(n.getTime() / coeff) * coeff);
-        
-        await supabase.from('app_settings').update({
-            base_batch_number: 0,
-            base_start_time: rounded.toISOString(),
-            interval_hours: 1,
-            interval_minutes: 30,
-            is_stopped: false,
-            running_text: "JIKA DELAY DIATAS 15 MENIT WAJIB ADJUST SCHEDULE!",
-            table_row_height: 95,
-            table_font_size: 24
-        }).eq('id', 1);
+  const handleResetSequence = () => {
+      const n = new Date();
+      const coeff = 1000 * 60 * 5;
+      const rounded = new Date(Math.round(n.getTime() / coeff) * coeff);
+      // Local ISO string for input
+      const localIso = new Date(rounded.getTime() - (rounded.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+      
+      setResetParams({
+          batch: config.baseBatchNumber,
+          time: localIso
+      });
+      setIsResetModalOpen(true);
+  };
 
-        await supabase.from('schedule_overrides').delete().neq('id', 'placeholder');
+  const submitResetSequence = async () => {
+      try {
+          const newStartTime = new Date(resetParams.time).toISOString();
+          
+          // Update Supabase
+          await supabase.from('app_settings').update({
+              base_batch_number: resetParams.batch,
+              base_start_time: newStartTime,
+          }).eq('id', 1);
 
-        setConfig({
-            baseBatchNumber: 0,
-            baseStartTime: rounded.toISOString(),
-            intervalHours: 1,
-            intervalMinutes: 30,
-            columnsToDisplay: 4,
-            itemConfigs: {},
-            audioEnabled: false,
-            currentGrade: 'SM',
-            isStopped: false,
-            reactorNotes: {},
-            alertThresholdSeconds: 60,
-            runningText: "JIKA DELAY DIATAS 15 MENIT WAJIB ADJUST SCHEDULE!",
-            isMarqueePaused: false,
-            marqueeSpeed: 30,
-            theme: 'light',
-            layoutOrder: ['header', 'scheduler', 'catalyst'], // Reset to new default order
-            tableRowHeight: 95,
-            tableFontSize: 24
-        });
-        setNow(new Date()); 
-        setDismissedAlerts(new Set());
-    }
+          // Clear overrides to ensure a fresh cycle
+          await supabase.from('schedule_overrides').delete().neq('id', 'placeholder');
+
+          // Update Local State
+          setConfig(prev => ({
+              ...prev,
+              baseBatchNumber: resetParams.batch,
+              baseStartTime: newStartTime,
+              itemConfigs: {} // Clear overrides
+          }));
+          
+          setDismissedAlerts(new Set());
+          setIsResetModalOpen(false);
+      } catch (error) {
+          console.error("Error resetting sequence:", error);
+          alert("Failed to reset sequence. Check console.");
+      }
   };
 
   // --- Catalyst Handlers ---
@@ -519,6 +537,13 @@ const App: React.FC = () => {
       };
       setSiloState(newSiloState);
       updateGlobalSetting({ silo_state: newSiloState });
+  };
+
+  // --- Demonomer Handlers ---
+  const handleDemonomerChange = (field: keyof DemonomerData, value: any) => {
+      const newData = { ...demonomerData, [field]: value };
+      setDemonomerData(newData);
+      updateGlobalSetting({ demonomer_data: newData });
   };
 
   // --- Reactor Note Handlers ---
@@ -1630,6 +1655,8 @@ const App: React.FC = () => {
             <Demonomer 
                 currentGrade={config.currentGrade} 
                 onGradeChange={(g) => handleConfigChange('currentGrade', g)} 
+                data={demonomerData}
+                onDataChange={handleDemonomerChange}
             />
           )}
           
@@ -1928,6 +1955,72 @@ const App: React.FC = () => {
                       </button>
                       <button onClick={saveReactorNote} className="px-4 py-2 bg-blue-600 text-white font-bold rounded hover:bg-blue-700">
                           Save
+                      </button>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* --- Reset Sequence Modal --- */}
+      {isResetModalOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 ring-4 ring-red-500/50">
+                  {/* Header */}
+                  <div className="bg-red-600 text-white p-6 flex items-center justify-between">
+                      <div>
+                          <h3 className="text-2xl font-black flex items-center gap-2">
+                              <RotateCcw className="w-8 h-8 text-yellow-300" />
+                              RESET SEQUENCE
+                          </h3>
+                          <p className="text-red-100 font-bold text-sm mt-1">Start new cycle & reset status.</p>
+                      </div>
+                      <button onClick={() => setIsResetModalOpen(false)} className="bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors">
+                          <X className="w-6 h-6" />
+                      </button>
+                  </div>
+
+                  {/* Body */}
+                  <div className="p-6 space-y-6">
+                      
+                      {/* Batch Number Input */}
+                      <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">New Start Batch Number</label>
+                          <input 
+                              type="number" 
+                              autoFocus
+                              value={resetParams.batch}
+                              onChange={(e) => setResetParams({...resetParams, batch: parseInt(e.target.value) || 0})}
+                              className="w-full text-center text-3xl font-black p-3 rounded-xl border-2 border-slate-300 focus:border-red-500 focus:ring-4 focus:ring-red-100 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white"
+                          />
+                      </div>
+
+                      {/* Time Input */}
+                      <div className="space-y-2 bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">New Start Time (Reactor S)</label>
+                          <input 
+                              type="datetime-local" 
+                              value={resetParams.time}
+                              onChange={(e) => setResetParams({...resetParams, time: e.target.value})}
+                              className="w-full bg-transparent text-center font-mono font-bold text-xl outline-none border-b-2 border-slate-300 focus:border-red-500 dark:text-white"
+                          />
+                      </div>
+
+                  </div>
+
+                  {/* Footer */}
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex gap-3">
+                      <button 
+                        onClick={() => setIsResetModalOpen(false)}
+                        className="flex-1 py-4 font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
+                      >
+                          CANCEL
+                      </button>
+                      <button 
+                        onClick={submitResetSequence}
+                        className="flex-[2] bg-red-600 hover:bg-red-700 text-white font-black text-lg py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transform active:scale-95 transition-all"
+                      >
+                          <Check className="w-6 h-6" />
+                          CONFIRM RESET
                       </button>
                   </div>
               </div>
