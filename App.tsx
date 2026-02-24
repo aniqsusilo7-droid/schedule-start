@@ -109,8 +109,8 @@ const App: React.FC = () => {
 
   // --- Cycle Time State ---
   const [cycleTimeData, setCycleTimeData] = useState([
-      { id: 1, ns: '08:40', readyBlowing: '14:03', blowing: '15:46', blowingComplete: '16:21' },
-      { id: 2, ns: '02:35', readyBlowing: '08:46', blowing: '12:32', blowingComplete: '13:04' }
+      { id: 1, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' },
+      { id: 2, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }
   ]);
 
   // --- Silo State ---
@@ -813,7 +813,7 @@ const App: React.FC = () => {
   }, [config, now]);
 
   const isScheduleCompleted = useMemo(() => {
-    const allItems = Object.values(scheduleMatrix).flat();
+    const allItems = Object.values(scheduleMatrix).flat() as ScheduleItem[];
     if (allItems.length === 0) return false;
     return allItems.every(item => item.status === 'past' || item.status === 'skipped');
   }, [scheduleMatrix]);
@@ -864,7 +864,7 @@ const App: React.FC = () => {
    useEffect(() => {
     if (!config.audioEnabled || config.isStopped) return;
 
-    Object.values(scheduleMatrix).flat().forEach(item => {
+    (Object.values(scheduleMatrix).flat() as ScheduleItem[]).forEach(item => {
         if (item.status === 'active' && !announcedBatches.current.has(item.id)) {
             playSirenSound();
             announcedBatches.current.add(item.id);
@@ -898,7 +898,7 @@ const App: React.FC = () => {
   // Full Screen Alert Logic
   const fullScreenAlertItem = useMemo(() => {
       if (config.isStopped || config.alertThresholdSeconds <= 0) return null;
-      const allItems = Object.values(scheduleMatrix).flat();
+      const allItems = Object.values(scheduleMatrix).flat() as ScheduleItem[];
       const impendingItem = allItems.find(item => {
           if (item.status === 'skipped' || item.status === 'past') return false;
           if (dismissedAlerts.has(item.id)) return false;
@@ -1568,15 +1568,15 @@ const App: React.FC = () => {
                         CYCLE TIME
                     </div>
                     <div className="bg-white dark:bg-slate-800 border-4 border-slate-800 dark:border-slate-700 rounded-b-xl p-4 overflow-x-auto">
-                        <table className="w-full border-collapse text-center font-bold text-xs">
+                        <table className="w-full border-collapse text-center font-bold text-lg">
                             <thead>
                                 <tr>
-                                    <th className="border border-slate-400 p-2 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white">NS</th>
-                                    <th className="border border-slate-400 p-2 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white">READY BLOWING</th>
-                                    <th className="border border-slate-400 p-2 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white">BLOWING</th>
-                                    <th className="border border-slate-400 p-2 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white">BLOWING HOLD</th>
-                                    <th className="border border-slate-400 p-2 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white">BLOWING COMPLETE</th>
-                                    <th className="border border-slate-400 p-2 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white">CYCLE</th>
+                                    <th className="border-2 border-slate-400 p-3 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">NS</th>
+                                    <th className="border-2 border-slate-400 p-3 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">READY BLOWING</th>
+                                    <th className="border-2 border-slate-400 p-3 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">BLOWING</th>
+                                    <th className="border-2 border-slate-400 p-3 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">BLOWING HOLD</th>
+                                    <th className="border-2 border-slate-400 p-3 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">BLOWING COMPLETE</th>
+                                    <th className="border-2 border-slate-400 p-3 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">CYCLE</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1584,10 +1584,6 @@ const App: React.FC = () => {
                                     const blowingHold = calculateBlowingHold(row.readyBlowing, row.blowing);
                                     
                                     // Calculate Cycle Time: =SUM(BLOWING COMPLETE - NS - BLOWING HOLD) + 2
-                                    // Wait, the formula was: =SUM(K12-C12-J12)+2
-                                    // K12 = BLOWING COMPLETE
-                                    // C12 = NS
-                                    // J12 = BLOWING HOLD
                                     let cycleTime = '';
                                     if (row.blowingComplete && row.ns && blowingHold) {
                                         const totalDuration = calculateDuration(row.ns, row.blowingComplete);
@@ -1604,45 +1600,45 @@ const App: React.FC = () => {
 
                                     return (
                                         <tr key={row.id}>
-                                            <td className="border border-slate-400 p-2 bg-[#D9E1F2] text-black">
+                                            <td className="border-2 border-slate-400 p-3 bg-[#D9E1F2] text-black">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-transparent outline-none w-full text-center" 
+                                                    className="bg-transparent outline-none w-full text-center font-black text-xl" 
                                                     value={row.ns} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'ns', e.target.value)}
                                                 />
                                             </td>
-                                            <td className="border border-slate-400 p-2 bg-[#D9E1F2] text-black">
+                                            <td className="border-2 border-slate-400 p-3 bg-[#D9E1F2] text-black">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-transparent outline-none w-full text-center" 
+                                                    className="bg-transparent outline-none w-full text-center font-black text-xl" 
                                                     value={row.readyBlowing} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'readyBlowing', e.target.value)}
                                                 />
                                             </td>
-                                            <td className="border border-slate-400 p-2 bg-[#E2EFDA] text-black">
+                                            <td className="border-2 border-slate-400 p-3 bg-[#E2EFDA] text-black">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-transparent outline-none w-full text-center" 
+                                                    className="bg-transparent outline-none w-full text-center font-black text-xl" 
                                                     value={row.blowing} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'blowing', e.target.value)}
                                                 />
                                             </td>
-                                            <td className="border border-slate-400 p-2 bg-[#F4B084] text-black relative group">
+                                            <td className="border-2 border-slate-400 p-3 bg-[#F4B084] text-black relative group text-2xl font-black">
                                                 {blowingHold}
                                                 <div className="absolute hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-slate-800 text-white text-xs rounded whitespace-nowrap z-10">
                                                     =(BLOWING - READY BLOWING) + 1
                                                 </div>
                                             </td>
-                                            <td className="border border-slate-400 p-2 bg-[#D9E1F2] text-black">
+                                            <td className="border-2 border-slate-400 p-3 bg-[#D9E1F2] text-black">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-transparent outline-none w-full text-center" 
+                                                    className="bg-transparent outline-none w-full text-center font-black text-xl" 
                                                     value={row.blowingComplete} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'blowingComplete', e.target.value)}
                                                 />
                                             </td>
-                                            <td className="border border-slate-400 p-2 bg-[#E6B8B7] text-black relative group">
+                                            <td className="border-2 border-slate-400 p-3 bg-[#E6B8B7] text-black relative group text-2xl font-black">
                                                 {cycleTime}
                                                 <div className="absolute hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-slate-800 text-white text-xs rounded whitespace-nowrap z-10">
                                                     =(BLOWING COMPLETE - NS - BLOWING HOLD) + 2
@@ -1653,6 +1649,13 @@ const App: React.FC = () => {
                                 })}
                             </tbody>
                         </table>
+                        <button 
+                            onClick={() => setCycleTimeData(prev => [...prev, { id: Date.now(), ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }])}
+                            className="mt-4 w-full py-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold rounded-lg border-2 border-dashed border-indigo-300 dark:border-indigo-700 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-2"
+                        >
+                            <LayoutGrid className="w-4 h-4" />
+                            ADD NEW CYCLE ROW
+                        </button>
                     </div>
                </div>
            </div>
