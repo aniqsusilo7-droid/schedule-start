@@ -1,12 +1,12 @@
 
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { REACTORS } from './constants';
 import { AppState, ScheduleItem, ItemConfig, GradeType, SiloState, SiloData, DemonomerData } from './types';
 import { addMinutes, formatDate, formatTime } from './utils/dateUtils';
 import { Clock } from './components/Clock';
 import { Demonomer } from './components/Demonomer';
 import { Silo } from './components/Silo';
-import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check } from 'lucide-react';
+import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator } from 'lucide-react';
 import { supabase } from './supabaseClient';
 
 const GRADES: GradeType[] = ['SM', 'SLK', 'SLP', 'SE', 'SR'];
@@ -107,6 +107,12 @@ const App: React.FC = () => {
       steamFormula: "PVC * Multiplier"
   });
 
+  // --- Cycle Time State ---
+  const [cycleTimeData, setCycleTimeData] = useState([
+      { id: 1, ns: '08:40', readyBlowing: '14:03', blowing: '15:46', blowingComplete: '16:21' },
+      { id: 2, ns: '02:35', readyBlowing: '08:46', blowing: '12:32', blowingComplete: '13:04' }
+  ]);
+
   // --- Silo State ---
   const [siloState, setSiloState] = useState<SiloState>({
       activeSilo: null, // No active silo initially
@@ -183,111 +189,118 @@ const App: React.FC = () => {
   // --- Effects ---
   
   // --- Supabase Data Loading ---
-  useEffect(() => {
-    const loadData = async () => {
-      setIsLoading(true);
-      try {
-        // 1. Fetch Global Settings
-        const { data: settingsData, error: settingsError } = await supabase
-          .from('app_settings')
-          .select('*')
-          .single();
+  const loadData = useCallback(async (showLoading = true) => {
+    if (showLoading) setIsLoading(true);
+    try {
+      // 1. Fetch Global Settings
+      const { data: settingsData, error: settingsError } = await supabase
+        .from('app_settings')
+        .select('*')
+        .single();
 
-        if (settingsError && settingsError.code !== 'PGRST116') throw settingsError;
+      if (settingsError && settingsError.code !== 'PGRST116') throw settingsError;
 
-        // 2. Fetch Reactor Notes
-        const { data: notesData, error: notesError } = await supabase
-          .from('reactor_notes')
-          .select('*');
-        
-        if (notesError) throw notesError;
+      // 2. Fetch Reactor Notes
+      const { data: notesData, error: notesError } = await supabase
+        .from('reactor_notes')
+        .select('*');
+      
+      if (notesError) throw notesError;
 
-        const notesMap: Record<string, string> = {};
-        if (notesData) {
-            notesData.forEach((row: any) => {
-                notesMap[row.reactor_id] = row.note;
-            });
-        }
-
-        // 3. Fetch Schedule Overrides (Item Configs)
-        const { data: overridesData, error: overridesError } = await supabase
-          .from('schedule_overrides')
-          .select('*');
-
-        if (overridesError) throw overridesError;
-
-        const itemConfigsMap: Record<string, ItemConfig> = {};
-        if (overridesData) {
-            overridesData.forEach((row: any) => {
-                itemConfigsMap[row.id] = {
-                    overrideTime: row.override_time,
-                    isSkipped: row.is_skipped,
-                    mode: row.mode,
-                    grade: row.grade,
-                    note: row.note,
-                    shiftSubsequent: row.shift_subsequent,
-                    manualDelayMinutes: row.manual_delay_minutes,
-                    stageInfo: row.stage_info
-                };
-            });
-        }
-
-        // Apply to State
-        if (settingsData) {
-            setConfig({
-                baseBatchNumber: settingsData.base_batch_number,
-                baseStartTime: settingsData.base_start_time,
-                intervalHours: settingsData.interval_hours,
-                intervalMinutes: settingsData.interval_minutes,
-                columnsToDisplay: settingsData.columns_to_display,
-                audioEnabled: settingsData.audio_enabled,
-                currentGrade: settingsData.current_grade as GradeType,
-                isStopped: settingsData.is_stopped,
-                alertThresholdSeconds: settingsData.alert_threshold_seconds,
-                runningText: settingsData.running_text,
-                isMarqueePaused: settingsData.is_marquee_paused,
-                marqueeSpeed: settingsData.marquee_speed || 30,
-                theme: (settingsData.theme as 'light' | 'dark') || 'light',
-                reactorNotes: notesMap,
-                itemConfigs: itemConfigsMap,
-                layoutOrder: settingsData.layout_order || ['header', 'scheduler', 'catalyst'], // Fallback
-                tableRowHeight: settingsData.table_row_height || 95,
-                tableFontSize: settingsData.table_font_size || 24,
-            });
-
-            // Load Zoom Level
-            if (settingsData.zoom_level) {
-                setZoomLevel(settingsData.zoom_level);
-            }
-
-            // Load Catalyst Data
-            if (settingsData.catalyst_data) {
-                setCatalystData(settingsData.catalyst_data);
-            }
-
-            // Load Silo State
-            if (settingsData.silo_state) {
-                setSiloState(settingsData.silo_state);
-            }
-
-            // Load Demonomer Data
-            if (settingsData.demonomer_data) {
-                setDemonomerData(settingsData.demonomer_data);
-            }
-
-        } else {
-             // Init defaults if no settings exist
-             await supabase.from('app_settings').insert([{ id: 1 }]);
-        }
-      } catch (error) {
-        console.error("Error loading data from Supabase:", error);
-      } finally {
-        setIsLoading(false);
+      const notesMap: Record<string, string> = {};
+      if (notesData) {
+          notesData.forEach((row: any) => {
+              notesMap[row.reactor_id] = row.note;
+          });
       }
-    };
 
-    loadData();
+      // 3. Fetch Schedule Overrides (Item Configs)
+      const { data: overridesData, error: overridesError } = await supabase
+        .from('schedule_overrides')
+        .select('*');
+
+      if (overridesError) throw overridesError;
+
+      const itemConfigsMap: Record<string, ItemConfig> = {};
+      if (overridesData) {
+          overridesData.forEach((row: any) => {
+              itemConfigsMap[row.id] = {
+                  overrideTime: row.override_time,
+                  isSkipped: row.is_skipped,
+                  mode: row.mode,
+                  grade: row.grade,
+                  note: row.note,
+                  shiftSubsequent: row.shift_subsequent,
+                  manualDelayMinutes: row.manual_delay_minutes,
+                  stageInfo: row.stage_info
+              };
+          });
+      }
+
+      // Apply to State
+      if (settingsData) {
+          setConfig({
+              baseBatchNumber: settingsData.base_batch_number,
+              baseStartTime: settingsData.base_start_time,
+              intervalHours: settingsData.interval_hours,
+              intervalMinutes: settingsData.interval_minutes,
+              columnsToDisplay: settingsData.columns_to_display,
+              audioEnabled: settingsData.audio_enabled,
+              currentGrade: settingsData.current_grade as GradeType,
+              isStopped: settingsData.is_stopped,
+              alertThresholdSeconds: settingsData.alert_threshold_seconds,
+              runningText: settingsData.running_text,
+              isMarqueePaused: settingsData.is_marquee_paused,
+              marqueeSpeed: settingsData.marquee_speed || 30,
+              theme: (settingsData.theme as 'light' | 'dark') || 'light',
+              reactorNotes: notesMap,
+              itemConfigs: itemConfigsMap,
+              layoutOrder: settingsData.layout_order || ['header', 'scheduler', 'catalyst'], // Fallback
+              tableRowHeight: settingsData.table_row_height || 95,
+              tableFontSize: settingsData.table_font_size || 24,
+          });
+
+          // Load Zoom Level
+          if (settingsData.zoom_level) {
+              setZoomLevel(settingsData.zoom_level);
+          }
+
+          // Load Catalyst Data
+          if (settingsData.catalyst_data) {
+              setCatalystData(settingsData.catalyst_data);
+          }
+
+          // Load Silo State
+          if (settingsData.silo_state) {
+              setSiloState(settingsData.silo_state);
+          }
+
+          // Load Demonomer Data
+          if (settingsData.demonomer_data) {
+              setDemonomerData(settingsData.demonomer_data);
+          }
+
+      } else {
+           // Init defaults if no settings exist
+           await supabase.from('app_settings').insert([{ id: 1 }]);
+      }
+    } catch (error) {
+      console.error("Error loading data from Supabase:", error);
+    } finally {
+      if (showLoading) setIsLoading(false);
+    }
   }, []);
+
+  useEffect(() => {
+    loadData();
+    
+    // Auto-refresh polling (every 5 seconds)
+    const interval = setInterval(() => {
+        loadData(false); // don't show loading spinner on background refresh
+    }, 5000);
+    
+    return () => clearInterval(interval);
+  }, [loadData]);
 
   // --- Real-time / Periodic Saver Helpers ---
   
@@ -395,17 +408,19 @@ const App: React.FC = () => {
   };
 
   const handleResetSequence = () => {
-      const n = new Date();
-      const coeff = 1000 * 60 * 5;
-      const rounded = new Date(Math.round(n.getTime() / coeff) * coeff);
-      // Local ISO string for input
-      const localIso = new Date(rounded.getTime() - (rounded.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
-      
-      setResetParams({
-          batch: config.baseBatchNumber,
-          time: localIso
-      });
-      setIsResetModalOpen(true);
+      if (window.confirm('Are you sure you want to reset the entire sequence? This will clear all progress and adjustments.')) {
+          const n = new Date();
+          const coeff = 1000 * 60 * 5;
+          const rounded = new Date(Math.round(n.getTime() / coeff) * coeff);
+          // Local ISO string for input
+          const localIso = new Date(rounded.getTime() - (rounded.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+          
+          setResetParams({
+              batch: config.baseBatchNumber,
+              time: localIso
+          });
+          setIsResetModalOpen(true);
+      }
   };
 
   const submitResetSequence = async () => {
@@ -445,6 +460,39 @@ const App: React.FC = () => {
     };
     setCatalystData(newData);
     updateGlobalSetting({ catalyst_data: newData });
+  };
+
+  // --- Cycle Time Logic ---
+  const calculateDuration = (start: string, end: string) => {
+      if (!start || !end) return '';
+      const [startH, startM] = start.split(':').map(Number);
+      const [endH, endM] = end.split(':').map(Number);
+      
+      let startTotal = startH * 60 + startM;
+      let endTotal = endH * 60 + endM;
+      
+      if (endTotal < startTotal) {
+          endTotal += 24 * 60; // Handle cross midnight
+      }
+      
+      const diff = endTotal - startTotal;
+      const h = Math.floor(diff / 60);
+      const m = diff % 60;
+      return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
+  };
+
+  const calculateBlowingHold = (readyBlowing: string, blowing: string) => {
+      // =(BLOWING - READY BLOWING) + 1
+      if (!readyBlowing || !blowing) return '';
+      const duration = calculateDuration(readyBlowing, blowing);
+      if (!duration) return '';
+      const [h, m] = duration.split(':').map(Number);
+      const totalMins = (h * 60) + m + 1; // +1 based on formula
+      return `${Math.floor(totalMins / 60).toString().padStart(2, '0')}:${(totalMins % 60).toString().padStart(2, '0')}`;
+  };
+
+  const handleCycleTimeChange = (id: number, field: string, value: string) => {
+      setCycleTimeData(prev => prev.map(row => row.id === id ? { ...row, [field]: value } : row));
   };
 
   // --- Silo Handlers ---
@@ -1283,7 +1331,7 @@ const App: React.FC = () => {
                               ) : (
                                 <>
                                     {/* Unified Time Display - Significantly Larger */}
-                                    <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-110' : (isPast ? 'text-slate-600 dark:text-slate-500 line-through decoration-4 decoration-slate-500' : 'text-slate-800 dark:text-slate-100')} transition-transform`} style={{ fontSize: '3.5em' }}>
+                                    <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-110' : (isPast ? 'text-slate-500 dark:text-slate-400 opacity-90' : 'text-slate-800 dark:text-slate-100')} transition-transform`} style={{ fontSize: '3.5em' }}>
                                         {formatTime(item.startTime)}
                                     </div>
                                     
@@ -1296,27 +1344,27 @@ const App: React.FC = () => {
                                         <div className="font-black text-yellow-300 uppercase tracking-widest animate-bounce mt-1" style={{ fontSize: '0.9em' }}>
                                             START NOW
                                         </div>
-                                    ) : (
-                                        <div className="flex justify-center gap-1 mt-1 flex-wrap w-full items-center">
-                                            {/* Adjusted Time Delta Badge (HH:MM) */}
-                                            {item.deltaMinutes !== 0 && (
-                                                <div className={`font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-0.5 ${item.deltaMinutes > 0 ? 'bg-yellow-400 text-yellow-900' : 'bg-cyan-100 text-cyan-800'}`} style={{ fontSize: '0.85em' }}>
-                                                    <Timer className="w-[1em] h-[1em]" /> {formatDelay(item.deltaMinutes)}
-                                                </div>
-                                            )}
-                                            {/* Mode Badge - Visible for Open/Close Status */}
-                                            <div className={`font-bold px-1.5 py-0.5 rounded uppercase border flex items-center gap-1 ${mode === 'OPEN' ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border-cyan-200 dark:border-cyan-800' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600'}`} style={{ fontSize: '0.85em' }}>
-                                                <span className="text-[0.7em] opacity-70 mr-0.5">MODE</span>
-                                                {mode}
+                                    ) : null}
+                                    
+                                    <div className="flex justify-center gap-1 mt-1 flex-wrap w-full items-center">
+                                        {/* Adjusted Time Delta Badge (HH:MM) */}
+                                        {item.deltaMinutes !== 0 && (
+                                            <div className={`font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-0.5 ${item.deltaMinutes > 0 ? 'bg-yellow-400 text-yellow-900' : 'bg-cyan-100 text-cyan-800'}`} style={{ fontSize: '0.85em' }}>
+                                                <Timer className="w-[1em] h-[1em]" /> {formatDelay(item.deltaMinutes)}
                                             </div>
-                                            {/* Shift Indicator */}
-                                            {item.config?.shiftSubsequent && (
-                                                <div className="font-bold bg-orange-100 text-orange-700 px-1 py-0.5 rounded uppercase border border-orange-200 flex items-center" style={{ fontSize: '0.85em' }}>
-                                                    <ArrowRightCircle className="w-[1em] h-[1em]" />
-                                                </div>
-                                            )}
+                                        )}
+                                        {/* Mode Badge - Visible for Open/Close Status */}
+                                        <div className={`font-bold px-1.5 py-0.5 rounded uppercase border flex items-center gap-1 ${mode === 'OPEN' ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border-cyan-200 dark:border-cyan-800' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600'}`} style={{ fontSize: '0.85em' }}>
+                                            <span className="text-[0.7em] opacity-70 mr-0.5">MODE</span>
+                                            {mode}
                                         </div>
-                                    )}
+                                        {/* Shift Indicator */}
+                                        {item.config?.shiftSubsequent && (
+                                            <div className="font-bold bg-orange-100 text-orange-700 px-1 py-0.5 rounded uppercase border border-orange-200 flex items-center" style={{ fontSize: '0.85em' }}>
+                                                <ArrowRightCircle className="w-[1em] h-[1em]" />
+                                            </div>
+                                        )}
+                                    </div>
                                 </>
                               )}
 
@@ -1475,17 +1523,136 @@ const App: React.FC = () => {
                              <span className="text-8xl mr-8 drop-shadow-sm text-cyan-600 dark:text-cyan-400 animate-pulse">{siloState.activeSilo || '-'}</span>
                              
                              {/* Details */}
-                             <div className="flex flex-col leading-tight text-left border-l-4 border-slate-200 dark:border-slate-700 pl-6 gap-3">
-                                 <div>
-                                     <span className="text-[0.7em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">START TIME</span>
-                                     <span className="text-[1.8em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.startTime || '--:--'}</span>
+                             <div className="flex flex-col leading-tight text-left border-l-4 border-slate-200 dark:border-slate-700 pl-6 gap-3 w-full">
+                                 <div className="flex justify-between items-center pr-4">
+                                     <div>
+                                         <span className="text-[0.7em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">START TIME</span>
+                                         <span className="text-[1.8em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.startTime || '--:--'}</span>
+                                     </div>
+                                     <div className="text-right">
+                                         <span className="text-[0.7em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">SET AMOUNT</span>
+                                         <span className="text-[1.8em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.capacitySet || '0'} T</span>
+                                     </div>
                                  </div>
-                                 <div>
-                                     <span className="text-[0.7em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">SET AMOUNT</span>
-                                     <span className="text-[1.8em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.capacitySet || '0'} T</span>
+                                 
+                                 {/* Lot Number Table */}
+                                 <div className="mt-2 pr-4">
+                                     <table className="w-full border-collapse border-2 border-slate-300 dark:border-slate-600">
+                                         <thead>
+                                             <tr>
+                                                 <th className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[0.7em] font-black uppercase tracking-wider py-1 border-b-2 border-slate-300 dark:border-slate-600">
+                                                     LOT NUMBER
+                                                 </th>
+                                             </tr>
+                                         </thead>
+                                         <tbody>
+                                             <tr>
+                                                 <td className="bg-white dark:bg-slate-800 text-center py-2">
+                                                     <span className="text-[1.5em] font-mono font-bold text-slate-800 dark:text-white">
+                                                         {activeSiloData?.lotNumber || '---'}
+                                                     </span>
+                                                 </td>
+                                             </tr>
+                                         </tbody>
+                                     </table>
                                  </div>
                              </div>
                         </div>
+                    </div>
+               </div>
+
+               {/* 3. CYCLE TIME WIDGET */}
+               <div className="flex flex-col w-fit shadow-[8px_8px_0px_0px_rgba(30,41,59,0.2)] rounded-xl ml-auto">
+                    <div className="bg-indigo-600 text-white font-black text-[1em] px-6 py-4 text-center border-4 border-slate-800 dark:border-slate-700 border-b-0 rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight">
+                        <Calculator className="w-5 h-5" />
+                        CYCLE TIME
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 border-4 border-slate-800 dark:border-slate-700 rounded-b-xl p-4 overflow-x-auto">
+                        <table className="w-full border-collapse text-center font-bold text-xs">
+                            <thead>
+                                <tr>
+                                    <th className="border border-slate-400 p-2 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white">NS</th>
+                                    <th className="border border-slate-400 p-2 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white">READY BLOWING</th>
+                                    <th className="border border-slate-400 p-2 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white">BLOWING</th>
+                                    <th className="border border-slate-400 p-2 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white">BLOWING HOLD</th>
+                                    <th className="border border-slate-400 p-2 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white">BLOWING COMPLETE</th>
+                                    <th className="border border-slate-400 p-2 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white">CYCLE</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {cycleTimeData.map((row) => {
+                                    const blowingHold = calculateBlowingHold(row.readyBlowing, row.blowing);
+                                    
+                                    // Calculate Cycle Time: =SUM(BLOWING COMPLETE - NS - BLOWING HOLD) + 2
+                                    // Wait, the formula was: =SUM(K12-C12-J12)+2
+                                    // K12 = BLOWING COMPLETE
+                                    // C12 = NS
+                                    // J12 = BLOWING HOLD
+                                    let cycleTime = '';
+                                    if (row.blowingComplete && row.ns && blowingHold) {
+                                        const totalDuration = calculateDuration(row.ns, row.blowingComplete);
+                                        if (totalDuration) {
+                                            const [tdH, tdM] = totalDuration.split(':').map(Number);
+                                            const [bhH, bhM] = blowingHold.split(':').map(Number);
+                                            
+                                            const totalMins = (tdH * 60 + tdM) - (bhH * 60 + bhM) + 2;
+                                            if (totalMins >= 0) {
+                                                cycleTime = `${Math.floor(totalMins / 60).toString().padStart(2, '0')}:${(totalMins % 60).toString().padStart(2, '0')}`;
+                                            }
+                                        }
+                                    }
+
+                                    return (
+                                        <tr key={row.id}>
+                                            <td className="border border-slate-400 p-2 bg-[#D9E1F2] text-black">
+                                                <input 
+                                                    type="time" 
+                                                    className="bg-transparent outline-none w-full text-center" 
+                                                    value={row.ns} 
+                                                    onChange={(e) => handleCycleTimeChange(row.id, 'ns', e.target.value)}
+                                                />
+                                            </td>
+                                            <td className="border border-slate-400 p-2 bg-[#D9E1F2] text-black">
+                                                <input 
+                                                    type="time" 
+                                                    className="bg-transparent outline-none w-full text-center" 
+                                                    value={row.readyBlowing} 
+                                                    onChange={(e) => handleCycleTimeChange(row.id, 'readyBlowing', e.target.value)}
+                                                />
+                                            </td>
+                                            <td className="border border-slate-400 p-2 bg-[#E2EFDA] text-black">
+                                                <input 
+                                                    type="time" 
+                                                    className="bg-transparent outline-none w-full text-center" 
+                                                    value={row.blowing} 
+                                                    onChange={(e) => handleCycleTimeChange(row.id, 'blowing', e.target.value)}
+                                                />
+                                            </td>
+                                            <td className="border border-slate-400 p-2 bg-[#F4B084] text-black relative group">
+                                                {blowingHold}
+                                                <div className="absolute hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-slate-800 text-white text-xs rounded whitespace-nowrap z-10">
+                                                    =(BLOWING - READY BLOWING) + 1
+                                                </div>
+                                            </td>
+                                            <td className="border border-slate-400 p-2 bg-[#D9E1F2] text-black">
+                                                <input 
+                                                    type="time" 
+                                                    className="bg-transparent outline-none w-full text-center" 
+                                                    value={row.blowingComplete} 
+                                                    onChange={(e) => handleCycleTimeChange(row.id, 'blowingComplete', e.target.value)}
+                                                />
+                                            </td>
+                                            <td className="border border-slate-400 p-2 bg-[#E6B8B7] text-black relative group">
+                                                {cycleTime}
+                                                <div className="absolute hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-slate-800 text-white text-xs rounded whitespace-nowrap z-10">
+                                                    =(BLOWING COMPLETE - NS - BLOWING HOLD) + 2
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    );
+                                })}
+                            </tbody>
+                        </table>
                     </div>
                </div>
            </div>
