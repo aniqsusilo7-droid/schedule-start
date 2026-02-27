@@ -20,7 +20,7 @@ const playSirenSound = () => {
         const ctx = new AudioContext();
 
         const t = ctx.currentTime;
-        const duration = 3.0; // 3 seconds siren
+        const duration = 12.0; // 12 seconds siren
 
         const osc = ctx.createOscillator();
         const gainNode = ctx.createGain();
@@ -158,7 +158,7 @@ const App: React.FC = () => {
     intervalMinutes: 30,
     columnsToDisplay: 4,
     itemConfigs: {},
-    audioEnabled: false,
+    audioEnabled: true,
     currentGrade: 'SM',
     isStopped: false,
     reactorNotes: {},
@@ -188,6 +188,13 @@ const App: React.FC = () => {
 
   // --- Effects ---
   
+  // Request Notification Permission
+  useEffect(() => {
+      if ('Notification' in window && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+          Notification.requestPermission();
+      }
+  }, []);
+
   // --- Supabase Data Loading ---
   const loadData = useCallback(async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
@@ -245,7 +252,7 @@ const App: React.FC = () => {
               intervalHours: settingsData.interval_hours,
               intervalMinutes: settingsData.interval_minutes,
               columnsToDisplay: settingsData.columns_to_display,
-              audioEnabled: settingsData.audio_enabled,
+              audioEnabled: true, // Auto-enable audio as requested
               currentGrade: settingsData.current_grade as GradeType,
               isStopped: settingsData.is_stopped,
               alertThresholdSeconds: settingsData.alert_threshold_seconds,
@@ -381,10 +388,35 @@ const App: React.FC = () => {
     return () => clearInterval(timer);
   }, [config.isStopped]);
 
-  const handleApply = () => {
-    handleConfigChange('baseBatchNumber', tempBaseBatchNumber);
-    handleConfigChange('baseStartTime', tempBaseStartTime);
-    alert("Settings Applied!");
+  const handleApply = async () => {
+      if (window.confirm('Are you sure you want to apply these settings? This will reset the sequence.')) {
+          try {
+              const newStartTime = new Date(tempBaseStartTime).toISOString();
+              
+              // Update Supabase
+              await supabase.from('app_settings').update({
+                  base_batch_number: tempBaseBatchNumber,
+                  base_start_time: newStartTime,
+              }).eq('id', 1);
+
+              // Clear overrides to ensure a fresh cycle
+              await supabase.from('schedule_overrides').delete().neq('id', 'placeholder');
+
+              // Update Local State
+              setConfig(prev => ({
+                  ...prev,
+                  baseBatchNumber: tempBaseBatchNumber,
+                  baseStartTime: newStartTime,
+                  itemConfigs: {} // Clear overrides
+              }));
+              
+              setDismissedAlerts(new Set());
+              alert("Settings Applied and Sequence Reset!");
+          } catch (error) {
+              console.error("Error applying settings:", error);
+              alert("Failed to apply settings. Check console.");
+          }
+      }
   };
 
   const toggleAudio = () => {
@@ -482,12 +514,12 @@ const App: React.FC = () => {
   };
 
   const calculateBlowingHold = (readyBlowing: string, blowing: string) => {
-      // =(BLOWING - READY BLOWING) + 1
+      // =(BLOWING - READY BLOWING)
       if (!readyBlowing || !blowing) return '';
       const duration = calculateDuration(readyBlowing, blowing);
       if (!duration) return '';
       const [h, m] = duration.split(':').map(Number);
-      const totalMins = (h * 60) + m + 1; // +1 based on formula
+      const totalMins = (h * 60) + m; // Removed +1 based on request
       return `${Math.floor(totalMins / 60).toString().padStart(2, '0')}:${(totalMins % 60).toString().padStart(2, '0')}`;
   };
 
@@ -907,6 +939,34 @@ const App: React.FC = () => {
       });
       return impendingItem || null;
   }, [scheduleMatrix, now, config.isStopped, config.alertThresholdSeconds, dismissedAlerts]);
+
+  // System Notification for Full Screen Alert
+  const [lastAlertedId, setLastAlertedId] = useState<string | null>(null);
+
+  useEffect(() => {
+      if (fullScreenAlertItem && fullScreenAlertItem.id !== lastAlertedId) {
+          setLastAlertedId(fullScreenAlertItem.id);
+          
+          // Try to focus window
+          window.focus();
+          
+          // Show system notification
+          if ('Notification' in window && Notification.permission === 'granted') {
+              const notification = new Notification(`PREPARE TO START: REACTOR ${fullScreenAlertItem.reactorId}`, {
+                  body: `Batch ${fullScreenAlertItem.batchNumber} starting at ${formatTime(fullScreenAlertItem.startTime)}`,
+                  icon: '/favicon.ico', // or any icon
+                  requireInteraction: true
+              });
+              
+              notification.onclick = () => {
+                  window.focus();
+                  notification.close();
+              };
+          }
+      } else if (!fullScreenAlertItem) {
+          setLastAlertedId(null);
+      }
+  }, [fullScreenAlertItem, lastAlertedId]);
 
   if (isLoading) {
       return (
@@ -1627,7 +1687,7 @@ const App: React.FC = () => {
                                             <td className="border-2 border-slate-400 p-3 bg-[#F4B084] text-black relative group text-2xl font-black">
                                                 {blowingHold}
                                                 <div className="absolute hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-slate-800 text-white text-xs rounded whitespace-nowrap z-10">
-                                                    =(BLOWING - READY BLOWING) + 1
+                                                    =(BLOWING - READY BLOWING)
                                                 </div>
                                             </td>
                                             <td className="border-2 border-slate-400 p-3 bg-[#D9E1F2] text-black">
