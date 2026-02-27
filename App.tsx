@@ -176,6 +176,39 @@ const App: React.FC = () => {
   const announcedBatches = useRef<Set<string>>(new Set());
   const [audioAllowed, setAudioAllowed] = useState(false); // Track if audio is allowed
 
+  // --- Auto-hide Settings Button Logic ---
+  const [isSettingsButtonVisible, setIsSettingsButtonVisible] = useState(true);
+  const activityTimerRef = useRef<NodeJS.Timeout | null>(null);
+
+  const resetActivityTimer = useCallback(() => {
+    setIsSettingsButtonVisible(true);
+    if (activityTimerRef.current) clearTimeout(activityTimerRef.current);
+    
+    // Only start timer if settings panel is NOT open
+    if (!isSettingsOpen) {
+        activityTimerRef.current = setTimeout(() => {
+            setIsSettingsButtonVisible(false);
+        }, 30000); // 30 seconds
+    }
+  }, [isSettingsOpen]);
+
+  useEffect(() => {
+    window.addEventListener('mousemove', resetActivityTimer);
+    window.addEventListener('mousedown', resetActivityTimer);
+    window.addEventListener('keydown', resetActivityTimer);
+    window.addEventListener('touchstart', resetActivityTimer);
+
+    resetActivityTimer();
+
+    return () => {
+      window.removeEventListener('mousemove', resetActivityTimer);
+      window.removeEventListener('mousedown', resetActivityTimer);
+      window.removeEventListener('keydown', resetActivityTimer);
+      window.removeEventListener('touchstart', resetActivityTimer);
+      if (activityTimerRef.current) clearTimeout(activityTimerRef.current);
+    };
+  }, [resetActivityTimer]);
+
   // Temp State for Settings Inputs
   const [tempBaseBatchNumber, setTempBaseBatchNumber] = useState(config.baseBatchNumber);
   const [tempBaseStartTime, setTempBaseStartTime] = useState(config.baseStartTime);
@@ -953,19 +986,42 @@ const App: React.FC = () => {
           
           // Try to focus window
           window.focus();
+
+          // Try to trigger fullscreen if possible (requires user gesture usually, but we try)
+          try {
+              if (document.documentElement.requestFullscreen) {
+                  document.documentElement.requestFullscreen().catch(() => {
+                      // Silently fail if blocked by browser
+                  });
+              }
+          } catch (e) {}
           
           // Show system notification
           if ('Notification' in window && Notification.permission === 'granted') {
-              const notification = new Notification(`PREPARE TO START: REACTOR ${fullScreenAlertItem.reactorId}`, {
-                  body: `Batch ${fullScreenAlertItem.batchNumber} starting at ${formatTime(fullScreenAlertItem.startTime)}`,
-                  icon: '/favicon.ico', // or any icon
-                  requireInteraction: true
+              const notification = new Notification(`⚠️ PREPARE TO START: REACTOR ${fullScreenAlertItem.reactorId}`, {
+                  body: `Batch ${fullScreenAlertItem.batchNumber} starting at ${formatTime(fullScreenAlertItem.startTime)}. PLEASE OPEN THE APP IMMEDIATELY!`,
+                  icon: '/favicon.ico',
+                  requireInteraction: true,
+                  silent: false,
+                  tag: 'reactor-alert'
               });
               
               notification.onclick = () => {
                   window.focus();
                   notification.close();
               };
+          }
+
+          // Vibration for mobile
+          if ('vibrate' in navigator) {
+              navigator.vibrate([500, 200, 500, 200, 500]);
+          }
+
+          // Final fallback: window.alert (forces focus in many browsers/OS)
+          if (document.visibilityState !== 'visible') {
+              setTimeout(() => {
+                  window.alert(`⚠️ START NOW: REACTOR ${fullScreenAlertItem.reactorId}\nBatch: ${fullScreenAlertItem.batchNumber}\nTime: ${formatTime(fullScreenAlertItem.startTime)}`);
+              }, 100);
           }
       } else if (!fullScreenAlertItem) {
           setLastAlertedId(null);
@@ -989,58 +1045,30 @@ const App: React.FC = () => {
         {/* Main Header Container */}
         <div className="flex flex-col xl:grid xl:grid-cols-3 items-center gap-4 max-w-[1920px] mx-auto relative">
           
-          {/* Left Section: Widget & Controls */}
+          {/* Left Section: Widget */}
           <div className="flex flex-col gap-3 justify-self-start">
               {/* Widget: Interval & Time */}
               <div className="flex bg-slate-800 rounded-lg p-1 shadow-md shrink-0">
                      {/* Interval */}
-                     <div className="px-4 py-1 flex flex-col items-center justify-center border-r border-slate-700/50 min-w-[120px]">
-                        <span className="text-[10px] text-cyan-400 font-bold uppercase tracking-wider mb-0.5">INTERVAL</span>
-                        <div className="text-4xl font-mono font-black text-cyan-300 leading-none">
+                     <div className="px-6 py-2 flex flex-col items-center justify-center border-r border-slate-700/50 min-w-[140px]">
+                        <span className="text-[12px] text-cyan-400 font-bold uppercase tracking-wider mb-1">INTERVAL</span>
+                        <div className="text-5xl font-mono font-black text-cyan-300 leading-none">
                             {config.intervalHours.toString().padStart(2, '0')}:{config.intervalMinutes.toString().padStart(2, '0')}
                         </div>
                      </div>
                      {/* Time */}
-                     <div className="px-4 py-1 flex flex-col items-center justify-center min-w-[180px]">
-                        <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider mb-1">CURRENT TIME</span>
-                        <div className="bg-white w-full mx-2 text-slate-900 px-2 py-0.5 rounded shadow-sm font-mono font-black text-3xl tracking-widest leading-none flex items-center justify-center">
+                     <div className="px-6 py-2 flex flex-col items-center justify-center min-w-[220px]">
+                        <span className="text-[12px] text-slate-400 font-bold uppercase tracking-wider mb-1">CURRENT TIME</span>
+                        <div className="bg-white w-full mx-2 text-slate-900 px-3 py-1 rounded shadow-sm font-mono font-black text-4xl tracking-widest leading-none flex items-center justify-center">
                             {now.toLocaleTimeString('en-GB', { hour12: false })}
-                            <span className="text-[10px] ml-1 text-slate-500 font-bold self-end mb-0.5">s</span>
+                            <span className="text-[12px] ml-1 text-slate-500 font-bold self-end mb-1">s</span>
                         </div>
                      </div>
-              </div>
-
-              {/* Horizontal Controls Group - Positioned Below Widget */}
-              <div className="flex items-center gap-3 p-1.5 bg-slate-100/50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner w-fit">
-                    {/* Zoom Control */}
-                    <div className="flex items-center bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 p-0.5 shadow-sm">
-                        <button onClick={handleZoomOut} className="p-2 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors">
-                            <ZoomOut className="w-5 h-5" />
-                        </button>
-                        <span className="text-xs font-black w-12 text-center text-slate-600 dark:text-slate-300 select-none cursor-pointer" onClick={handleZoomReset}>
-                            {Math.round(zoomLevel * 100)}%
-                        </span>
-                        <button onClick={handleZoomIn} className="p-2 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors">
-                            <ZoomIn className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    <button onClick={toggleAudio} className={`p-2.5 rounded-lg border transition-all shadow-sm ${config.audioEnabled ? 'bg-green-500 text-white border-green-600' : 'bg-white dark:bg-slate-700 text-slate-400 border-slate-200 dark:border-slate-600'}`} title="Toggle Voice">
-                        {config.audioEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-                    </button>
-
-                    <button onClick={toggleTheme} className={`p-2.5 rounded-lg border transition-all shadow-sm ${config.theme === 'dark' ? 'bg-slate-700 text-yellow-400 border-slate-600' : 'bg-yellow-50 text-orange-500 border-orange-200'}`} title="Toggle Theme">
-                        {config.theme === 'dark' ? <Moon className="w-6 h-6" /> : <Sun className="w-6 h-6" />}
-                    </button>
-
-                    <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`p-2.5 rounded-lg border transition-all shadow-sm ${isSettingsOpen ? 'bg-blue-600 text-white border-blue-700' : 'bg-white dark:bg-slate-700 text-slate-400 border-slate-200 dark:border-slate-600'}`} title="Settings">
-                        <Settings className="w-6 h-6" />
-                    </button>
               </div>
           </div>
 
           {/* Center Section: Title */}
-          <div className="flex flex-col items-center justify-center shrink-0 p-2 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-sm animate-pulse justify-self-center">
+          <div className="flex flex-col items-center justify-center shrink-0 p-3 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-sm animate-pulse justify-self-center">
             <h1 className="text-7xl font-black text-slate-900 dark:text-white tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm">
                <span className="text-blue-600 dark:text-blue-400">SCHEDULE</span> 
                <span className="text-slate-800 dark:text-slate-200">START</span>
@@ -1050,7 +1078,7 @@ const App: React.FC = () => {
             </span>
           </div>
 
-          {/* Right Section: Navigation & Grade Selector (Stacked) */}
+          {/* Right Section: Navigation & Settings */}
           <div className="flex flex-col items-end gap-3 justify-self-end">
               
               {/* Navigation Pill */}
@@ -1064,18 +1092,15 @@ const App: React.FC = () => {
                      <button onClick={() => setCurrentView('silo')} className={`px-5 py-2.5 text-sm font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'silo' ? 'bg-white dark:bg-slate-600 text-cyan-700 dark:text-cyan-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
                         <Database className="w-5 h-5" /> <span>SILO</span>
                     </button>
+                    <div className={`w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1 transition-opacity duration-500 ${isSettingsButtonVisible || isSettingsOpen ? 'opacity-100' : 'opacity-0'}`}></div>
+                    <button 
+                        onClick={() => setIsSettingsOpen(!isSettingsOpen)} 
+                        className={`p-2.5 rounded-lg transition-all duration-500 ${isSettingsButtonVisible || isSettingsOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 pointer-events-none'} ${isSettingsOpen ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`} 
+                        title="Settings"
+                    >
+                        <Settings className="w-6 h-6" />
+                    </button>
               </div>
-
-              {/* Grade Selector (Now below Nav) */}
-              {currentView === 'scheduler' && (
-                  <div className="flex gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner">
-                      {GRADES.map(g => (
-                          <button key={g} onClick={() => handleConfigChange('currentGrade', g)} className={`px-4 py-2 text-sm font-black rounded-lg border transition-all ${config.currentGrade === g ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white dark:bg-slate-700 text-slate-400 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 hover:text-slate-600'}`}>
-                              {g}
-                          </button>
-                      ))}
-                  </div>
-              )}
           </div>
         </div>
 
@@ -1084,6 +1109,35 @@ const App: React.FC = () => {
               <div className="border-t border-slate-200 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200 transition-colors bg-slate-50 dark:bg-slate-900/50 py-6 mt-3">
                 <div className="w-full px-6 mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
                   
+                  {/* Appearance & Sound Controls */}
+                  <div className="md:col-span-1 flex flex-col gap-4">
+                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Appearance & Sound</label>
+                      <div className="flex gap-3">
+                          <button onClick={toggleAudio} className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-all shadow-sm ${config.audioEnabled ? 'bg-green-500 text-white border-green-600' : 'bg-white dark:bg-slate-700 text-slate-400 border-slate-200 dark:border-slate-600'}`} title="Toggle Voice">
+                              {config.audioEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
+                              <span className="font-bold text-xs">{config.audioEnabled ? 'ON' : 'OFF'}</span>
+                          </button>
+
+                          <button onClick={toggleTheme} className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-all shadow-sm ${config.theme === 'dark' ? 'bg-slate-700 text-yellow-400 border-slate-600' : 'bg-yellow-50 text-orange-500 border-orange-200'}`} title="Toggle Theme">
+                              {config.theme === 'dark' ? <Moon className="w-6 h-6" /> : <Sun className="w-6 h-6" />}
+                              <span className="font-bold text-xs uppercase">{config.theme}</span>
+                          </button>
+                      </div>
+
+                      {/* Zoom Control */}
+                      <div className="flex items-center bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 p-1 shadow-sm">
+                          <button onClick={handleZoomOut} className="p-2 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors">
+                              <ZoomOut className="w-5 h-5" />
+                          </button>
+                          <span className="text-xs font-black flex-1 text-center text-slate-600 dark:text-slate-300 select-none cursor-pointer" onClick={handleZoomReset}>
+                              ZOOM: {Math.round(zoomLevel * 100)}%
+                          </span>
+                          <button onClick={handleZoomIn} className="p-2 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors">
+                              <ZoomIn className="w-5 h-5" />
+                          </button>
+                      </div>
+                  </div>
+
                   {/* RESET SEQUENCE BUTTON (Renamed and Moved) */}
                   <div className="md:col-span-1 flex flex-col justify-end">
                       <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Sequence Control</label>
@@ -1094,7 +1148,7 @@ const App: React.FC = () => {
                   </div>
 
                   {/* DESIGN MODE TOGGLE */}
-                  <div className="md:col-span-3 flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm">
+                  <div className="md:col-span-2 flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm">
                       <div className="flex items-center gap-3 text-blue-800 dark:text-blue-300">
                           <Palette className="w-6 h-6" />
                           <span className="font-black text-xl uppercase">Layout Design Mode</span>
@@ -1105,6 +1159,52 @@ const App: React.FC = () => {
                       >
                           {isDesignMode ? 'ACTIVE' : 'DISABLED'}
                       </button>
+                  </div>
+
+                  {/* ALERT SYSTEM CONTROLS */}
+                  <div className="md:col-span-1 flex flex-col gap-2">
+                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Alert System</label>
+                      <div className="flex flex-col gap-2">
+                          <button 
+                            onClick={() => {
+                                if ('Notification' in window) {
+                                    Notification.requestPermission().then(permission => {
+                                        if (permission === 'granted') {
+                                            new Notification("Notifications Enabled", { body: "You will now receive reactor start alerts." });
+                                        }
+                                    });
+                                }
+                            }}
+                            className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-all text-xs"
+                          >
+                              <Bell className="w-4 h-4" /> ENABLE NOTIFICATIONS
+                          </button>
+                          <button 
+                            onClick={() => {
+                                // Trigger a fake alert for testing
+                                const fakeItem = {
+                                    id: 'test-alert',
+                                    reactorId: 'S',
+                                    batchNumber: 999,
+                                    startTime: new Date(Date.now() + 10000),
+                                    status: 'active',
+                                    grade: 'TEST'
+                                };
+                                // We can't easily inject into scheduleMatrix without side effects, 
+                                // so we just trigger the notification and window.alert directly for testing
+                                if ('Notification' in window && Notification.permission === 'granted') {
+                                    new Notification("⚠️ TEST ALERT: REACTOR S", { 
+                                        body: "This is a test of the priority alert system.",
+                                        requireInteraction: true
+                                    });
+                                }
+                                window.alert("⚠️ TEST ALERT: Priority Alert System is working!");
+                            }}
+                            className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold bg-yellow-500 text-black hover:bg-yellow-600 transition-all text-xs"
+                          >
+                              <AlertTriangle className="w-4 h-4" /> TEST PRIORITY ALERT
+                          </button>
+                      </div>
                   </div>
 
                   {isDesignMode && (
@@ -1258,36 +1358,48 @@ const App: React.FC = () => {
         <div className="w-full bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors" style={{ fontSize: `${config.tableFontSize}px` }}>
           
            {/* MARQUEE BAR: Placed between header and table rows */}
-           <div className="w-full bg-blue-100 dark:bg-blue-900/50 border-b border-blue-200 dark:border-blue-800 overflow-hidden h-8 relative flex items-center">
-                <div className="absolute inset-0 flex items-center w-full">
-                     <div className="absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r from-blue-100 dark:from-slate-900/50 to-transparent pointer-events-none"></div>
-                     <div className="absolute right-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-l from-blue-100 dark:from-slate-900/50 to-transparent pointer-events-none"></div>
-                     
-                     <div className="flex whitespace-nowrap w-full">
-                          <div 
-                              className={`flex shrink-0 animate-marquee items-center min-w-full ${config.isMarqueePaused ? 'paused' : ''}`}
-                              style={{ animationDuration: `${config.marqueeSpeed}s` }}
-                          >
-                              {Array(5).fill(null).map((_, i) => (
-                                  <span key={i} className="flex items-center gap-2 mx-8 font-black text-blue-800 dark:text-blue-100 uppercase tracking-wider text-[0.875em]">
-                                      <AlertTriangle className="w-[1.25em] h-[1.25em]" />
-                                      {config.runningText}
-                                  </span>
-                              ))}
-                          </div>
-                          <div 
-                              className={`flex shrink-0 animate-marquee items-center min-w-full ${config.isMarqueePaused ? 'paused' : ''}`} 
-                              style={{ animationDuration: `${config.marqueeSpeed}s` }}
-                              aria-hidden="true"
-                          >
-                              {Array(5).fill(null).map((_, i) => (
-                                  <span key={i + 10} className="flex items-center gap-2 mx-8 font-black text-blue-800 dark:text-blue-100 uppercase tracking-wider text-[0.875em]">
-                                      <AlertTriangle className="w-[1.25em] h-[1.25em]" />
-                                      {config.runningText}
-                                  </span>
-                              ))}
-                          </div>
-                      </div>
+           <div className="w-full bg-blue-100 dark:bg-blue-900/50 border-b border-blue-200 dark:border-blue-800 overflow-hidden h-12 relative flex items-center">
+                
+                {/* Grade Selector: Positioned top left, same size as before */}
+                <div className="flex gap-1 bg-slate-800 p-1 rounded-r-lg border-r border-y border-slate-700 shadow-md z-20 h-full items-center">
+                    {GRADES.map(g => (
+                        <button key={g} onClick={() => handleConfigChange('currentGrade', g)} className={`px-3 py-1 text-xs font-black rounded transition-all h-full ${config.currentGrade === g ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-slate-200'}`}>
+                            {g}
+                        </button>
+                    ))}
+                </div>
+
+                <div className="flex-1 overflow-hidden h-full relative flex items-center">
+                     <div className="absolute inset-0 flex items-center w-full">
+                          <div className="absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r from-blue-100 dark:from-slate-900/50 to-transparent pointer-events-none"></div>
+                          <div className="absolute right-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-l from-blue-100 dark:from-slate-900/50 to-transparent pointer-events-none"></div>
+                          
+                          <div className="flex whitespace-nowrap w-full">
+                               <div 
+                                   className={`flex shrink-0 animate-marquee items-center min-w-full ${config.isMarqueePaused ? 'paused' : ''}`}
+                                   style={{ animationDuration: `${config.marqueeSpeed}s` }}
+                               >
+                                   {Array(5).fill(null).map((_, i) => (
+                                       <span key={i} className="flex items-center gap-2 mx-8 font-black text-blue-800 dark:text-blue-100 uppercase tracking-wider text-[0.875em]">
+                                           <AlertTriangle className="w-[1.25em] h-[1.25em]" />
+                                           {config.runningText}
+                                       </span>
+                                   ))}
+                               </div>
+                               <div 
+                                   className={`flex shrink-0 animate-marquee items-center min-w-full ${config.isMarqueePaused ? 'paused' : ''}`} 
+                                   style={{ animationDuration: `${config.marqueeSpeed}s` }}
+                                   aria-hidden="true"
+                               >
+                                   {Array(5).fill(null).map((_, i) => (
+                                       <span key={i + 10} className="flex items-center gap-2 mx-8 font-black text-blue-800 dark:text-blue-100 uppercase tracking-wider text-[0.875em]">
+                                           <AlertTriangle className="w-[1.25em] h-[1.25em]" />
+                                           {config.runningText}
+                                       </span>
+                                   ))}
+                               </div>
+                           </div>
+                     </div>
                 </div>
            </div>
 
