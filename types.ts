@@ -13,7 +13,7 @@ export interface ReactorConfig {
 export interface ItemConfig {
   overrideTime?: string; // ISO String
   isSkipped?: boolean;
-  mode?: 'OPEN' | 'CLOSE';
+  mode?: 'OPEN' | 'CLOSE' | 'CLOSE TO OPEN';
   grade?: GradeType; // Specific grade for this batch
   note?: string;
   shiftSubsequent?: boolean; // If true, this delay affects future times

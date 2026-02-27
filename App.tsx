@@ -131,7 +131,7 @@ const App: React.FC = () => {
     timeValue: string;
     note: string;
     isSkipped: boolean;
-    mode: 'OPEN' | 'CLOSE';
+    mode: 'OPEN' | 'CLOSE' | 'CLOSE TO OPEN';
     grade: GradeType;
     shiftSubsequent: boolean;
     delayHours: number;
@@ -665,14 +665,18 @@ const App: React.FC = () => {
     setSelectedItem(null);
   };
 
-  const handleModeChange = (newMode: 'OPEN' | 'CLOSE') => {
+  const handleModeChange = (newMode: 'OPEN' | 'CLOSE' | 'CLOSE TO OPEN') => {
     if (newMode === editForm.mode) return;
     const currentDate = new Date(editForm.timeValue);
     let newDate = new Date(currentDate);
 
-    if (newMode === 'OPEN') {
-      newDate = addMinutes(newDate, -30);
-    } else {
+    if (newMode === 'OPEN' || newMode === 'CLOSE TO OPEN') {
+      // If switching from CLOSE to an OPEN variant, subtract 30 mins
+      if (editForm.mode === 'CLOSE') {
+        newDate = addMinutes(newDate, -30);
+      }
+    } else if (newMode === 'CLOSE') {
+      // If switching from an OPEN variant to CLOSE, add 30 mins
       newDate = addMinutes(newDate, 30);
     }
     
@@ -983,11 +987,10 @@ const App: React.FC = () => {
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 shadow-sm z-30 relative transition-colors duration-300">
         
         {/* Main Header Container */}
-        <div className="flex flex-col xl:flex-row items-center justify-between gap-4 max-w-[1920px] mx-auto">
+        <div className="flex flex-col xl:grid xl:grid-cols-3 items-center gap-4 max-w-[1920px] mx-auto relative">
           
-          {/* Left Section: Widget & Nav */}
-          <div className="flex items-center gap-4">
-              
+          {/* Left Section: Widget & Controls */}
+          <div className="flex flex-col gap-3 justify-self-start">
               {/* Widget: Interval & Time */}
               <div className="flex bg-slate-800 rounded-lg p-1 shadow-md shrink-0">
                      {/* Interval */}
@@ -1007,95 +1010,100 @@ const App: React.FC = () => {
                      </div>
               </div>
 
-              {/* Navigation Pill */}
-              <div className="hidden md:flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-lg border border-slate-200 dark:border-slate-700">
-                    <button onClick={() => setCurrentView('scheduler')} className={`px-5 py-2.5 text-sm font-black uppercase rounded transition-all flex items-center gap-2 ${currentView === 'scheduler' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
-                        <LayoutGrid className="w-5 h-5" /> <span className="hidden xl:inline">SCHEDULER</span>
+              {/* Horizontal Controls Group - Positioned Below Widget */}
+              <div className="flex items-center gap-3 p-1.5 bg-slate-100/50 dark:bg-slate-800/50 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner w-fit">
+                    {/* Zoom Control */}
+                    <div className="flex items-center bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 p-0.5 shadow-sm">
+                        <button onClick={handleZoomOut} className="p-2 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors">
+                            <ZoomOut className="w-5 h-5" />
+                        </button>
+                        <span className="text-xs font-black w-12 text-center text-slate-600 dark:text-slate-300 select-none cursor-pointer" onClick={handleZoomReset}>
+                            {Math.round(zoomLevel * 100)}%
+                        </span>
+                        <button onClick={handleZoomIn} className="p-2 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors">
+                            <ZoomIn className="w-5 h-5" />
+                        </button>
+                    </div>
+
+                    <button onClick={toggleAudio} className={`p-2.5 rounded-lg border transition-all shadow-sm ${config.audioEnabled ? 'bg-green-500 text-white border-green-600' : 'bg-white dark:bg-slate-700 text-slate-400 border-slate-200 dark:border-slate-600'}`} title="Toggle Voice">
+                        {config.audioEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
                     </button>
-                    <button onClick={() => setCurrentView('demonomer')} className={`px-5 py-2.5 text-sm font-black uppercase rounded transition-all flex items-center gap-2 ${currentView === 'demonomer' ? 'bg-white dark:bg-slate-600 text-teal-700 dark:text-teal-300 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
-                        <Activity className="w-5 h-5" /> <span className="hidden xl:inline">DEMONOMER</span>
+
+                    <button onClick={toggleTheme} className={`p-2.5 rounded-lg border transition-all shadow-sm ${config.theme === 'dark' ? 'bg-slate-700 text-yellow-400 border-slate-600' : 'bg-yellow-50 text-orange-500 border-orange-200'}`} title="Toggle Theme">
+                        {config.theme === 'dark' ? <Moon className="w-6 h-6" /> : <Sun className="w-6 h-6" />}
                     </button>
-                     <button onClick={() => setCurrentView('silo')} className={`px-5 py-2.5 text-sm font-black uppercase rounded transition-all flex items-center gap-2 ${currentView === 'silo' ? 'bg-white dark:bg-slate-600 text-cyan-700 dark:text-cyan-300 shadow-sm' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
-                        <Database className="w-5 h-5" /> <span className="hidden xl:inline">SILO</span>
+
+                    <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`p-2.5 rounded-lg border transition-all shadow-sm ${isSettingsOpen ? 'bg-blue-600 text-white border-blue-700' : 'bg-white dark:bg-slate-700 text-slate-400 border-slate-200 dark:border-slate-600'}`} title="Settings">
+                        <Settings className="w-6 h-6" />
                     </button>
               </div>
           </div>
 
           {/* Center Section: Title */}
-          <div className="flex flex-col items-center justify-center shrink-0 mx-8 p-2 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-sm animate-pulse">
-            <h1 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm">
+          <div className="flex flex-col items-center justify-center shrink-0 p-2 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-sm animate-pulse justify-self-center">
+            <h1 className="text-7xl font-black text-slate-900 dark:text-white tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm">
                <span className="text-blue-600 dark:text-blue-400">SCHEDULE</span> 
                <span className="text-slate-800 dark:text-slate-200">START</span>
             </h1>
-            <span className="text-xl font-black text-slate-500 dark:text-slate-400 tracking-[0.3em] block w-full text-center uppercase mt-1 border-t-2 border-slate-200 dark:border-slate-700 pt-1">
+            <span className="text-2xl font-black text-slate-500 dark:text-slate-400 tracking-[0.3em] block w-full text-center uppercase mt-1 border-t-2 border-slate-200 dark:border-slate-700 pt-1">
                 REAKTOR PVC 5
             </span>
           </div>
 
-          {/* Right Section: Grades & Controls */}
-          <div className="flex items-center gap-4 ml-auto">
+          {/* Right Section: Navigation & Grade Selector (Stacked) */}
+          <div className="flex flex-col items-end gap-3 justify-self-end">
               
-              {/* Grade Selector */}
+              {/* Navigation Pill */}
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner">
+                    <button onClick={() => setCurrentView('scheduler')} className={`px-5 py-2.5 text-sm font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'scheduler' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+                        <LayoutGrid className="w-5 h-5" /> <span>POLYMER</span>
+                    </button>
+                    <button onClick={() => setCurrentView('demonomer')} className={`px-5 py-2.5 text-sm font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'demonomer' ? 'bg-white dark:bg-slate-600 text-teal-700 dark:text-teal-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+                        <Activity className="w-5 h-5" /> <span>DEMONOMER</span>
+                    </button>
+                     <button onClick={() => setCurrentView('silo')} className={`px-5 py-2.5 text-sm font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'silo' ? 'bg-white dark:bg-slate-600 text-cyan-700 dark:text-cyan-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+                        <Database className="w-5 h-5" /> <span>SILO</span>
+                    </button>
+              </div>
+
+              {/* Grade Selector (Now below Nav) */}
               {currentView === 'scheduler' && (
-                  <div className="flex gap-1">
+                  <div className="flex gap-1.5 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner">
                       {GRADES.map(g => (
-                          <button key={g} onClick={() => handleConfigChange('currentGrade', g)} className={`px-4 py-2 text-base font-black rounded border transition-all ${config.currentGrade === g ? 'bg-blue-600 text-white border-blue-600 shadow-sm' : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700 hover:text-slate-600'}`}>
+                          <button key={g} onClick={() => handleConfigChange('currentGrade', g)} className={`px-4 py-2 text-sm font-black rounded-lg border transition-all ${config.currentGrade === g ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white dark:bg-slate-700 text-slate-400 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600 hover:text-slate-600'}`}>
                               {g}
                           </button>
                       ))}
                   </div>
               )}
-
-              {/* Divider */}
-              <div className="h-6 w-px bg-slate-200 dark:bg-slate-700 hidden sm:block"></div>
-
-              {/* Controls Group */}
-              <div className="flex items-center gap-2">
-                    {/* Zoom */}
-                    <div className="flex items-center bg-slate-100 dark:bg-slate-800 rounded-md border border-slate-200 dark:border-slate-700 p-0.5 shadow-sm">
-                        <button onClick={handleZoomOut} className="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors hover:bg-white dark:hover:bg-slate-700 rounded">
-                            <ZoomOut className="w-5 h-5" />
-                        </button>
-                        <span className="text-xs font-bold w-12 text-center text-slate-600 dark:text-slate-300 cursor-pointer select-none" onClick={handleZoomReset} title="Reset Zoom">
-                            {Math.round(zoomLevel * 100)}%
-                        </span>
-                        <button onClick={handleZoomIn} className="p-2 text-slate-500 hover:text-slate-800 dark:text-slate-400 dark:hover:text-white transition-colors hover:bg-white dark:hover:bg-slate-700 rounded">
-                            <ZoomIn className="w-5 h-5" />
-                        </button>
-                    </div>
-
-                    <button onClick={toggleAudio} className={`p-2.5 rounded-md border transition-all shadow-sm ${config.audioEnabled ? 'bg-green-100 text-green-600 border-green-200 hover:bg-green-200' : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 hover:text-slate-600'}`} title="Toggle Voice">
-                        {config.audioEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-                    </button>
-
-                    <button onClick={toggleTheme} className={`p-2.5 rounded-md border transition-all shadow-sm ${config.theme === 'dark' ? 'bg-slate-800 text-yellow-400 border-slate-700 hover:bg-slate-700' : 'bg-yellow-50 text-orange-500 border-orange-200 hover:bg-yellow-100'}`} title="Toggle Theme">
-                        {config.theme === 'dark' ? <Moon className="w-6 h-6" /> : <Sun className="w-6 h-6" />}
-                    </button>
-
-                    <button onClick={() => setIsSettingsOpen(!isSettingsOpen)} className={`p-2.5 rounded-md border transition-all shadow-sm ${isSettingsOpen ? 'bg-blue-100 text-blue-700 border-blue-300 hover:bg-blue-200' : 'bg-white dark:bg-slate-800 text-slate-400 border-slate-200 dark:border-slate-700 hover:bg-slate-50 hover:text-slate-600'}`} title="Settings">
-                        <Settings className="w-6 h-6" />
-                    </button>
-              </div>
-
           </div>
         </div>
 
         {/* Settings Panel Drawer */}
             {isSettingsOpen && (
-              <div className="border-t border-slate-200 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200 transition-colors bg-slate-50 dark:bg-slate-900/50 py-4 mt-3">
-                <div className="w-full px-4 mx-auto grid grid-cols-1 md:grid-cols-4 gap-6">
+              <div className="border-t border-slate-200 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200 transition-colors bg-slate-50 dark:bg-slate-900/50 py-6 mt-3">
+                <div className="w-full px-6 mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
                   
+                  {/* RESET SEQUENCE BUTTON (Renamed and Moved) */}
+                  <div className="md:col-span-1 flex flex-col justify-end">
+                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Sequence Control</label>
+                      <button onClick={handleResetSequence} className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-black bg-red-600 text-white hover:bg-red-700 border border-red-700 transition-all shadow-lg transform active:scale-95">
+                        <RotateCcw className="w-6 h-6" />
+                        INPUT FOR RE-S
+                      </button>
+                  </div>
+
                   {/* DESIGN MODE TOGGLE */}
-                  <div className="md:col-span-4 flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 p-3 rounded-lg border border-blue-200 dark:border-blue-800">
-                      <div className="flex items-center gap-2 text-blue-800 dark:text-blue-300">
-                          <Palette className="w-5 h-5" />
-                          <span className="font-bold">Layout Design Mode</span>
+                  <div className="md:col-span-3 flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm">
+                      <div className="flex items-center gap-3 text-blue-800 dark:text-blue-300">
+                          <Palette className="w-6 h-6" />
+                          <span className="font-black text-xl uppercase">Layout Design Mode</span>
                       </div>
                       <button 
                         onClick={() => setIsDesignMode(!isDesignMode)}
-                        className={`px-4 py-1.5 rounded-full font-bold text-xs transition-colors ${isDesignMode ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
+                        className={`px-6 py-2 rounded-full font-black text-sm transition-all shadow-sm ${isDesignMode ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
                       >
-                          {isDesignMode ? 'ACTIVE - EDIT LAYOUT' : 'DISABLED'}
+                          {isDesignMode ? 'ACTIVE' : 'DISABLED'}
                       </button>
                   </div>
 
@@ -1127,13 +1135,13 @@ const App: React.FC = () => {
                   )}
 
                   {/* NEXT PREDICTION START INFO */}
-                  <div className="md:col-span-4 bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-lg border border-emerald-200 dark:border-emerald-800 flex flex-col md:flex-row items-center justify-between gap-4">
-                      <div className="flex items-center gap-3 text-emerald-800 dark:text-emerald-300">
-                          <div className="p-2 bg-emerald-100 dark:bg-emerald-800 rounded-full">
-                              <FastForward className="w-6 h-6" />
+                  <div className="md:col-span-4 bg-emerald-50 dark:bg-emerald-900/20 p-6 rounded-xl border border-emerald-200 dark:border-emerald-800 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
+                      <div className="flex items-center gap-4 text-emerald-800 dark:text-emerald-300">
+                          <div className="p-3 bg-emerald-100 dark:bg-emerald-800 rounded-full shadow-inner">
+                              <FastForward className="w-8 h-8" />
                           </div>
                           <div>
-                              <h3 className="font-black text-lg uppercase">Next Cycle Prediction</h3>
+                              <h3 className="font-black text-2xl uppercase tracking-tight">Next Cycle Prediction</h3>
                               <p className="text-xs font-bold opacity-70">Auto-start parameters after current sequence</p>
                           </div>
                       </div>
@@ -1154,85 +1162,58 @@ const App: React.FC = () => {
                   </div>
 
                   {/* Standard Settings Below */}
-                  <div className="space-y-1">
+                  <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
-                      <Hash className="w-3 h-3" /> Start Batch #
+                      <Timer className="w-3 h-3" /> Interval (HH:MM)
                     </label>
-                    <input 
-                      type="number" 
-                      value={tempBaseBatchNumber}
-                      onChange={(e) => setTempBaseBatchNumber(parseInt(e.target.value) || 0)}
-                      className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded p-2 text-lg font-mono focus:ring-2 focus:ring-blue-500 outline-none"
-                    />
-                  </div>
-
-                  <div className="space-y-1 md:col-span-1">
-                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
-                      <Calendar className="w-3 h-3" /> First Reactor Start (S)
-                    </label>
-                    <div className="flex gap-2">
-                      <input 
-                        type="datetime-local" 
-                        value={tempBaseStartTime.slice(0, 16)}
-                        onChange={(e) => setTempBaseStartTime(e.target.value)}
-                        className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded p-2 font-mono text-sm focus:ring-2 focus:ring-blue-500 outline-none"
-                      />
-                      <button onClick={handleApply} className="bg-blue-600 text-white px-3 rounded hover:bg-blue-700 transition-colors font-bold text-xs" title="Apply Settings">
-                        APPLY
-                      </button>
-                    </div>
-                  </div>
-
-                  {/* ... [Interval Inputs] ... */}
-                  <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Interval (HH:MM)</label>
                     <div className="flex gap-2 items-center">
-                      <input type="number" min="0" max="23" value={config.intervalHours} onChange={(e) => handleConfigChange('intervalHours', parseInt(e.target.value) || 0)} className="w-16 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded p-2 text-lg font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none" />
-                      <span className="font-bold dark:text-white">:</span>
-                      <input type="number" min="0" max="59" value={config.intervalMinutes} onChange={(e) => handleConfigChange('intervalMinutes', parseInt(e.target.value) || 0)} className="w-16 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded p-2 text-lg font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none" />
+                      <input type="number" min="0" max="23" value={config.intervalHours} onChange={(e) => handleConfigChange('intervalHours', parseInt(e.target.value) || 0)} className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" />
+                      <span className="font-black text-2xl dark:text-white">:</span>
+                      <input type="number" min="0" max="59" value={config.intervalMinutes} onChange={(e) => handleConfigChange('intervalMinutes', parseInt(e.target.value) || 0)} className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" />
                     </div>
                   </div>
                   
-                  {/* ... [View Cycles Input] ... */}
-                   <div className="space-y-1">
-                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">View Cycles</label>
-                    <input type="number" min="1" max="10" value={config.columnsToDisplay} onChange={(e) => handleConfigChange('columnsToDisplay', parseInt(e.target.value) || 1)} className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded p-2 text-lg font-mono focus:ring-2 focus:ring-blue-500 outline-none" />
+                   <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
+                        <LayoutGrid className="w-3 h-3" /> View Cycles
+                    </label>
+                    <input type="number" min="1" max="10" value={config.columnsToDisplay} onChange={(e) => handleConfigChange('columnsToDisplay', parseInt(e.target.value) || 1)} className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" />
                   </div>
 
                    {/* Full Screen Alert Setting */}
-                   <div className="space-y-1">
+                   <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
                         <Bell className="w-3 h-3" /> Full Screen Alert
                     </label>
-                    <div className="flex items-center gap-2">
-                         <input type="number" min="0" max="300" value={config.alertThresholdSeconds} onChange={(e) => handleConfigChange('alertThresholdSeconds', parseInt(e.target.value) || 0)} className="w-20 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded p-2 text-lg font-mono focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Sec" />
-                        <span className="text-xs text-slate-500 font-bold">SECONDS BEFORE START</span>
+                    <div className="flex items-center gap-3">
+                         <input type="number" min="0" max="300" value={config.alertThresholdSeconds} onChange={(e) => handleConfigChange('alertThresholdSeconds', parseInt(e.target.value) || 0)} className="w-24 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" placeholder="Sec" />
+                        <span className="text-[10px] text-slate-500 font-black leading-tight">SECONDS BEFORE START</span>
                     </div>
                    </div>
 
                   {/* Management Controls */}
-                  <div className="md:col-span-4 border-t border-slate-200 dark:border-slate-700 pt-4 mt-2 flex flex-col md:flex-row gap-4 items-center justify-between">
-                    <div className="flex-1 w-full max-w-xl mr-auto space-y-3">
+                  <div className="md:col-span-4 border-t border-slate-200 dark:border-slate-700 pt-6 mt-2 flex flex-col md:flex-row gap-8 items-center justify-between">
+                    <div className="flex-1 w-full max-w-2xl mr-auto space-y-4">
                         {/* Marquee Text Control */}
                         <div>
-                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1 mb-1">
+                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1 mb-2">
                                 <Type className="w-3 h-3" /> Running Text Alert
                             </label>
-                            <div className="flex gap-2">
-                                <button onClick={toggleMarqueePause} className={`px-3 rounded border font-bold transition-colors ${config.isMarqueePaused ? 'bg-red-100 text-red-600 border-red-200' : 'bg-green-100 text-green-600 border-green-200'}`} title={config.isMarqueePaused ? "Resume Animation" : "Pause Animation"}>
-                                    {config.isMarqueePaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+                            <div className="flex gap-3">
+                                <button onClick={toggleMarqueePause} className={`px-4 py-2 rounded-lg border-2 font-black transition-all shadow-sm ${config.isMarqueePaused ? 'bg-red-100 text-red-600 border-red-200' : 'bg-green-100 text-green-600 border-green-200'}`} title={config.isMarqueePaused ? "Resume Animation" : "Pause Animation"}>
+                                    {config.isMarqueePaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
                                 </button>
-                                <input type="text" value={config.runningText} onChange={(e) => handleConfigChange('runningText', e.target.value)} className="w-full border border-slate-300 dark:border-slate-600 rounded p-2 text-sm font-bold text-yellow-800 bg-yellow-50 dark:bg-slate-800 dark:text-yellow-400 focus:ring-2 focus:ring-yellow-400 outline-none shadow-inner" placeholder="Enter alert text here..." />
+                                <input type="text" value={config.runningText} onChange={(e) => handleConfigChange('runningText', e.target.value)} className="w-full border-2 border-slate-300 dark:border-slate-600 rounded-lg p-3 text-base font-black text-yellow-800 bg-yellow-50 dark:bg-slate-800 dark:text-yellow-400 focus:ring-2 focus:ring-yellow-400 outline-none shadow-inner" placeholder="Enter alert text here..." />
                             </div>
                         </div>
 
                         {/* Marquee Speed Control */}
                         <div>
-                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1 mb-1">
+                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1 mb-2">
                                 <Gauge className="w-3 h-3" /> Running Text Speed ({config.marqueeSpeed}s)
                             </label>
-                             <div className="flex items-center gap-2">
-                                <span className="text-[10px] font-bold text-slate-400">FAST</span>
+                             <div className="flex items-center gap-4">
+                                <span className="text-[10px] font-black text-slate-400">FAST</span>
                                 <input 
                                     type="range" 
                                     min="5" 
@@ -1240,22 +1221,17 @@ const App: React.FC = () => {
                                     step="1"
                                     value={config.marqueeSpeed} 
                                     onChange={(e) => handleConfigChange('marqueeSpeed', parseInt(e.target.value))} 
-                                    className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-blue-600"
+                                    className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-blue-600 shadow-inner"
                                 />
-                                <span className="text-[10px] font-bold text-slate-400">SLOW</span>
+                                <span className="text-[10px] font-black text-slate-400">SLOW</span>
                             </div>
                         </div>
                     </div>
 
-                    <div className="flex gap-3">
-                         <button onClick={toggleStop} className={`flex items-center gap-2 px-4 py-2 rounded-lg font-bold border transition-colors ${config.isStopped ? 'bg-green-600 text-white border-green-700 hover:bg-green-700' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30'}`}>
-                            {config.isStopped ? <PlayCircle className="w-5 h-5" /> : <PauseCircle className="w-5 h-5" />}
+                    <div className="flex gap-4">
+                         <button onClick={toggleStop} className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black border-2 transition-all shadow-lg transform active:scale-95 ${config.isStopped ? 'bg-green-600 text-white border-green-700 hover:bg-green-700' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30'}`}>
+                            {config.isStopped ? <PlayCircle className="w-6 h-6" /> : <PauseCircle className="w-6 h-6" />}
                             {config.isStopped ? "RESUME SYSTEM" : "STOP SYSTEM"}
-                         </button>
-
-                         <button onClick={handleResetSequence} className="flex items-center gap-2 px-4 py-2 rounded-lg font-bold bg-slate-800 dark:bg-slate-700 text-white hover:bg-slate-900 dark:hover:bg-slate-600 border border-slate-700 dark:border-slate-600 transition-colors shadow-sm">
-                            <RotateCcw className="w-5 h-5" />
-                            RESET SEQUENCE (S)
                          </button>
                     </div>
                   </div>
@@ -1351,9 +1327,16 @@ const App: React.FC = () => {
                       const stageInfo = item.config?.stageInfo;
                       
                       let cellClasses = "bg-white dark:bg-slate-700 dark:text-white shadow-sm transition-colors dark:border dark:border-slate-600/50"; 
-                      if (isSkipped) cellClasses = "bg-stone-200 dark:bg-stone-950 text-stone-500 dark:text-stone-600 border-stone-300 dark:border-stone-800"; 
-                      else if (isActive) cellClasses = "bg-red-500 dark:bg-red-600 text-white animate-pulse ring-4 ring-red-300 dark:ring-red-900 z-10 relative"; 
-                      else if (isPast) cellClasses = "bg-slate-800 dark:bg-slate-950 text-slate-500 dark:text-slate-600 shadow-inner"; 
+                      if (isSkipped) {
+                          cellClasses = "bg-stone-200 dark:bg-stone-950 text-stone-500 dark:text-stone-600 border-stone-300 dark:border-stone-800"; 
+                      } else if (isActive) {
+                          cellClasses = "bg-red-500 dark:bg-red-600 text-white animate-pulse ring-4 ring-red-300 dark:ring-red-900 z-10 relative"; 
+                      } else if (isPast) {
+                          cellClasses = "bg-slate-800 dark:bg-slate-950 text-slate-500 dark:text-slate-600 shadow-inner"; 
+                      } else if (!isPast && config.theme === 'dark') {
+                          // Future reactors in dark theme: Dark Green
+                          cellClasses = "bg-emerald-950 text-emerald-100 border-emerald-900 shadow-sm";
+                      }
                       
                       return (
                         <td 
@@ -1391,7 +1374,7 @@ const App: React.FC = () => {
                               ) : (
                                 <>
                                     {/* Unified Time Display - Significantly Larger */}
-                                    <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-110' : (isPast ? 'text-slate-500 dark:text-slate-400 opacity-90' : 'text-slate-800 dark:text-slate-100')} transition-transform`} style={{ fontSize: '3.5em' }}>
+                                    <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-110' : (isPast ? 'text-slate-500 dark:text-slate-400 opacity-90 line-through' : (config.theme === 'dark' ? 'text-emerald-100' : 'text-slate-800 dark:text-slate-100'))} transition-transform`} style={{ fontSize: '3.5em' }}>
                                         {formatTime(item.startTime)}
                                     </div>
                                     
@@ -1414,7 +1397,7 @@ const App: React.FC = () => {
                                             </div>
                                         )}
                                         {/* Mode Badge - Visible for Open/Close Status */}
-                                        <div className={`font-bold px-1.5 py-0.5 rounded uppercase border flex items-center gap-1 ${mode === 'OPEN' ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border-cyan-200 dark:border-cyan-800' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600'}`} style={{ fontSize: '0.85em' }}>
+                                        <div className={`font-bold px-1.5 py-0.5 rounded uppercase border flex items-center gap-1 ${mode === 'OPEN' ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border-cyan-200 dark:border-cyan-800' : (mode === 'CLOSE TO OPEN' && config.theme === 'dark') ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600'}`} style={{ fontSize: '0.85em' }}>
                                             <span className="text-[0.7em] opacity-70 mr-0.5">MODE</span>
                                             {mode}
                                         </div>
@@ -2054,12 +2037,15 @@ const App: React.FC = () => {
                          </div>
                          <div className="flex flex-col gap-2">
                             <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Mode</label>
-                            <div className="flex bg-slate-100 dark:bg-slate-700 rounded-lg p-1 border border-slate-200 dark:border-slate-600">
-                                <button onClick={() => handleModeChange('CLOSE')} className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${editForm.mode === 'CLOSE' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
+                            <div className="flex bg-slate-100 dark:bg-slate-700 rounded-lg p-1 border border-slate-200 dark:border-slate-600 gap-1">
+                                <button onClick={() => handleModeChange('CLOSE')} className={`flex-1 py-2 text-[10px] font-black rounded-md transition-all ${editForm.mode === 'CLOSE' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
                                     CLOSE
                                 </button>
-                                <button onClick={() => handleModeChange('OPEN')} className={`flex-1 py-2 text-xs font-bold rounded-md transition-all ${editForm.mode === 'OPEN' ? 'bg-cyan-500 text-white shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
+                                <button onClick={() => handleModeChange('OPEN')} className={`flex-1 py-2 text-[10px] font-black rounded-md transition-all ${editForm.mode === 'OPEN' ? 'bg-cyan-500 text-white shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
                                     OPEN
+                                </button>
+                                <button onClick={() => handleModeChange('CLOSE TO OPEN')} className={`flex-1 py-2 text-[10px] font-black rounded-md transition-all ${editForm.mode === 'CLOSE TO OPEN' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
+                                    C TO O
                                 </button>
                             </div>
                          </div>
