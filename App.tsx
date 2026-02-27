@@ -1083,13 +1083,13 @@ const App: React.FC = () => {
               
               {/* Navigation Pill */}
               <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner">
-                    <button onClick={() => setCurrentView('scheduler')} className={`px-5 py-2.5 text-sm font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'scheduler' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+                    <button onClick={() => setCurrentView('scheduler')} className={`px-5 py-2.5 text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'scheduler' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
                         <LayoutGrid className="w-5 h-5" /> <span>POLYMER</span>
                     </button>
-                    <button onClick={() => setCurrentView('demonomer')} className={`px-5 py-2.5 text-sm font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'demonomer' ? 'bg-white dark:bg-slate-600 text-teal-700 dark:text-teal-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+                    <button onClick={() => setCurrentView('demonomer')} className={`px-5 py-2.5 text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'demonomer' ? 'bg-white dark:bg-slate-600 text-teal-700 dark:text-teal-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
                         <Activity className="w-5 h-5" /> <span>DEMONOMER</span>
                     </button>
-                     <button onClick={() => setCurrentView('silo')} className={`px-5 py-2.5 text-sm font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'silo' ? 'bg-white dark:bg-slate-600 text-cyan-700 dark:text-cyan-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+                     <button onClick={() => setCurrentView('silo')} className={`px-5 py-2.5 text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'silo' ? 'bg-white dark:bg-slate-600 text-cyan-700 dark:text-cyan-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
                         <Database className="w-5 h-5" /> <span>SILO</span>
                     </button>
                     <div className={`w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1 transition-opacity duration-500 ${isSettingsButtonVisible || isSettingsOpen ? 'opacity-100' : 'opacity-0'}`}></div>
@@ -1363,7 +1363,7 @@ const App: React.FC = () => {
                 {/* Grade Selector: Positioned top left, same size as before */}
                 <div className="flex gap-1 bg-slate-800 p-1 rounded-r-lg border-r border-y border-slate-700 shadow-md z-20 h-full items-center">
                     {GRADES.map(g => (
-                        <button key={g} onClick={() => handleConfigChange('currentGrade', g)} className={`px-3 py-1 text-xs font-black rounded transition-all h-full ${config.currentGrade === g ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-slate-200'}`}>
+                        <button key={g} onClick={() => handleConfigChange('currentGrade', g)} className={`px-4 py-1 text-base font-black rounded transition-all h-full ${config.currentGrade === g ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-slate-200'}`}>
                             {g}
                         </button>
                     ))}
