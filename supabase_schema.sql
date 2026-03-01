@@ -16,6 +16,8 @@ CREATE TABLE IF NOT EXISTS app_settings (
     layout_order TEXT[] DEFAULT ARRAY['header', 'scheduler', 'catalyst'],
     table_row_height BIGINT DEFAULT 95,
     table_font_size BIGINT DEFAULT 24,
+    hidden_reactors TEXT[] DEFAULT ARRAY[]::TEXT[],
+    hidden_fields TEXT[] DEFAULT ARRAY[]::TEXT[],
     zoom_level DOUBLE PRECISION DEFAULT 1.0,
     catalyst_data JSONB DEFAULT '{"f": {"netto": "24,9", "bruto": ""}, "h": {"netto": "10,8", "bruto": ""}, "g": {"netto": "", "bruto": ""}}'::jsonb,
     silo_state JSONB DEFAULT '{"activeSilo": null, "silos": {"O": {"id": "O", "lotNumber": "", "capacitySet": "", "startTime": "", "finishTime": "", "percentage": "", "totalUpdate": ""}, "P": {"id": "P", "lotNumber": "", "capacitySet": "", "startTime": "", "finishTime": "", "percentage": "", "totalUpdate": ""}, "Q": {"id": "Q", "lotNumber": "", "capacitySet": "", "startTime": "", "finishTime": "", "percentage": "", "totalUpdate": ""}}}'::jsonb,

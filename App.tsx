@@ -703,14 +703,16 @@ const App: React.FC = () => {
     const currentDate = new Date(editForm.timeValue);
     let newDate = new Date(currentDate);
 
-    if (newMode === 'OPEN' || newMode === 'CLOSE TO OPEN') {
-      // If switching from CLOSE to an OPEN variant, subtract 30 mins
-      if (editForm.mode === 'CLOSE') {
+    if (newMode === 'OPEN') {
+      // If switching from CLOSE or CLOSE TO OPEN to OPEN, subtract 30 mins
+      if (editForm.mode === 'CLOSE' || editForm.mode === 'CLOSE TO OPEN') {
         newDate = addMinutes(newDate, -30);
       }
-    } else if (newMode === 'CLOSE') {
-      // If switching from an OPEN variant to CLOSE, add 30 mins
-      newDate = addMinutes(newDate, 30);
+    } else if (newMode === 'CLOSE' || newMode === 'CLOSE TO OPEN') {
+      // If switching from OPEN to CLOSE or CLOSE TO OPEN, add 30 mins
+      if (editForm.mode === 'OPEN') {
+        newDate = addMinutes(newDate, 30);
+      }
     }
     
     const localIso = new Date(newDate.getTime() - (newDate.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
