@@ -1447,9 +1447,12 @@ const App: React.FC = () => {
                           cellClasses = "bg-red-500 dark:bg-red-600 text-white animate-pulse ring-4 ring-red-300 dark:ring-red-900 z-10 relative"; 
                       } else if (isPast) {
                           cellClasses = "bg-slate-800 dark:bg-slate-950 text-slate-500 dark:text-slate-600 shadow-inner"; 
+                      } else if (mode === 'CLOSE TO OPEN') {
+                          // Cream/Light Yellow for CLOSE TO OPEN that hasn't started
+                          cellClasses = "bg-amber-50 dark:bg-amber-900/40 text-amber-900 dark:text-amber-100 border-amber-200 dark:border-amber-800 shadow-sm";
                       } else if (!isPast && config.theme === 'dark') {
-                          // Future reactors in dark theme: Dark Green
-                          cellClasses = "bg-emerald-950 text-emerald-100 border-emerald-900 shadow-sm";
+                          // Future reactors in dark theme: Thin Yellow
+                          cellClasses = "bg-yellow-900/20 text-yellow-100 border-yellow-900/30 shadow-sm";
                       }
                       
                       return (
