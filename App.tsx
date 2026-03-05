@@ -193,6 +193,27 @@ const App: React.FC = () => {
   }, [isSettingsOpen]);
 
   useEffect(() => {
+    const handleFirstInteraction = () => {
+        if (!audioAllowed) {
+            enableAudio();
+        }
+        window.removeEventListener('mousedown', handleFirstInteraction);
+        window.removeEventListener('touchstart', handleFirstInteraction);
+        window.removeEventListener('keydown', handleFirstInteraction);
+    };
+
+    window.addEventListener('mousedown', handleFirstInteraction);
+    window.addEventListener('touchstart', handleFirstInteraction);
+    window.addEventListener('keydown', handleFirstInteraction);
+
+    return () => {
+      window.removeEventListener('mousedown', handleFirstInteraction);
+      window.removeEventListener('touchstart', handleFirstInteraction);
+      window.removeEventListener('keydown', handleFirstInteraction);
+    };
+  }, [audioAllowed]);
+
+  useEffect(() => {
     window.addEventListener('mousemove', resetActivityTimer);
     window.addEventListener('mousedown', resetActivityTimer);
     window.addEventListener('keydown', resetActivityTimer);
@@ -1011,42 +1032,6 @@ const App: React.FC = () => {
           if (config.audioEnabled) {
               playSirenSound();
           }
-
-          // Try to focus window
-          window.focus();
-
-          // Try to trigger fullscreen if possible
-          try {
-              if (document.documentElement.requestFullscreen) {
-                  document.documentElement.requestFullscreen().catch(() => {});
-              }
-          } catch (e) {}
-          
-          // Show system notification (Desktop Alert)
-          if ('Notification' in window && Notification.permission === 'granted') {
-              const notification = new Notification(`⚠️ PERSIAPAN START: REAKTOR ${fullScreenAlertItem.reactorId}`, {
-                  body: `Batch #${fullScreenAlertItem.batchNumber} akan start jam ${formatTime(fullScreenAlertItem.startTime)}.`,
-                  icon: '/favicon.ico',
-                  requireInteraction: true,
-                  silent: false,
-                  tag: 'reactor-alert'
-              });
-              
-              notification.onclick = () => {
-                  window.focus();
-                  notification.close();
-              };
-          }
-
-          // Vibration for mobile
-          if ('vibrate' in navigator) {
-              navigator.vibrate([500, 200, 500, 200, 500]);
-          }
-
-          // BLOCKING SYSTEM ALERT (Forces attention on PC)
-          setTimeout(() => {
-              window.alert(`⚠️ PERSIAPAN START REAKTOR ${fullScreenAlertItem.reactorId}\nBatch: #${fullScreenAlertItem.batchNumber}\nWaktu: ${formatTime(fullScreenAlertItem.startTime)}\n\nSegera lakukan persiapan!`);
-          }, 100);
       } else if (!fullScreenAlertItem) {
           setLastAlertedId(null);
       }
@@ -1205,24 +1190,8 @@ const App: React.FC = () => {
                           </button>
                           <button 
                             onClick={() => {
-                                // Trigger a fake alert for testing
-                                const fakeItem = {
-                                    id: 'test-alert',
-                                    reactorId: 'S',
-                                    batchNumber: 999,
-                                    startTime: new Date(Date.now() + 10000),
-                                    status: 'active',
-                                    grade: 'TEST'
-                                };
-                                // We can't easily inject into scheduleMatrix without side effects, 
-                                // so we just trigger the notification and window.alert directly for testing
-                                if ('Notification' in window && Notification.permission === 'granted') {
-                                    new Notification("⚠️ TEST ALERT: REACTOR S", { 
-                                        body: "This is a test of the priority alert system.",
-                                        requireInteraction: true
-                                    });
-                                }
-                                window.alert("⚠️ TEST ALERT: Priority Alert System is working!");
+                                // Just log for testing now that popups are disabled
+                                console.log("Test alert triggered (popups disabled)");
                             }}
                             className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold bg-yellow-500 text-black hover:bg-yellow-600 transition-all text-xs"
                           >
@@ -1606,7 +1575,7 @@ const App: React.FC = () => {
                     {/* Headers */}
                     <div className="flex text-center font-black text-white border-b-4 border-slate-800 dark:border-slate-700">
                          <div className={`${colWidth1} bg-emerald-600 border-r-2 border-slate-800 dark:border-slate-700 py-3 flex items-center justify-center`}>
-                            <span className="text-[0.9em] tracking-wider">CATALYST</span>
+                            <span className="text-[0.9em] tracking-wider">CATA</span>
                          </div>
                          <div className={`${colWidth2} bg-emerald-600 border-r-2 border-slate-800 dark:border-slate-700 py-3 flex items-center justify-center`}>
                             <span className="text-[0.9em] tracking-wider">NETO</span>
@@ -1619,7 +1588,7 @@ const App: React.FC = () => {
                     {/* Row F */}
                     <div className="flex h-[3.5em] border-b-2 border-slate-200 dark:border-slate-700 last:border-0">
                         <div className={`${colWidth1} bg-slate-900 text-white font-black flex items-center justify-center border-r-2 border-slate-800 dark:border-slate-700`}>
-                            <span className="text-[1.5em]">F</span>
+                            <span className="text-[1.25em]">F</span>
                         </div>
                         <div className={`${colWidth2} bg-white dark:bg-slate-800 border-r-2 border-slate-200 dark:border-slate-700 p-1`}>
                             <input 
@@ -1642,7 +1611,7 @@ const App: React.FC = () => {
                      {/* Row H */}
                      <div className="flex h-[3.5em] border-b-2 border-slate-200 dark:border-slate-700 last:border-0">
                         <div className={`${colWidth1} bg-yellow-400 text-black font-black flex items-center justify-center border-r-2 border-slate-800 dark:border-slate-700`}>
-                            <span className="text-[1.5em]">H</span>
+                            <span className="text-[1.25em]">H</span>
                         </div>
                         <div className={`${colWidth2} bg-white dark:bg-slate-800 border-r-2 border-slate-200 dark:border-slate-700 p-1`}>
                             <input 
@@ -1665,7 +1634,7 @@ const App: React.FC = () => {
                     {/* Row G */}
                     <div className="flex h-[3.5em] border-b-2 border-slate-200 dark:border-slate-700 last:border-0">
                         <div className={`${colWidth1} bg-purple-700 text-white font-black flex items-center justify-center border-r-2 border-slate-800 dark:border-slate-700`}>
-                            <span className="text-[1.5em]">G</span>
+                            <span className="text-[1.25em]">G</span>
                         </div>
                         <div className={`${colWidth2} bg-white dark:bg-slate-800 border-r-2 border-slate-200 dark:border-slate-700 p-1`}>
                             <input 
@@ -1745,10 +1714,13 @@ const App: React.FC = () => {
 
                {/* 3. F2002 & STEAM WIDGET (SIMPLIFIED) */}
                <div className="flex flex-col w-fit shadow-[8px_8px_0px_0px_rgba(30,41,59,0.2)] rounded-xl">
-                    <div className="bg-teal-600 text-white font-black text-[1em] px-6 py-4 text-center border-4 border-slate-800 dark:border-slate-700 border-b-0 rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight">
+                    <button 
+                        onClick={() => setCurrentView('demonomer')}
+                        className="bg-teal-600 hover:bg-teal-700 text-white font-black text-[1em] px-6 py-4 text-center border-4 border-slate-800 dark:border-slate-700 border-b-0 rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight cursor-pointer transition-colors w-full"
+                    >
                         <Activity className="w-5 h-5" />
-                        DEMONOMER CALC
-                    </div>
+                        ADJUST STEAM
+                    </button>
                     <div className="bg-white dark:bg-slate-800 border-4 border-slate-800 dark:border-slate-700 rounded-b-xl p-4 flex flex-col gap-4 min-w-[15em]">
                         {/* F2002 Input Row */}
                         <div className="flex flex-col gap-1">
@@ -1931,7 +1903,7 @@ const App: React.FC = () => {
       
       {/* ... [Full Screen Alert Overlay] ... */}
       {fullScreenAlertItem && (
-          <div className={`fixed inset-0 z-[100] flex flex-col items-center justify-center text-white animate-in fade-in duration-300 ${REACTORS.find(r => r.id === fullScreenAlertItem.reactorId)?.color || 'bg-red-600'} ${REACTORS.find(r => r.id === fullScreenAlertItem.reactorId)?.textColor || 'text-white'}`}>
+          <div className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center text-white animate-in fade-in duration-300 ${REACTORS.find(r => r.id === fullScreenAlertItem.reactorId)?.color || 'bg-red-600'} ${REACTORS.find(r => r.id === fullScreenAlertItem.reactorId)?.textColor || 'text-white'}`}>
               <button 
                   onClick={() => setDismissedAlerts(prev => new Set(prev).add(fullScreenAlertItem.id))}
                   className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/30 rounded-full transition-colors backdrop-blur-sm group"
@@ -2001,16 +1973,6 @@ const App: React.FC = () => {
             </div>
             <p className="text-red-100 font-mono text-sm mt-1">ALL INTERVALS & ALERTS FROZEN</p>
         </div>
-      )}
-
-      {/* Audio Permission Banner */}
-      {!audioAllowed && config.audioEnabled && (
-          <div className="bg-yellow-500 text-black p-2 text-center sticky top-0 z-50 cursor-pointer hover:bg-yellow-400 transition-colors" onClick={enableAudio}>
-              <div className="flex items-center justify-center gap-2 font-bold">
-                  <VolumeX className="w-5 h-5" />
-                  <span>Audio is enabled but blocked by browser. Click here to enable sound effects!</span>
-              </div>
-          </div>
       )}
 
       {/* Dynamic Layout Rendering */}
@@ -2158,13 +2120,13 @@ const App: React.FC = () => {
       {selectedItem && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-                <div className="bg-slate-800 dark:bg-slate-950 text-white p-4 flex justify-between items-center shrink-0">
+                <div className="bg-slate-800 dark:bg-slate-950 text-white p-6 flex justify-between items-center shrink-0">
                     <div>
-                        <h3 className="text-lg font-bold flex items-center gap-2">
-                            <Edit3 className="w-5 h-5 text-blue-400" />
+                        <h3 className="text-2xl font-black flex items-center gap-2">
+                            <Edit3 className="w-6 h-6 text-blue-400" />
                             Adjust Schedule
                         </h3>
-                        <p className="text-xs text-slate-400">
+                        <p className="text-sm font-bold text-slate-400">
                             Reactor {selectedItem.reactorId} &bull; Batch {selectedItem.batchNumber || '---'}
                         </p>
                     </div>
@@ -2176,50 +2138,50 @@ const App: React.FC = () => {
                 <div className="p-6 space-y-6 overflow-y-auto">
                     
                     {/* Stage Info (Sort Info) Selector */}
-                    <div className="bg-fuchsia-50 dark:bg-fuchsia-900/20 p-4 rounded-xl border border-fuchsia-100 dark:border-fuchsia-800">
-                        <label className="text-xs font-bold text-fuchsia-700 dark:text-fuchsia-300 uppercase mb-2 flex items-center gap-1">
-                            <Tag className="w-3 h-3" /> Stage Info (Label)
+                    <div className="bg-fuchsia-50 dark:bg-fuchsia-900/20 p-6 rounded-xl border border-fuchsia-100 dark:border-fuchsia-800">
+                        <label className="text-sm font-black text-fuchsia-700 dark:text-fuchsia-300 uppercase mb-3 flex items-center gap-1">
+                            <Tag className="w-4 h-4" /> Stage Info (Label)
                         </label>
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-3">
                             {STAGE_OPTIONS.map(opt => (
-                                <button key={opt} onClick={() => setEditForm(prev => ({...prev, stageInfo: opt}))} className={`px-3 py-2 text-xs font-bold rounded-lg border transition-all ${editForm.stageInfo === opt ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-sm' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:bg-fuchsia-100 dark:hover:bg-slate-600'}`}>
+                                <button key={opt} onClick={() => setEditForm(prev => ({...prev, stageInfo: opt}))} className={`px-4 py-3 text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === opt ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-sm' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:bg-fuchsia-100 dark:hover:bg-slate-600'}`}>
                                     {opt}
                                 </button>
                             ))}
-                            <button onClick={() => setEditForm(prev => ({...prev, stageInfo: ''}))} className={`px-3 py-2 text-xs font-bold rounded-lg border transition-all ${editForm.stageInfo === '' ? 'bg-slate-200 text-slate-500 border-slate-300 dark:bg-slate-600 dark:text-slate-300 dark:border-slate-500' : 'bg-white dark:bg-slate-700 text-slate-400 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
+                            <button onClick={() => setEditForm(prev => ({...prev, stageInfo: ''}))} className={`px-4 py-3 text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === '' ? 'bg-slate-200 text-slate-500 border-slate-300 dark:bg-slate-600 dark:text-slate-300 dark:border-slate-500' : 'bg-white dark:bg-slate-700 text-slate-400 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
                                 Clear
                             </button>
                         </div>
-                        <div className="mt-3">
+                        <div className="mt-4">
                             <input 
                                 type="text" 
                                 value={editForm.stageInfo} 
                                 onChange={(e) => setEditForm(prev => ({...prev, stageInfo: e.target.value}))}
                                 placeholder="Or type custom label..."
-                                className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded p-2 text-sm font-bold focus:ring-2 focus:ring-fuchsia-500 outline-none"
+                                className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-base font-black focus:ring-2 focus:ring-fuchsia-500 outline-none"
                             />
                         </div>
                     </div>
 
                     {/* Mode, Grade & Skip Controls */}
-                    <div className="grid grid-cols-2 gap-4">
-                         <div className="flex flex-col gap-2">
-                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Status</label>
-                            <button onClick={() => setEditForm(prev => ({ ...prev, isSkipped: !prev.isSkipped }))} className={`flex items-center justify-center gap-2 p-3 rounded-lg border-2 font-bold transition-colors ${editForm.isSkipped ? 'bg-stone-200 text-stone-600 border-stone-300' : 'bg-white dark:bg-slate-700 text-gray-600 dark:text-gray-200 border-gray-200 dark:border-slate-600 hover:border-gray-300'}`}>
-                                <Ban className="w-4 h-4" />
+                    <div className="grid grid-cols-2 gap-6">
+                         <div className="flex flex-col gap-3">
+                            <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase">Status</label>
+                            <button onClick={() => setEditForm(prev => ({ ...prev, isSkipped: !prev.isSkipped }))} className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 font-black transition-colors text-lg ${editForm.isSkipped ? 'bg-stone-200 text-stone-600 border-stone-300' : 'bg-white dark:bg-slate-700 text-gray-600 dark:text-gray-200 border-gray-200 dark:border-slate-600 hover:border-gray-300'}`}>
+                                <Ban className="w-5 h-5" />
                                 {editForm.isSkipped ? 'SKIPPED' : 'Active'}
                             </button>
                          </div>
-                         <div className="flex flex-col gap-2">
-                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase">Mode</label>
-                            <div className="flex bg-slate-100 dark:bg-slate-700 rounded-lg p-1 border border-slate-200 dark:border-slate-600 gap-1">
-                                <button onClick={() => handleModeChange('CLOSE')} className={`flex-1 py-2 text-[10px] font-black rounded-md transition-all ${editForm.mode === 'CLOSE' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
+                         <div className="flex flex-col gap-3">
+                            <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase">Mode</label>
+                            <div className="flex bg-slate-100 dark:bg-slate-700 rounded-xl p-1.5 border-2 border-slate-200 dark:border-slate-600 gap-1.5">
+                                <button onClick={() => handleModeChange('CLOSE')} className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${editForm.mode === 'CLOSE' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
                                     CLOSE
                                 </button>
-                                <button onClick={() => handleModeChange('OPEN')} className={`flex-1 py-2 text-[10px] font-black rounded-md transition-all ${editForm.mode === 'OPEN' ? 'bg-cyan-500 text-white shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
+                                <button onClick={() => handleModeChange('OPEN')} className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${editForm.mode === 'OPEN' ? 'bg-cyan-500 text-white shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
                                     OPEN
                                 </button>
-                                <button onClick={() => handleModeChange('CLOSE TO OPEN')} className={`flex-1 py-2 text-[10px] font-black rounded-md transition-all ${editForm.mode === 'CLOSE TO OPEN' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
+                                <button onClick={() => handleModeChange('CLOSE TO OPEN')} className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${editForm.mode === 'CLOSE TO OPEN' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
                                     C TO O
                                 </button>
                             </div>
@@ -2228,10 +2190,10 @@ const App: React.FC = () => {
 
                     {/* Grade Selector (Override) */}
                     <div>
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Change Grade (Override)</label>
-                        <div className="flex gap-2 flex-wrap">
+                        <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-3 block">Change Grade (Override)</label>
+                        <div className="flex gap-3 flex-wrap">
                             {GRADES.map(g => (
-                                <button key={g} onClick={() => setEditForm(prev => ({...prev, grade: g}))} className={`px-3 py-2 text-sm font-bold rounded border ${editForm.grade === g ? 'bg-blue-600 text-white border-blue-600' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600'}`}>
+                                <button key={g} onClick={() => setEditForm(prev => ({...prev, grade: g}))} className={`px-5 py-3 text-base font-black rounded-lg border-2 ${editForm.grade === g ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-slate-300'}`}>
                                     {g}
                                 </button>
                             ))}
@@ -2241,25 +2203,25 @@ const App: React.FC = () => {
                     {!editForm.isSkipped && (
                         <>
                             {/* Time Input */}
-                            <div className="bg-slate-50 dark:bg-slate-700/50 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
-                                <label className="block text-sm font-bold text-slate-600 dark:text-slate-300 mb-2 flex justify-between">
+                            <div className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700">
+                                <label className="block text-base font-black text-slate-600 dark:text-slate-300 mb-3 flex justify-between">
                                     <span>Start Time</span>
-                                    {editForm.mode === 'OPEN' && <span className="text-cyan-600 dark:text-cyan-400 text-xs italic">-30 mins adjusted</span>}
+                                    {editForm.mode === 'OPEN' && <span className="text-cyan-600 dark:text-cyan-400 text-sm italic font-bold">-30 mins adjusted</span>}
                                 </label>
-                                <input type="datetime-local" value={editForm.timeValue} onChange={(e) => setEditForm(prev => ({...prev, timeValue: e.target.value}))} className="w-full border-2 border-slate-200 dark:border-slate-600 rounded-lg p-3 text-lg font-mono font-bold text-slate-800 dark:text-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900 outline-none transition-all bg-white dark:bg-slate-800" />
+                                <input type="datetime-local" value={editForm.timeValue} onChange={(e) => setEditForm(prev => ({...prev, timeValue: e.target.value}))} className="w-full border-2 border-slate-300 dark:border-slate-600 rounded-xl p-4 text-2xl font-mono font-black text-slate-800 dark:text-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900 outline-none transition-all bg-white dark:bg-slate-800" />
                                 
-                                <div className="mt-4 pt-4 border-t border-slate-200 dark:border-slate-600">
-                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Quick Delay Adjustment</label>
-                                    <div className="flex items-end gap-2">
+                                <div className="mt-6 pt-6 border-t-2 border-slate-200 dark:border-slate-600">
+                                    <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-3 block">Quick Delay Adjustment</label>
+                                    <div className="flex items-end gap-3">
                                         <div className="flex-1">
-                                            <span className="text-[10px] text-slate-400 font-bold block mb-1">HOURS</span>
-                                            <input type="number" min="0" value={editForm.delayHours} onChange={(e) => setEditForm(prev => ({...prev, delayHours: parseInt(e.target.value) || 0}))} className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded p-2 font-mono text-center" />
+                                            <span className="text-xs text-slate-400 font-black block mb-1">HOURS</span>
+                                            <input type="number" min="0" value={editForm.delayHours} onChange={(e) => setEditForm(prev => ({...prev, delayHours: parseInt(e.target.value) || 0}))} className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center" />
                                         </div>
                                         <div className="flex-1">
-                                            <span className="text-[10px] text-slate-400 font-bold block mb-1">MINUTES</span>
-                                            <input type="number" min="0" value={editForm.delayMinutes} onChange={(e) => setEditForm(prev => ({...prev, delayMinutes: parseInt(e.target.value) || 0}))} className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded p-2 font-mono text-center" />
+                                            <span className="text-xs text-slate-400 font-black block mb-1">MINUTES</span>
+                                            <input type="number" min="0" value={editForm.delayMinutes} onChange={(e) => setEditForm(prev => ({...prev, delayMinutes: parseInt(e.target.value) || 0}))} className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center" />
                                         </div>
-                                        <button onClick={applyManualDelay} className="bg-blue-100 hover:bg-blue-200 text-blue-700 font-bold px-4 py-2 rounded h-[42px] text-xs transition-colors">
+                                        <button onClick={applyManualDelay} className="bg-blue-600 hover:bg-blue-700 text-white font-black px-6 py-3 rounded-lg h-[60px] text-sm transition-all shadow-md active:scale-95">
                                             APPLY (+{editForm.manualDelayMinutes}m)
                                         </button>
                                     </div>
@@ -2267,38 +2229,38 @@ const App: React.FC = () => {
                             </div>
 
                             {/* Shift Toggle */}
-                            <div className="flex items-center gap-3 bg-orange-50 dark:bg-orange-900/20 p-3 rounded-lg border border-orange-100 dark:border-orange-900/40 cursor-pointer" onClick={() => setEditForm(prev => ({...prev, shiftSubsequent: !prev.shiftSubsequent}))}>
-                                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${editForm.shiftSubsequent ? 'bg-orange-500 border-orange-600' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'}`}>
-                                    {editForm.shiftSubsequent && <div className="w-2.5 h-2.5 bg-white rounded-sm" />}
+                            <div className="flex items-center gap-4 bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border-2 border-orange-100 dark:border-orange-900/40 cursor-pointer" onClick={() => setEditForm(prev => ({...prev, shiftSubsequent: !prev.shiftSubsequent}))}>
+                                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${editForm.shiftSubsequent ? 'bg-orange-500 border-orange-600' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'}`}>
+                                    {editForm.shiftSubsequent && <div className="w-3 h-3 bg-white rounded-sm" />}
                                 </div>
                                 <div className="flex-1">
-                                    <span className="block text-sm font-bold text-slate-700 dark:text-slate-300">
+                                    <span className="block text-base font-black text-slate-700 dark:text-slate-300">
                                         {editForm.shiftSubsequent ? 'Continue Interval (Shift Active)' : 'Stop Running Interval (Shift Schedule)'}
                                     </span>
-                                    <span className="block text-xs text-slate-500 dark:text-slate-500">Delay will push all subsequent batches forward</span>
+                                    <span className="block text-xs font-bold text-slate-500 dark:text-slate-500">Delay will push all subsequent batches forward</span>
                                 </div>
-                                <PauseCircle className="w-5 h-5 text-orange-400" />
+                                <PauseCircle className="w-6 h-6 text-orange-400" />
                             </div>
                         </>
                     )}
 
                     {/* Notes */}
                     <div>
-                        <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Operator Notes</label>
-                        <textarea value={editForm.note} onChange={(e) => setEditForm(prev => ({...prev, note: e.target.value}))} placeholder="Add information for DCS operator..." className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-sm focus:ring-2 focus:ring-blue-500 outline-none min-h-[80px]" />
+                        <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-3 block">Operator Notes</label>
+                        <textarea value={editForm.note} onChange={(e) => setEditForm(prev => ({...prev, note: e.target.value}))} placeholder="Add information for DCS operator..." className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl p-4 text-base font-bold focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px]" />
                     </div>
                 </div>
 
-                <div className="bg-slate-50 dark:bg-slate-900 p-4 border-t border-slate-100 dark:border-slate-800 flex gap-3 justify-end shrink-0">
+                <div className="bg-slate-50 dark:bg-slate-900 p-6 border-t-2 border-slate-200 dark:border-slate-800 flex gap-4 justify-end shrink-0">
                     {config.itemConfigs[selectedItem.id] && (
-                        <button onClick={clearOverride} className="px-4 py-2 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg font-bold text-sm transition-colors mr-auto">
+                        <button onClick={clearOverride} className="px-6 py-3 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl font-black text-base transition-colors mr-auto border-2 border-transparent hover:border-red-200">
                             Reset
                         </button>
                     )}
-                    <button onClick={closeRescheduleModal} className="px-4 py-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-bold text-sm">
+                    <button onClick={closeRescheduleModal} className="px-6 py-3 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-black text-base">
                         Cancel
                     </button>
-                    <button onClick={saveReschedule} className="px-6 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-lg font-bold shadow-md hover:shadow-lg transition-all transform hover:-translate-y-0.5">
+                    <button onClick={saveReschedule} className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 active:scale-95">
                         Save Changes
                     </button>
                 </div>
