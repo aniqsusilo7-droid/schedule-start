@@ -355,6 +355,27 @@ const App: React.FC = () => {
       if (error) console.error("Failed to update settings:", error);
   };
 
+  // --- Dynamic Calculation Logic (Shared with Demonomer) ---
+  const evaluateMath = (expression: string, vars: Record<string, number>): number => {
+    let expr = expression;
+    const sortedKeys = Object.keys(vars).sort((a, b) => b.length - a.length);
+    
+    for (const key of sortedKeys) {
+        const escapedKey = key.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+        const regex = new RegExp(escapedKey, 'g');
+        expr = expr.replace(regex, String(vars[key]));
+    }
+
+    try {
+        const cleanExpr = expr.replace(/[^0-9\.\+\-\*\/\(\)\s]/g, '');
+        if (!cleanExpr.trim()) return 0;
+        const result = new Function('return ' + expr)();
+        return isFinite(result) ? result : 0;
+    } catch (e) {
+        return 0;
+    }
+  };
+
   // --- Handlers ---
   const handleConfigChange = (key: keyof AppState, value: any) => {
     setConfig((prev) => ({ ...prev, [key]: value }));
@@ -986,22 +1007,25 @@ const App: React.FC = () => {
       if (fullScreenAlertItem && fullScreenAlertItem.id !== lastAlertedId) {
           setLastAlertedId(fullScreenAlertItem.id);
           
+          // Play Siren Sound
+          if (config.audioEnabled) {
+              playSirenSound();
+          }
+
           // Try to focus window
           window.focus();
 
-          // Try to trigger fullscreen if possible (requires user gesture usually, but we try)
+          // Try to trigger fullscreen if possible
           try {
               if (document.documentElement.requestFullscreen) {
-                  document.documentElement.requestFullscreen().catch(() => {
-                      // Silently fail if blocked by browser
-                  });
+                  document.documentElement.requestFullscreen().catch(() => {});
               }
           } catch (e) {}
           
-          // Show system notification
+          // Show system notification (Desktop Alert)
           if ('Notification' in window && Notification.permission === 'granted') {
-              const notification = new Notification(`⚠️ PREPARE TO START: REACTOR ${fullScreenAlertItem.reactorId}`, {
-                  body: `Batch ${fullScreenAlertItem.batchNumber} starting at ${formatTime(fullScreenAlertItem.startTime)}. PLEASE OPEN THE APP IMMEDIATELY!`,
+              const notification = new Notification(`⚠️ PERSIAPAN START: REAKTOR ${fullScreenAlertItem.reactorId}`, {
+                  body: `Batch #${fullScreenAlertItem.batchNumber} akan start jam ${formatTime(fullScreenAlertItem.startTime)}.`,
                   icon: '/favicon.ico',
                   requireInteraction: true,
                   silent: false,
@@ -1019,16 +1043,14 @@ const App: React.FC = () => {
               navigator.vibrate([500, 200, 500, 200, 500]);
           }
 
-          // Final fallback: window.alert (forces focus in many browsers/OS)
-          if (document.visibilityState !== 'visible') {
-              setTimeout(() => {
-                  window.alert(`⚠️ START NOW: REACTOR ${fullScreenAlertItem.reactorId}\nBatch: ${fullScreenAlertItem.batchNumber}\nTime: ${formatTime(fullScreenAlertItem.startTime)}`);
-              }, 100);
-          }
+          // BLOCKING SYSTEM ALERT (Forces attention on PC)
+          setTimeout(() => {
+              window.alert(`⚠️ PERSIAPAN START REAKTOR ${fullScreenAlertItem.reactorId}\nBatch: #${fullScreenAlertItem.batchNumber}\nWaktu: ${formatTime(fullScreenAlertItem.startTime)}\n\nSegera lakukan persiapan!`);
+          }, 100);
       } else if (!fullScreenAlertItem) {
           setLastAlertedId(null);
       }
-  }, [fullScreenAlertItem, lastAlertedId]);
+  }, [fullScreenAlertItem, lastAlertedId, config.audioEnabled]);
 
   if (isLoading) {
       return (
@@ -1721,7 +1743,43 @@ const App: React.FC = () => {
                     </div>
                </div>
 
-               {/* 3. CYCLE TIME WIDGET */}
+               {/* 3. F2002 & STEAM WIDGET (SIMPLIFIED) */}
+               <div className="flex flex-col w-fit shadow-[8px_8px_0px_0px_rgba(30,41,59,0.2)] rounded-xl">
+                    <div className="bg-teal-600 text-white font-black text-[1em] px-6 py-4 text-center border-4 border-slate-800 dark:border-slate-700 border-b-0 rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight">
+                        <Activity className="w-5 h-5" />
+                        DEMONOMER CALC
+                    </div>
+                    <div className="bg-white dark:bg-slate-800 border-4 border-slate-800 dark:border-slate-700 rounded-b-xl p-4 flex flex-col gap-4 min-w-[15em]">
+                        {/* F2002 Input Row */}
+                        <div className="flex flex-col gap-1">
+                            <label className="text-[0.7em] font-black text-slate-400 uppercase tracking-widest text-center">F2002 (INPUT)</label>
+                            <input 
+                                type="number"
+                                step="0.1"
+                                value={demonomerData.f2002}
+                                onChange={(e) => handleDemonomerChange('f2002', parseFloat(e.target.value) || 0)}
+                                className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 rounded p-2 text-5xl font-black text-center text-teal-600 dark:text-teal-400 focus:ring-4 focus:ring-teal-500/20 outline-none transition-all"
+                            />
+                        </div>
+
+                        {/* Steam Calculation Result */}
+                        <div className="bg-red-600 text-white p-4 rounded-lg border-4 border-slate-800 shadow-lg">
+                            <span className="text-[0.7em] font-black uppercase tracking-wider block text-center mb-1 opacity-80">STEAM RESULT</span>
+                            <div className="text-7xl font-black text-center drop-shadow-md">
+                                {Math.round(evaluateMath(demonomerData.steamFormula, {
+                                    'PVC': evaluateMath(demonomerData.pvcFormula, {
+                                        'AI2802': demonomerData.aie2802,
+                                        '%PVC': demonomerData.pvcPercent / 100,
+                                        'F2002': demonomerData.f2002
+                                    }),
+                                    'Multiplier': demonomerData.multipliers[config.currentGrade] || 0
+                                }))}
+                            </div>
+                        </div>
+                    </div>
+               </div>
+
+               {/* 4. CYCLE TIME WIDGET */}
                <div className="flex flex-col w-fit shadow-[8px_8px_0px_0px_rgba(30,41,59,0.2)] rounded-xl ml-auto">
                     <div className="bg-indigo-600 text-white font-black text-[1em] px-6 py-4 text-center border-4 border-slate-800 dark:border-slate-700 border-b-0 rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight">
                         <Calculator className="w-5 h-5" />
