@@ -2,12 +2,15 @@
 import React, { useMemo } from 'react';
 import { ArrowRight, Settings2, Activity, RotateCcw, Calculator, Info, Database } from 'lucide-react';
 import { GradeType, DemonomerData } from '../types';
+import { GRADE_COLORS } from '../constants';
 
 interface DemonomerProps {
   currentGrade: GradeType;
   onGradeChange: (grade: GradeType) => void;
   data: DemonomerData;
   onDataChange: (field: keyof DemonomerData, value: any) => void;
+  gradeMode: 'normal' | 'gradeChange';
+  onGradeModeChange: (mode: 'normal' | 'gradeChange') => void;
 }
 
 type GradeKey = 'SM' | 'SLP' | 'SLK' | 'SE' | 'SR';
@@ -15,7 +18,7 @@ type GradeKey = 'SM' | 'SLP' | 'SLK' | 'SE' | 'SR';
 const DEFAULT_PVC_FORMULA = "F2002*AI2802/1000*%PVC";
 const DEFAULT_STEAM_FORMULA = "PVC * Multiplier";
 
-export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChange, data, onDataChange }) => {
+export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChange, data, onDataChange, gradeMode, onGradeModeChange }) => {
   
   // --- Handlers ---
   const handleResetFormulas = () => {
@@ -91,13 +94,29 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
           </div>
 
           <div className="bg-white dark:bg-slate-800 p-2 rounded-xl border-2 border-slate-800 flex items-center gap-4">
-              <span className="text-sm font-black text-slate-500 uppercase px-2">ACTIVE GRADE</span>
+              <div className="flex gap-1">
+                  <button 
+                    onClick={() => onGradeModeChange('normal')}
+                    className={`px-4 py-2 rounded font-black text-sm transition-all flex items-center gap-2 ${gradeMode === 'normal' ? 'bg-teal-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 hover:bg-slate-200'}`}
+                  >
+                      {gradeMode === 'normal' && <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>}
+                      NORMAL
+                  </button>
+                  <button 
+                    onClick={() => onGradeModeChange('gradeChange')}
+                    className={`px-4 py-2 rounded font-black text-sm transition-all flex items-center gap-2 ${gradeMode === 'gradeChange' ? 'bg-teal-600 text-white shadow-lg' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 hover:bg-slate-200'}`}
+                  >
+                      {gradeMode === 'gradeChange' && <span className="w-2 h-2 rounded-full bg-white animate-pulse"></span>}
+                      GRADE CHANGE
+                  </button>
+              </div>
+              <span className="text-sm font-black text-slate-500 uppercase px-2 border-l-2 border-slate-200">ACTIVE GRADE</span>
               <div className="flex gap-1">
                   {(Object.keys(data.multipliers) as GradeKey[]).map(g => (
                       <button 
                         key={g} 
                         onClick={() => onGradeChange(g as GradeType)}
-                        className={`px-6 py-2 rounded font-black text-lg transition-all ${currentGrade === g ? 'bg-teal-600 text-white shadow-md' : 'bg-slate-100 dark:bg-slate-700 text-slate-400 hover:text-slate-600'}`}
+                        className={`px-6 py-2 rounded font-black text-lg transition-all ${currentGrade === g ? `${GRADE_COLORS[g]} text-white shadow-md` : 'bg-slate-100 dark:bg-slate-700 text-slate-400 hover:text-slate-600'}`}
                       >
                           {g}
                       </button>

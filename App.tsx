@@ -1,6 +1,6 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
-import { REACTORS } from './constants';
+import { REACTORS, GRADE_COLORS } from './constants';
 import { AppState, ScheduleItem, ItemConfig, GradeType, SiloState, SiloData, DemonomerData } from './types';
 import { addMinutes, formatDate, formatTime } from './utils/dateUtils';
 import { Clock } from './components/Clock';
@@ -106,6 +106,7 @@ const App: React.FC = () => {
       pvcFormula: "F2002*AI2802/1000*%PVC",
       steamFormula: "PVC * Multiplier"
   });
+  const [demonomerGrade, setDemonomerGrade] = useState<GradeType>('SM');
 
   // --- Cycle Time State ---
   const [cycleTimeData, setCycleTimeData] = useState([
@@ -169,12 +170,16 @@ const App: React.FC = () => {
     theme: 'light',
     layoutOrder: ['header', 'scheduler', 'catalyst'], // Updated: Header first to match request "move to top"
     tableRowHeight: 95, 
-    tableFontSize: 24 
+    tableFontSize: 24,
+    hiddenReactors: [],
+    hiddenFields: [],
+    gradeMode: 'normal'
   });
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Default closed to look cleaner on load
   const announcedBatches = useRef<Set<string>>(new Set());
   const [audioAllowed, setAudioAllowed] = useState(false); // Track if audio is allowed
+  const [dbSchemaError, setDbSchemaError] = useState<string | null>(null);
 
   // --- Auto-hide Settings Button Logic ---
   const [isSettingsButtonVisible, setIsSettingsButtonVisible] = useState(true);
@@ -341,6 +346,11 @@ const App: React.FC = () => {
               setDemonomerData(settingsData.demonomer_data);
           }
 
+          // Load Grade Mode
+          if (settingsData && 'grade_mode' in settingsData && settingsData.grade_mode) {
+              setConfig(prev => ({ ...prev, gradeMode: settingsData.grade_mode as 'normal' | 'gradeChange' }));
+          }
+
       } else {
            // Init defaults if no settings exist
            await supabase.from('app_settings').insert([{ id: 1 }]);
@@ -368,12 +378,24 @@ const App: React.FC = () => {
   // Save specific global setting to DB
   const updateGlobalSetting = async (updates: Partial<any>) => {
       // Optimistic update
-      const { error } = await supabase
-          .from('app_settings')
-          .update(updates)
-          .eq('id', 1);
-      
-      if (error) console.error("Failed to update settings:", error);
+      try {
+          const { error } = await supabase
+              .from('app_settings')
+              .update(updates)
+              .eq('id', 1);
+          
+          if (error) {
+              // Specifically handle missing column error (PGRST204)
+              if (error.code === 'PGRST204' && error.message.includes('grade_mode')) {
+                  setDbSchemaError("Missing 'grade_mode' column in app_settings table.");
+                  console.warn("Database column 'grade_mode' is missing. Please run the SQL in supabase_schema.sql to update your database.");
+                  return;
+              }
+              console.error("Failed to update settings:", error);
+          }
+      } catch (err) {
+          console.error("Unexpected error updating settings:", err);
+      }
   };
 
   // --- Dynamic Calculation Logic (Shared with Demonomer) ---
@@ -418,7 +440,8 @@ const App: React.FC = () => {
         theme: 'theme',
         layoutOrder: 'layout_order',
         tableRowHeight: 'table_row_height',
-        tableFontSize: 'table_font_size'
+        tableFontSize: 'table_font_size',
+        gradeMode: 'grade_mode'
     };
 
     if (dbMap[key]) {
@@ -1116,7 +1139,36 @@ const App: React.FC = () => {
         {/* Settings Panel Drawer */}
             {isSettingsOpen && (
               <div className="border-t border-slate-200 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200 transition-colors bg-slate-50 dark:bg-slate-900/50 py-6 mt-3">
-                <div className="w-full px-6 mx-auto grid grid-cols-1 md:grid-cols-4 gap-8">
+                <div className="w-full px-6 mx-auto">
+                  {/* DB Schema Error Alert */}
+                  {dbSchemaError && (
+                      <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-200 text-sm flex items-start gap-3 animate-pulse max-w-4xl mx-auto">
+                          <AlertTriangle className="w-6 h-6 shrink-0 text-red-400" />
+                          <div className="flex-1">
+                              <p className="font-black text-lg leading-none mb-1 uppercase tracking-tighter">Database Schema Outdated</p>
+                              <p className="opacity-80 font-bold">The 'grade_mode' feature requires a database update. Please run the SQL in <code>supabase_schema.sql</code> in your Supabase SQL Editor.</p>
+                              <div className="mt-3 flex gap-3">
+                                  <button 
+                                      onClick={() => {
+                                          navigator.clipboard.writeText("ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS grade_mode TEXT DEFAULT 'normal';");
+                                          alert("SQL copied to clipboard!");
+                                      }}
+                                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-black text-xs transition-colors shadow-lg uppercase"
+                                  >
+                                      Copy SQL Fix
+                                  </button>
+                                  <button 
+                                      onClick={() => setDbSchemaError(null)}
+                                      className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg font-bold text-xs transition-colors uppercase"
+                                  >
+                                      Dismiss
+                                  </button>
+                              </div>
+                          </div>
+                      </div>
+                  )}
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                   
                   {/* Appearance & Sound Controls */}
                   <div className="md:col-span-1 flex flex-col gap-4">
@@ -1248,7 +1300,7 @@ const App: React.FC = () => {
                               <span className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400">Est. Start Time</span>
                               <span className="text-2xl font-mono font-black text-emerald-700 dark:text-emerald-200">
                                   {new Date(nextStartParams.time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                                  <span className="text-xs ml-1 align-top opacity-60">{new Date(nextStartParams.time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
+                                  <span className="text-sm ml-1 align-top opacity-60">{new Date(nextStartParams.time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
                               </span>
                           </div>
                       </div>
@@ -1300,6 +1352,16 @@ const App: React.FC = () => {
                             </div>
                         </div>
 
+                        {/* SILO TABLE */}
+                        <div className="w-full mt-6">
+                            <Silo 
+                                activeSilo={siloState.activeSilo}
+                                silos={siloState.silos}
+                                onDataChange={handleSiloDataChange}
+                                onSiloSelect={handleSiloSwitch}
+                            />
+                        </div>
+
                         {/* Marquee Speed Control */}
                         <div>
                             <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1 mb-2">
@@ -1328,10 +1390,10 @@ const App: React.FC = () => {
                          </button>
                     </div>
                   </div>
-
                 </div>
               </div>
-            )}
+            </div>
+          )}
     </header>
   );
 
@@ -1356,7 +1418,7 @@ const App: React.FC = () => {
                 {/* Grade Selector: Positioned top left, same size as before */}
                 <div className="flex gap-1 bg-slate-800 p-1 rounded-r-lg border-r border-y border-slate-700 shadow-md z-20 h-full items-center">
                     {GRADES.map(g => (
-                        <button key={g} onClick={() => handleConfigChange('currentGrade', g)} className={`px-4 py-1 text-base font-black rounded transition-all h-full ${config.currentGrade === g ? 'bg-blue-600 text-white shadow-md' : 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-slate-200'}`}>
+                        <button key={g} onClick={() => handleConfigChange('currentGrade', g)} className={`px-4 py-1 text-base font-black rounded transition-all h-full ${config.currentGrade === g ? `${GRADE_COLORS[g]} text-white shadow-md` : 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-slate-200'}`}>
                             {g}
                         </button>
                     ))}
@@ -1541,7 +1603,7 @@ const App: React.FC = () => {
                                     </div>
                                 )}
 
-                                <span className={`font-bold shrink-0 ${isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} style={{ fontSize: '0.9em' }}>
+                                <span className={`font-bold shrink-0 ${isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} style={{ fontSize: '1.2em' }}>
                                     {formatDate(item.startTime)}
                                 </span>
                             </div>
@@ -1982,19 +2044,18 @@ const App: React.FC = () => {
           {/* Always render these if selected in view, regardless of layout order, but put them at end if not in layout (fallback) */}
           {currentView === 'demonomer' && (
             <Demonomer 
-                currentGrade={config.currentGrade} 
-                onGradeChange={(g) => handleConfigChange('currentGrade', g)} 
+                currentGrade={config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade} 
+                onGradeChange={(g) => {
+                    if (config.gradeMode === 'normal') {
+                        handleConfigChange('currentGrade', g);
+                    } else {
+                        setDemonomerGrade(g);
+                    }
+                }}
                 data={demonomerData}
                 onDataChange={handleDemonomerChange}
-            />
-          )}
-          
-          {currentView === 'silo' && (
-            <Silo 
-                activeSilo={siloState.activeSilo}
-                silos={siloState.silos}
-                onDataChange={handleSiloDataChange}
-                onSiloSelect={handleSiloSwitch}
+                gradeMode={config.gradeMode}
+                onGradeModeChange={(m) => handleConfigChange('gradeMode', m)}
             />
           )}
       </div>

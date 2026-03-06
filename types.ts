@@ -58,6 +58,7 @@ export interface AppState {
   tableFontSize: number; // pixel font size base
   hiddenReactors: string[]; // IDs of reactors to hide
   hiddenFields: string[]; // IDs of fields to hide (batch, time, grade, note, stage)
+  gradeMode: 'normal' | 'gradeChange'; // Added grade mode
 }
 
 // --- Silo Types ---

@@ -7,3 +7,11 @@ export const REACTORS: ReactorConfig[] = [
   { id: 'V', name: 'Reactor V', label: 'V', color: 'bg-green-600', textColor: 'text-white', subLabel: '' },
   { id: 'W', name: 'Reactor W', label: 'W', color: 'bg-blue-600', textColor: 'text-white', subLabel: '' },
 ];
+
+export const GRADE_COLORS: Record<string, string> = {
+  SM: 'bg-blue-600',
+  SLK: 'bg-teal-600',
+  SLP: 'bg-amber-600',
+  SE: 'bg-purple-600',
+  SR: 'bg-rose-600'
+};
