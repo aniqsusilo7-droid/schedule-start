@@ -10,8 +10,8 @@ export const REACTORS: ReactorConfig[] = [
 
 export const GRADE_COLORS: Record<string, string> = {
   SM: 'bg-blue-600',
-  SLK: 'bg-teal-600',
-  SLP: 'bg-amber-600',
+  SLK: 'bg-green-600',
+  SLP: 'bg-orange-500',
   SE: 'bg-purple-600',
-  SR: 'bg-rose-600'
+  SR: 'bg-red-600'
 };

@@ -16,7 +16,7 @@ interface DemonomerProps {
 type GradeKey = 'SM' | 'SLP' | 'SLK' | 'SE' | 'SR';
 
 const DEFAULT_PVC_FORMULA = "F2002*AI2802/1000*%PVC";
-const DEFAULT_STEAM_FORMULA = "PVC * Multiplier";
+const DEFAULT_STEAM_FORMULA = "PVC * Steam Rasio";
 
 export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChange, data, onDataChange, gradeMode, onGradeModeChange }) => {
   
@@ -69,7 +69,8 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
     const mult = data.multipliers[currentGrade as GradeKey] || 0;
     return evaluateMath(data.steamFormula, {
         'PVC': calculatedPVC,
-        'Multiplier': mult
+        'Steam Rasio': mult,
+        'Multiplier': mult // Keep for backward compatibility
     });
   }, [calculatedPVC, currentGrade, data.multipliers, data.steamFormula]);
 
@@ -129,7 +130,7 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
       <div className="bg-white dark:bg-slate-900 border-4 border-slate-800 shadow-[8px_8px_0px_0px_rgba(30,41,59,0.2)] overflow-hidden rounded-xl">
         {/* Header Row */}
         <div className="grid grid-cols-5 border-b-4 border-slate-800 bg-[#FFF8DC] dark:bg-slate-800 transition-colors uppercase">
-          <div className="p-6 border-r-2 border-slate-800 font-black text-center text-2xl text-slate-800 dark:text-slate-200">F2002</div>
+          <div className="p-6 border-r-2 border-slate-800 font-black text-center text-2xl text-slate-800 dark:text-slate-200">FIE2002</div>
           <div className="p-6 border-r-2 border-slate-800 font-black text-center text-2xl text-slate-800 dark:text-slate-200">AI2802</div>
           <div className="p-6 border-r-2 border-slate-800 font-black text-center text-2xl text-slate-800 dark:text-slate-200">%PVC</div>
           <div className="p-6 border-r-2 border-slate-800 font-black text-center text-2xl text-slate-800 dark:text-slate-200">PVC</div>
@@ -144,7 +145,7 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
                     type="number"
                     value={data.f2002}
                     onChange={(e) => onDataChange('f2002', parseFloat(e.target.value) || 0)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded p-3 text-4xl font-black text-center text-slate-800 dark:text-white focus:outline-none focus:ring-4 focus:ring-teal-100 transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded p-2 text-3xl font-black text-center text-slate-800 dark:text-white focus:outline-none focus:ring-4 focus:ring-teal-100 transition-all"
                 />
                 <span className="absolute -top-2 left-4 text-[10px] font-black text-slate-400 uppercase bg-white dark:bg-slate-800 px-1">Lot Factor</span>
              </div>
@@ -156,7 +157,7 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
                     type="number"
                     value={data.aie2802}
                     onChange={(e) => onDataChange('aie2802', parseFloat(e.target.value) || 0)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded p-3 text-4xl font-black text-center text-slate-800 dark:text-white focus:outline-none focus:ring-4 focus:ring-teal-100 transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded p-2 text-3xl font-black text-center text-slate-800 dark:text-white focus:outline-none focus:ring-4 focus:ring-teal-100 transition-all"
                 />
                 <span className="absolute -top-2 left-4 text-[10px] font-black text-slate-400 uppercase bg-white dark:bg-slate-800 px-1">Input Qty</span>
              </div>
@@ -168,26 +169,26 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
                     type="number"
                     value={data.pvcPercent}
                     onChange={(e) => onDataChange('pvcPercent', parseFloat(e.target.value) || 0)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded p-3 text-4xl font-black text-center text-slate-800 dark:text-white focus:outline-none focus:ring-4 focus:ring-teal-100 transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded p-2 text-3xl font-black text-center text-slate-800 dark:text-white focus:outline-none focus:ring-4 focus:ring-teal-100 transition-all"
                 />
                 <span className="absolute -top-2 left-4 text-[10px] font-black text-slate-400 uppercase bg-white dark:bg-slate-800 px-1">Percent %</span>
              </div>
           </div>
 
           <div className="p-4 border-r-2 border-slate-800 flex flex-col items-center justify-center bg-teal-50 dark:bg-teal-900/10">
-             <span className="text-5xl font-black tracking-tighter text-blue-700 dark:text-blue-400">
+             <span className="text-4xl font-black tracking-tighter text-blue-700 dark:text-blue-400">
                  {calculatedPVC.toLocaleString('en-US', { minimumFractionDigits: 4, maximumFractionDigits: 4 })}
              </span>
-             <span className="text-[11px] font-bold text-blue-600 uppercase mt-2">Resulting PVC</span>
+             <span className="text-[10px] font-bold text-blue-600 uppercase mt-1">Resulting PVC</span>
           </div>
 
           <div className="p-4 flex items-center justify-center relative bg-white dark:bg-slate-900 overflow-hidden">
              <div className="absolute inset-0 opacity-5 bg-red-100 dark:bg-red-900"></div>
              <div className="flex flex-col items-center z-10">
-                <span className="text-7xl font-black text-red-600 tracking-tighter drop-shadow-sm">
+                <span className="text-6xl font-black text-red-600 tracking-tighter drop-shadow-sm">
                     {Math.round(calculatedSteam)}
                 </span>
-                <span className="text-xs font-bold text-red-400 uppercase tracking-widest mt-1">Calculated Steam</span>
+                <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest mt-0.5">Calculated Steam</span>
              </div>
           </div>
         </div>
@@ -196,7 +197,7 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
       {/* Settings Section */}
       <div className="bg-[#FFFACD] dark:bg-slate-800 p-8 rounded-xl border-4 border-slate-800 shadow-[8px_8px_0px_0px_rgba(30,41,59,0.1)] transition-colors">
           <h3 className="text-slate-800 dark:text-slate-200 font-black text-lg mb-6 flex items-center gap-2 uppercase tracking-tight">
-              <Settings2 className="w-6 h-6" /> Nilai Untuk Grade (Multipliers)
+              <Settings2 className="w-6 h-6" /> ADJUST STEAM RASIO
           </h3>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-6 mb-8">
@@ -219,7 +220,7 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
                               className="w-full bg-white dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded p-1 text-2xl font-bold text-teal-700 dark:text-teal-400 text-center focus:ring-2 focus:ring-teal-400 outline-none transition-all"
                           />
                       </div>
-                      <span className="text-[10px] font-bold text-slate-500 uppercase text-center">Multiplier</span>
+                      <span className="text-[10px] font-bold text-slate-500 uppercase text-center">Steam Rasio</span>
                   </div>
               ))}
           </div>
@@ -260,7 +261,7 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
                    <div className="space-y-2">
                        <label className="text-xs font-black text-slate-500 uppercase block tracking-widest flex justify-between">
                            <span>Steam Formula</span>
-                           <span className="text-[10px] normal-case opacity-70">Vars: PVC, Multiplier</span>
+                           <span className="text-[10px] normal-case opacity-70">Vars: PVC, Steam Rasio</span>
                        </label>
                        <div className="relative group">
                             <input 

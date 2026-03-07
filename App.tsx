@@ -73,9 +73,6 @@ const App: React.FC = () => {
   const [editingReactorNote, setEditingReactorNote] = useState<string | null>(null);
   const [tempReactorNote, setTempReactorNote] = useState("");
 
-  // State for Silo Modal
-  const [isSiloModalOpen, setIsSiloModalOpen] = useState(false);
-  
   // State for Silo START Confirmation Modal
   const [startSiloData, setStartSiloData] = useState<{
       id: 'O' | 'P' | 'Q';
@@ -104,7 +101,7 @@ const App: React.FC = () => {
       pvcPercent: 25,
       multipliers: { SM: 118, SLP: 108, SLK: 128, SE: 140, SR: 100 },
       pvcFormula: "F2002*AI2802/1000*%PVC",
-      steamFormula: "PVC * Multiplier"
+      steamFormula: "PVC * Steam Rasio"
   });
   const [demonomerGrade, setDemonomerGrade] = useState<GradeType>('SM');
 
@@ -169,8 +166,8 @@ const App: React.FC = () => {
     marqueeSpeed: 30, // Default 30s
     theme: 'light',
     layoutOrder: ['header', 'scheduler', 'catalyst'], // Updated: Header first to match request "move to top"
-    tableRowHeight: 95, 
-    tableFontSize: 24,
+    tableRowHeight: 76, 
+    tableFontSize: 19,
     hiddenReactors: [],
     hiddenFields: [],
     gradeMode: 'normal'
@@ -1082,30 +1079,30 @@ const App: React.FC = () => {
               {/* Widget: Interval & Time */}
               <div className="flex bg-slate-800 rounded-lg p-1 shadow-md shrink-0">
                      {/* Interval */}
-                     <div className="px-6 py-2 flex flex-col items-center justify-center border-r border-slate-700/50 min-w-[140px]">
-                        <span className="text-[12px] text-cyan-400 font-bold uppercase tracking-wider mb-1">INTERVAL</span>
-                        <div className="text-5xl font-mono font-black text-cyan-300 leading-none">
+                     <div className="px-4 py-1.5 flex flex-col items-center justify-center border-r border-slate-700/50 min-w-[110px]">
+                        <span className="text-[8px] text-cyan-400 font-bold uppercase tracking-wider mb-1">INTERVAL</span>
+                        <div className="text-3xl font-mono font-black text-cyan-300 leading-none">
                             {config.intervalHours.toString().padStart(2, '0')}:{config.intervalMinutes.toString().padStart(2, '0')}
                         </div>
                      </div>
                      {/* Time */}
-                     <div className="px-6 py-2 flex flex-col items-center justify-center min-w-[220px]">
-                        <span className="text-[12px] text-slate-400 font-bold uppercase tracking-wider mb-1">CURRENT TIME</span>
-                        <div className="bg-white w-full mx-2 text-slate-900 px-3 py-1 rounded shadow-sm font-mono font-black text-4xl tracking-widest leading-none flex items-center justify-center">
+                     <div className="px-4 py-1.5 flex flex-col items-center justify-center min-w-[180px]">
+                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider mb-1">CURRENT TIME</span>
+                        <div className="bg-white w-full mx-2 text-slate-900 px-2 py-1 rounded shadow-sm font-mono font-black text-2xl tracking-widest leading-none flex items-center justify-center">
                             {now.toLocaleTimeString('en-GB', { hour12: false })}
-                            <span className="text-[12px] ml-1 text-slate-500 font-bold self-end mb-1">s</span>
+                            <span className="text-[10px] ml-1 text-slate-500 font-bold self-end mb-1">s</span>
                         </div>
                      </div>
               </div>
           </div>
 
           {/* Center Section: Title */}
-          <div className="flex flex-col items-center justify-center shrink-0 p-3 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-sm animate-pulse justify-self-center">
-            <h1 className="text-7xl font-black text-slate-900 dark:text-white tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm">
+          <div className="flex flex-col items-center justify-center shrink-0 p-2 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-sm animate-pulse justify-self-center">
+            <h1 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm">
                <span className="text-blue-600 dark:text-blue-400">SCHEDULE</span> 
                <span className="text-slate-800 dark:text-slate-200">START</span>
             </h1>
-            <span className="text-2xl font-black text-slate-500 dark:text-slate-400 tracking-[0.3em] block w-full text-center uppercase mt-1 border-t-2 border-slate-200 dark:border-slate-700 pt-1">
+            <span className="text-lg font-black text-slate-500 dark:text-slate-400 tracking-[0.3em] block w-full text-center uppercase mt-1 border-t-2 border-slate-200 dark:border-slate-700 pt-1">
                 REAKTOR PVC 5
             </span>
           </div>
@@ -1352,16 +1349,6 @@ const App: React.FC = () => {
                             </div>
                         </div>
 
-                        {/* SILO TABLE */}
-                        <div className="w-full mt-6">
-                            <Silo 
-                                activeSilo={siloState.activeSilo}
-                                silos={siloState.silos}
-                                onDataChange={handleSiloDataChange}
-                                onSiloSelect={handleSiloSwitch}
-                            />
-                        </div>
-
                         {/* Marquee Speed Control */}
                         <div>
                             <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1 mb-2">
@@ -1467,7 +1454,7 @@ const App: React.FC = () => {
                     
                     <td className={`${reactor.color} ${reactor.textColor} border-r border-slate-900/10 dark:border-slate-900/30 p-2 relative group w-[140px]`}>
                        <div className="flex flex-col items-center justify-center h-full">
-                          <span className="font-black font-serif drop-shadow-md leading-none" style={{ fontSize: '3.5em' }}>{reactor.label}</span>
+                          <span className="font-black font-serif drop-shadow-md leading-none" style={{ fontSize: '2.5em' }}>{reactor.label}</span>
                           
                           {/* Reactor Note Display */}
                           <div 
@@ -1476,7 +1463,7 @@ const App: React.FC = () => {
                             title="Click to edit note"
                           >
                              {config.reactorNotes[reactor.id] ? (
-                                 <div className="bg-yellow-400 text-black font-black text-center rounded px-1 uppercase tracking-tighter border-2 border-red-600 shadow-sm overflow-hidden text-ellipsis whitespace-nowrap" style={{ fontSize: '0.85em' }}>
+                                 <div className="bg-yellow-400 text-black font-bold text-left rounded px-1 border-2 border-red-600 shadow-sm overflow-hidden text-ellipsis line-clamp-3 whitespace-pre-wrap break-words leading-tight" style={{ fontSize: '0.6em' }}>
                                      {config.reactorNotes[reactor.id]}
                                  </div>
                              ) : (
@@ -1520,7 +1507,7 @@ const App: React.FC = () => {
                             <div className="flex justify-between items-start mb-0.5">
                               <div className="flex flex-col leading-none">
                                 {!isSkipped ? (
-                                    <span className={`font-bold font-mono ${isActive ? 'text-white' : (reactor.id === 'S' || reactor.id === 'T' ? 'text-red-600 dark:text-red-400' : 'text-red-500 dark:text-red-400')} ${isPast ? '!text-inherit' : ''}`} style={{ fontSize: '1.4em' }}>
+                                    <span className={`font-bold font-mono ${isActive ? 'text-white' : (reactor.id === 'S' || reactor.id === 'T' ? 'text-red-600 dark:text-red-400' : 'text-red-500 dark:text-red-400')} ${isPast ? '!text-inherit' : ''}`} style={{ fontSize: '1.0em' }}>
                                         <span className="opacity-50 text-[0.6em] mr-0.5">#</span>{item.batchNumber}
                                     </span>
                                 ) : (
@@ -1528,7 +1515,7 @@ const App: React.FC = () => {
                                 )}
                               </div>
                               <div className="text-right">
-                                <div className={`font-black px-1.5 py-0.5 rounded leading-none ${isActive ? 'bg-white text-red-600' : (isSkipped ? 'bg-stone-300 dark:bg-stone-800 text-stone-600 dark:text-stone-400' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300')}`} style={{ fontSize: '1.1em' }}>
+                                <div className={`font-black px-1.5 py-0.5 rounded leading-none ${isActive ? 'bg-white text-red-600' : (isSkipped ? 'bg-stone-300 dark:bg-stone-800 text-stone-600 dark:text-stone-400' : `${GRADE_COLORS[item.grade] || 'bg-slate-200'} text-white`)}`} style={{ fontSize: '0.8em' }}>
                                     {item.grade}
                                 </div>
                               </div>
@@ -1544,17 +1531,17 @@ const App: React.FC = () => {
                               ) : (
                                 <>
                                     {/* Unified Time Display - Significantly Larger */}
-                                    <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-110' : (isPast ? 'text-slate-500 dark:text-slate-400 opacity-90 line-through' : (config.theme === 'dark' ? 'text-emerald-100' : 'text-slate-800 dark:text-slate-100'))} transition-transform`} style={{ fontSize: '3.5em' }}>
+                                    <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-110' : (isPast ? 'text-slate-500 dark:text-slate-400 opacity-90 line-through' : (config.theme === 'dark' ? 'text-emerald-100' : 'text-slate-800 dark:text-slate-100'))} transition-transform`} style={{ fontSize: '2.5em' }}>
                                         {formatTime(item.startTime)}
                                     </div>
                                     
                                     {/* Status / Badges */}
                                     {isPast ? (
-                                        <div className="font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1 opacity-75" style={{ fontSize: '0.8em' }}>
+                                        <div className="font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1 opacity-75" style={{ fontSize: '0.6em' }}>
                                             SUDAH START
                                         </div>
                                     ) : isActive ? (
-                                        <div className="font-black text-yellow-300 uppercase tracking-widest animate-bounce mt-1" style={{ fontSize: '0.9em' }}>
+                                        <div className="font-black text-yellow-300 uppercase tracking-widest animate-bounce mt-1" style={{ fontSize: '0.7em' }}>
                                             START NOW
                                         </div>
                                     ) : null}
@@ -1562,18 +1549,18 @@ const App: React.FC = () => {
                                     <div className="flex justify-center gap-1 mt-1 flex-wrap w-full items-center">
                                         {/* Adjusted Time Delta Badge (HH:MM) */}
                                         {item.deltaMinutes !== 0 && (
-                                            <div className={`font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-0.5 ${item.deltaMinutes > 0 ? 'bg-yellow-400 text-yellow-900' : 'bg-cyan-100 text-cyan-800'}`} style={{ fontSize: '0.85em' }}>
+                                            <div className={`font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-0.5 ${item.deltaMinutes > 0 ? 'bg-yellow-400 text-yellow-900' : 'bg-cyan-100 text-cyan-800'}`} style={{ fontSize: '0.6em' }}>
                                                 <Timer className="w-[1em] h-[1em]" /> {formatDelay(item.deltaMinutes)}
                                             </div>
                                         )}
                                         {/* Mode Badge - Visible for Open/Close Status */}
-                                        <div className={`font-bold px-1.5 py-0.5 rounded uppercase border flex items-center gap-1 ${mode === 'OPEN' ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border-cyan-200 dark:border-cyan-800' : (mode === 'CLOSE TO OPEN' && config.theme === 'dark') ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600'}`} style={{ fontSize: '0.85em' }}>
+                                        <div className={`font-bold px-1.5 py-0.5 rounded uppercase border flex items-center gap-1 ${mode === 'OPEN' ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border-cyan-200 dark:border-cyan-800' : (mode === 'CLOSE TO OPEN' && config.theme === 'dark') ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600'}`} style={{ fontSize: '0.6em' }}>
                                             <span className="text-[0.7em] opacity-70 mr-0.5">MODE</span>
                                             {mode}
                                         </div>
                                         {/* Shift Indicator */}
                                         {item.config?.shiftSubsequent && (
-                                            <div className="font-bold bg-orange-100 text-orange-700 px-1 py-0.5 rounded uppercase border border-orange-200 flex items-center" style={{ fontSize: '0.85em' }}>
+                                            <div className="font-bold bg-orange-100 text-orange-700 px-1 py-0.5 rounded uppercase border border-orange-200 flex items-center" style={{ fontSize: '0.6em' }}>
                                                 <ArrowRightCircle className="w-[1em] h-[1em]" />
                                             </div>
                                         )}
@@ -1598,12 +1585,12 @@ const App: React.FC = () => {
                                 </div>
                                 
                                 {stageInfo && (
-                                    <div className="flex-1 mx-1 self-center bg-yellow-400 text-black font-black text-center animate-pulse rounded px-1 uppercase tracking-tighter border-2 border-red-600 shadow-sm overflow-hidden text-ellipsis whitespace-nowrap" style={{ fontSize: '0.85em' }}>
+                                    <div className="flex-1 mx-1 self-center bg-yellow-400 text-black font-black text-center animate-pulse rounded px-1 uppercase tracking-tighter border-2 border-red-600 shadow-sm overflow-hidden text-ellipsis whitespace-nowrap" style={{ fontSize: '0.6em' }}>
                                         {stageInfo}
                                     </div>
                                 )}
 
-                                <span className={`font-bold shrink-0 ${isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} style={{ fontSize: '1.2em' }}>
+                                <span className={`font-bold shrink-0 ${isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} style={{ fontSize: '0.9em' }}>
                                     {formatDate(item.startTime)}
                                 </span>
                             </div>
@@ -1623,17 +1610,17 @@ const App: React.FC = () => {
   const renderCatalyst = () => {
       if (currentView !== 'scheduler') return null;
 
-      const colWidth1 = "w-[8em]";
+      const colWidth1 = "w-[3em]";
       const colWidth2 = "w-[6em]";
       const colWidth3 = "w-[6em]";
 
       const activeSiloData = siloState.activeSilo ? siloState.silos[siloState.activeSilo] : null;
 
       return (
-           <div className="flex flex-col md:flex-row gap-8 items-start mt-4" style={{ fontSize: `${config.tableFontSize}px` }}>
+           <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start mt-6" style={{ fontSize: `${config.tableFontSize}px` }}>
                
                {/* 1. CATALYST TABLE */}
-               <div className="border-4 border-slate-800 dark:border-slate-700 w-fit flex flex-col bg-white dark:bg-slate-800 shadow-[8px_8px_0px_0px_rgba(30,41,59,0.2)] rounded-xl overflow-hidden">
+               <div className="lg:col-span-3 border-4 border-slate-800 dark:border-slate-700 flex flex-col bg-white dark:bg-slate-800 shadow-[6px_6px_0px_0px_rgba(30,41,59,0.2)] rounded-xl overflow-hidden h-full">
                     {/* Headers */}
                     <div className="flex text-center font-black text-white border-b-4 border-slate-800 dark:border-slate-700">
                          <div className={`${colWidth1} bg-emerald-600 border-r-2 border-slate-800 dark:border-slate-700 py-3 flex items-center justify-center`}>
@@ -1650,14 +1637,14 @@ const App: React.FC = () => {
                     {/* Row F */}
                     <div className="flex h-[3.5em] border-b-2 border-slate-200 dark:border-slate-700 last:border-0">
                         <div className={`${colWidth1} bg-slate-900 text-white font-black flex items-center justify-center border-r-2 border-slate-800 dark:border-slate-700`}>
-                            <span className="text-[1.25em]">F</span>
+                            <span className="text-[1.4em]">F</span>
                         </div>
                         <div className={`${colWidth2} bg-white dark:bg-slate-800 border-r-2 border-slate-200 dark:border-slate-700 p-1`}>
                             <input 
                                 type="text" 
                                 value={catalystData.f.netto} 
                                 onChange={(e) => handleCatalystChange('f', 'netto', e.target.value)}
-                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.25em] outline-none"
+                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.4em] outline-none"
                             />
                         </div>
                         <div className={`${colWidth3} bg-white dark:bg-slate-800 p-1`}>
@@ -1665,22 +1652,22 @@ const App: React.FC = () => {
                                 type="text" 
                                 value={catalystData.f.bruto} 
                                 onChange={(e) => handleCatalystChange('f', 'bruto', e.target.value)}
-                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.25em] outline-none"
+                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.4em] outline-none"
                             />
                         </div>
                     </div>
 
                      {/* Row H */}
-                     <div className="flex h-[3.5em] border-b-2 border-slate-200 dark:border-slate-700 last:border-0">
+                      <div className="flex h-[3.5em] border-b-2 border-slate-200 dark:border-slate-700 last:border-0">
                         <div className={`${colWidth1} bg-yellow-400 text-black font-black flex items-center justify-center border-r-2 border-slate-800 dark:border-slate-700`}>
-                            <span className="text-[1.25em]">H</span>
+                            <span className="text-[1.4em]">H</span>
                         </div>
                         <div className={`${colWidth2} bg-white dark:bg-slate-800 border-r-2 border-slate-200 dark:border-slate-700 p-1`}>
                             <input 
                                 type="text" 
                                 value={catalystData.h.netto} 
                                 onChange={(e) => handleCatalystChange('h', 'netto', e.target.value)}
-                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.25em] outline-none"
+                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.4em] outline-none"
                             />
                         </div>
                         <div className={`${colWidth3} bg-white dark:bg-slate-800 p-1`}>
@@ -1688,7 +1675,7 @@ const App: React.FC = () => {
                                 type="text" 
                                 value={catalystData.h.bruto} 
                                 onChange={(e) => handleCatalystChange('h', 'bruto', e.target.value)}
-                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.25em] outline-none"
+                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.4em] outline-none"
                             />
                         </div>
                     </div>
@@ -1696,14 +1683,14 @@ const App: React.FC = () => {
                     {/* Row G */}
                     <div className="flex h-[3.5em] border-b-2 border-slate-200 dark:border-slate-700 last:border-0">
                         <div className={`${colWidth1} bg-purple-700 text-white font-black flex items-center justify-center border-r-2 border-slate-800 dark:border-slate-700`}>
-                            <span className="text-[1.25em]">G</span>
+                            <span className="text-[1.4em]">G</span>
                         </div>
                         <div className={`${colWidth2} bg-white dark:bg-slate-800 border-r-2 border-slate-200 dark:border-slate-700 p-1`}>
                             <input 
                                 type="text" 
                                 value={catalystData.g.netto} 
                                 onChange={(e) => handleCatalystChange('g', 'netto', e.target.value)}
-                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.25em] outline-none"
+                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.4em] outline-none"
                             />
                         </div>
                         <div className={`${colWidth3} bg-white dark:bg-slate-800 p-1`}>
@@ -1711,40 +1698,40 @@ const App: React.FC = () => {
                                 type="text" 
                                 value={catalystData.g.bruto} 
                                 onChange={(e) => handleCatalystChange('g', 'bruto', e.target.value)}
-                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.25em] outline-none"
+                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.4em] outline-none"
                             />
                         </div>
                     </div>
                </div>
 
                {/* 2. SILO SETTING WIDGET */}
-               <div className="flex flex-col w-fit shadow-[8px_8px_0px_0px_rgba(30,41,59,0.2)] rounded-xl">
+               <div className="lg:col-span-3 flex flex-col shadow-[6px_6px_0px_0px_rgba(30,41,59,0.2)] rounded-xl h-full">
                     {/* Header Button to Open Modal */}
                     <button 
-                        onClick={() => setIsSiloModalOpen(true)}
-                        className="bg-amber-500 hover:bg-amber-600 text-white font-black text-[1em] px-6 py-4 text-center border-4 border-slate-800 dark:border-slate-700 border-b-0 rounded-t-xl flex items-center justify-center gap-2 transition-colors cursor-pointer w-full uppercase tracking-tight"
+                        onClick={() => setCurrentView('silo')}
+                        className="bg-amber-500 hover:bg-amber-600 text-white font-black text-[0.9em] px-4 py-3 text-center border-4 border-slate-800 dark:border-slate-700 border-b-0 rounded-t-xl flex items-center justify-center gap-2 transition-colors cursor-pointer w-full uppercase tracking-tight"
                     >
-                        <Maximize2 className="w-5 h-5" />
-                        CHANGE SILO TO SETTING
+                        <Maximize2 className="w-4 h-4" />
+                        SILO SETTING
                     </button>
 
                     {/* Big Display for Active Silo */}
-                    <div className="flex">
-                        <div className="bg-white dark:bg-slate-800 text-slate-800 dark:text-white font-black p-6 flex items-center justify-center w-[20em] border-4 border-slate-800 dark:border-slate-700 rounded-b-xl relative overflow-hidden group">
+                    <div className="flex flex-1">
+                        <div className="bg-white dark:bg-slate-800 text-slate-800 dark:text-white font-black p-4 flex items-center justify-center w-full border-4 border-slate-800 dark:border-slate-700 rounded-b-xl relative overflow-hidden group">
                              
                              {/* Silo Letter - Blinking Animation */}
-                             <span className="text-8xl mr-8 drop-shadow-sm text-cyan-600 dark:text-cyan-400 animate-pulse">{siloState.activeSilo || '-'}</span>
+                             <span className="text-[7rem] mr-4 drop-shadow-sm text-cyan-600 dark:text-cyan-400 animate-pulse leading-none">{siloState.activeSilo || '-'}</span>
                              
                              {/* Details */}
-                             <div className="flex flex-col leading-tight text-left border-l-4 border-slate-200 dark:border-slate-700 pl-6 gap-3 w-full">
-                                 <div className="flex justify-between items-center pr-4">
+                             <div className="flex flex-col leading-tight text-left border-l-4 border-slate-200 dark:border-slate-700 pl-4 gap-2 w-full">
+                                 <div className="flex flex-col gap-1 text-center">
                                      <div>
-                                         <span className="text-[0.7em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">START TIME</span>
-                                         <span className="text-[1.8em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.startTime || '--:--'}</span>
+                                         <span className="text-[0.6em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">START</span>
+                                         <span className="text-[1.2em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.startTime || '--:--'}</span>
                                      </div>
-                                     <div className="text-right">
-                                         <span className="text-[0.7em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">SET AMOUNT</span>
-                                         <span className="text-[1.8em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.capacitySet || '0'} T</span>
+                                     <div>
+                                         <span className="text-[0.6em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">SET</span>
+                                         <span className="text-[1.2em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.capacitySet || '0'} T</span>
                                      </div>
                                  </div>
                                  
@@ -1774,38 +1761,39 @@ const App: React.FC = () => {
                     </div>
                </div>
 
-               {/* 3. F2002 & STEAM WIDGET (SIMPLIFIED) */}
-               <div className="flex flex-col w-fit shadow-[8px_8px_0px_0px_rgba(30,41,59,0.2)] rounded-xl">
+               {/* 3. F2002 & STEAM WIDGET (SIMPLIFIED) - REDUCED SIZE */}
+               <div className="lg:col-span-2 flex flex-col shadow-[6px_6px_0px_0px_rgba(30,41,59,0.2)] rounded-xl h-full w-full">
                     <button 
                         onClick={() => setCurrentView('demonomer')}
-                        className="bg-teal-600 hover:bg-teal-700 text-white font-black text-[1em] px-6 py-4 text-center border-4 border-slate-800 dark:border-slate-700 border-b-0 rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight cursor-pointer transition-colors w-full"
+                        className="bg-teal-600 hover:bg-teal-700 text-white font-black text-[0.9em] px-2 py-2 text-center border-4 border-slate-800 dark:border-slate-700 border-b-0 rounded-t-xl flex items-center justify-center gap-1 uppercase tracking-tight cursor-pointer transition-colors w-full"
                     >
-                        <Activity className="w-5 h-5" />
+                        <Activity className="w-4 h-4" />
                         ADJUST STEAM
                     </button>
-                    <div className="bg-white dark:bg-slate-800 border-4 border-slate-800 dark:border-slate-700 rounded-b-xl p-4 flex flex-col gap-4 min-w-[15em]">
-                        {/* F2002 Input Row */}
-                        <div className="flex flex-col gap-1">
-                            <label className="text-[0.7em] font-black text-slate-400 uppercase tracking-widest text-center">F2002 (INPUT)</label>
+                    <div className="bg-white dark:bg-slate-800 border-4 border-slate-800 dark:border-slate-700 rounded-b-xl p-2 flex flex-col gap-2 flex-1">
+                        {/* FIE2002 Input Row */}
+                        <div className="bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-white p-1 rounded-lg border-4 border-slate-300 dark:border-slate-600 shadow-inner flex-1 flex flex-col justify-center">
+                            <label className="text-[0.55em] font-black uppercase tracking-wider block text-center mb-0.5 opacity-60">FIE2002</label>
                             <input 
                                 type="number"
                                 step="0.1"
                                 value={demonomerData.f2002}
                                 onChange={(e) => handleDemonomerChange('f2002', parseFloat(e.target.value) || 0)}
-                                className="w-full bg-slate-50 dark:bg-slate-900 border-2 border-slate-300 dark:border-slate-700 rounded p-2 text-5xl font-black text-center text-teal-600 dark:text-teal-400 focus:ring-4 focus:ring-teal-500/20 outline-none transition-all"
+                                className="w-full bg-transparent text-4xl font-black text-center outline-none drop-shadow-sm appearance-none"
                             />
                         </div>
 
                         {/* Steam Calculation Result */}
-                        <div className="bg-red-600 text-white p-4 rounded-lg border-4 border-slate-800 shadow-lg">
-                            <span className="text-[0.7em] font-black uppercase tracking-wider block text-center mb-1 opacity-80">STEAM RESULT</span>
-                            <div className="text-7xl font-black text-center drop-shadow-md">
+                        <div className="bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-white p-1 rounded-lg border-4 border-slate-300 dark:border-slate-600 shadow-inner flex-1 flex flex-col justify-center">
+                            <span className="text-[0.55em] font-black uppercase tracking-wider block text-center mb-0.5 opacity-60">RESULT</span>
+                            <div className="text-4xl font-black text-center drop-shadow-sm">
                                 {Math.round(evaluateMath(demonomerData.steamFormula, {
                                     'PVC': evaluateMath(demonomerData.pvcFormula, {
                                         'AI2802': demonomerData.aie2802,
                                         '%PVC': demonomerData.pvcPercent / 100,
                                         'F2002': demonomerData.f2002
                                     }),
+                                    'Steam Rasio': demonomerData.multipliers[config.currentGrade] || 0,
                                     'Multiplier': demonomerData.multipliers[config.currentGrade] || 0
                                 }))}
                             </div>
@@ -1813,22 +1801,22 @@ const App: React.FC = () => {
                     </div>
                </div>
 
-               {/* 4. CYCLE TIME WIDGET */}
-               <div className="flex flex-col w-fit shadow-[8px_8px_0px_0px_rgba(30,41,59,0.2)] rounded-xl ml-auto">
-                    <div className="bg-indigo-600 text-white font-black text-[1em] px-6 py-4 text-center border-4 border-slate-800 dark:border-slate-700 border-b-0 rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight">
-                        <Calculator className="w-5 h-5" />
-                        CYCLE TIME
+               {/* 4. CYCLE TIME WIDGET - EXPANDED */}
+               <div className="lg:col-span-4 flex flex-col shadow-[6px_6px_0px_0px_rgba(30,41,59,0.2)] rounded-xl h-full">
+                    <div className={`${GRADE_COLORS[config.currentGrade] || 'bg-indigo-600'} text-white font-black text-[0.9em] px-3 py-2 text-center border-4 border-slate-800 dark:border-slate-700 border-b-0 rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight transition-colors`}>
+                        <Calculator className="w-4 h-4" />
+                        HITUNG CYCLE TIME
                     </div>
-                    <div className="bg-white dark:bg-slate-800 border-4 border-slate-800 dark:border-slate-700 rounded-b-xl p-4 overflow-x-auto">
-                        <table className="w-full border-collapse text-center font-bold text-lg">
+                    <div className={`${GRADE_COLORS[config.currentGrade] ? GRADE_COLORS[config.currentGrade].replace('bg-', 'bg-').concat('/10') : 'bg-white dark:bg-slate-800'} border-4 border-slate-800 dark:border-slate-700 rounded-b-xl p-2 flex flex-col gap-2 flex-1 overflow-x-auto transition-colors`}>
+                        <table className="w-full border-collapse text-center font-bold text-sm">
                             <thead>
                                 <tr>
-                                    <th className="border-2 border-slate-400 p-3 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">NS</th>
-                                    <th className="border-2 border-slate-400 p-3 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">READY BLOWING</th>
-                                    <th className="border-2 border-slate-400 p-3 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">BLOWING</th>
-                                    <th className="border-2 border-slate-400 p-3 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">BLOWING HOLD</th>
-                                    <th className="border-2 border-slate-400 p-3 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">BLOWING COMPLETE</th>
-                                    <th className="border-2 border-slate-400 p-3 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">CYCLE</th>
+                                    <th className="border border-slate-400 p-1 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">NS</th>
+                                    <th className="border border-slate-400 p-1 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">READY</th>
+                                    <th className="border border-slate-400 p-1 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">BLOW</th>
+                                    <th className="border border-slate-400 p-1 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">HOLD</th>
+                                    <th className="border border-slate-400 p-1 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">COMP</th>
+                                    <th className="border border-slate-400 p-1 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">CYC</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1852,49 +1840,43 @@ const App: React.FC = () => {
 
                                     return (
                                         <tr key={row.id}>
-                                            <td className="border-2 border-slate-400 p-3 bg-[#D9E1F2] text-black">
+                                            <td className="border border-slate-400 p-1 bg-[#D9E1F2] text-black">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-transparent outline-none w-full text-center font-black text-xl" 
+                                                    className="bg-transparent outline-none w-full text-center font-black text-sm" 
                                                     value={row.ns} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'ns', e.target.value)}
                                                 />
                                             </td>
-                                            <td className="border-2 border-slate-400 p-3 bg-[#D9E1F2] text-black">
+                                            <td className="border border-slate-400 p-1 bg-[#D9E1F2] text-black">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-transparent outline-none w-full text-center font-black text-xl" 
+                                                    className="bg-transparent outline-none w-full text-center font-black text-sm" 
                                                     value={row.readyBlowing} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'readyBlowing', e.target.value)}
                                                 />
                                             </td>
-                                            <td className="border-2 border-slate-400 p-3 bg-[#E2EFDA] text-black">
+                                            <td className="border border-slate-400 p-1 bg-[#E2EFDA] text-black">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-transparent outline-none w-full text-center font-black text-xl" 
+                                                    className="bg-transparent outline-none w-full text-center font-black text-sm" 
                                                     value={row.blowing} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'blowing', e.target.value)}
                                                 />
                                             </td>
-                                            <td className="border-2 border-slate-400 p-3 bg-[#F4B084] text-black relative group text-2xl font-black">
+                                            <td className="border border-slate-400 p-1 bg-[#F4B084] text-black text-sm font-black">
                                                 {blowingHold}
-                                                <div className="absolute hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-slate-800 text-white text-xs rounded whitespace-nowrap z-10">
-                                                    =(BLOWING - READY BLOWING)
-                                                </div>
                                             </td>
-                                            <td className="border-2 border-slate-400 p-3 bg-[#D9E1F2] text-black">
+                                            <td className="border border-slate-400 p-1 bg-[#D9E1F2] text-black">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-transparent outline-none w-full text-center font-black text-xl" 
+                                                    className="bg-transparent outline-none w-full text-center font-black text-sm" 
                                                     value={row.blowingComplete} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'blowingComplete', e.target.value)}
                                                 />
                                             </td>
-                                            <td className="border-2 border-slate-400 p-3 bg-[#E6B8B7] text-black relative group text-2xl font-black">
+                                            <td className="border border-slate-400 p-1 bg-[#E6B8B7] text-black text-sm font-black">
                                                 {cycleTime}
-                                                <div className="absolute hidden group-hover:block bottom-full left-1/2 -translate-x-1/2 mb-2 p-2 bg-slate-800 text-white text-xs rounded whitespace-nowrap z-10">
-                                                    =(BLOWING COMPLETE - NS - BLOWING HOLD) + 2
-                                                </div>
                                             </td>
                                         </tr>
                                     );
@@ -1903,10 +1885,10 @@ const App: React.FC = () => {
                         </table>
                         <button 
                             onClick={() => setCycleTimeData(prev => [...prev, { id: Date.now(), ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }])}
-                            className="mt-4 w-full py-2 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold rounded-lg border-2 border-dashed border-indigo-300 dark:border-indigo-700 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-2"
+                            className="mt-2 w-full py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold rounded-lg border border-dashed border-indigo-300 dark:border-indigo-700 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-1 text-[10px]"
                         >
-                            <LayoutGrid className="w-4 h-4" />
-                            ADD NEW CYCLE ROW
+                            <LayoutGrid className="w-3 h-3" />
+                            ADD ROW
                         </button>
                     </div>
                </div>
@@ -2058,9 +2040,18 @@ const App: React.FC = () => {
                 onGradeModeChange={(m) => handleConfigChange('gradeMode', m)}
             />
           )}
+
+          {currentView === 'silo' && (
+            <Silo 
+                activeSilo={siloState.activeSilo}
+                silos={siloState.silos}
+                onDataChange={handleSiloDataChange}
+                onSiloSelect={handleSiloSwitch}
+            />
+          )}
       </div>
 
-      <div className="max-w-7xl mx-auto mt-6 pb-6 text-center text-slate-400 dark:text-slate-500 text-xs">
+      <div className="max-w-7xl mx-auto mt-6 pb-6 text-center text-slate-400 dark:text-slate-500 text-base font-bold">
           AILO CORP | SCHEDULE START PVC 5
       </div>
 
@@ -2144,39 +2135,6 @@ const App: React.FC = () => {
           </div>
       )}
 
-      {/* --- Silo Adjustment Modal (View All) --- */}
-      {isSiloModalOpen && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden animate-in zoom-in-95 flex flex-col max-h-[90vh]">
-                  {/* Modal Header */}
-                  <div className="bg-slate-800 dark:bg-slate-950 text-white p-4 flex justify-between items-center shrink-0">
-                      <div>
-                          <h3 className="text-lg font-bold flex items-center gap-2">
-                              <Database className="w-5 h-5 text-cyan-400" />
-                              Silo Configuration
-                          </h3>
-                          <p className="text-xs text-slate-400">
-                              Manage Lot Numbers, Start/Finish Times, and Updates
-                          </p>
-                      </div>
-                      <button onClick={() => setIsSiloModalOpen(false)} className="text-slate-400 hover:text-white transition-colors">
-                          <X className="w-6 h-6" />
-                      </button>
-                  </div>
-                  
-                  {/* Modal Content */}
-                  <div className="p-4 overflow-y-auto bg-slate-100 dark:bg-slate-900">
-                      <Silo 
-                          activeSilo={siloState.activeSilo}
-                          silos={siloState.silos}
-                          onDataChange={handleSiloDataChange}
-                          onSiloSelect={handleSiloSwitch}
-                      />
-                  </div>
-              </div>
-          </div>
-      )}
-
       {/* ... [Reschedule Modal] ... */}
       {selectedItem && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
@@ -2254,7 +2212,7 @@ const App: React.FC = () => {
                         <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-3 block">Change Grade (Override)</label>
                         <div className="flex gap-3 flex-wrap">
                             {GRADES.map(g => (
-                                <button key={g} onClick={() => setEditForm(prev => ({...prev, grade: g}))} className={`px-5 py-3 text-base font-black rounded-lg border-2 ${editForm.grade === g ? 'bg-blue-600 text-white border-blue-600 shadow-md' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-slate-300'}`}>
+                                <button key={g} onClick={() => setEditForm(prev => ({...prev, grade: g}))} className={`px-5 py-3 text-base font-black rounded-lg border-2 transition-all ${editForm.grade === g ? `${GRADE_COLORS[g]} text-white border-slate-800 shadow-md` : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-slate-300'}`}>
                                     {g}
                                 </button>
                             ))}
@@ -2334,14 +2292,16 @@ const App: React.FC = () => {
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
               <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-sm p-6 animate-in zoom-in-95">
                   <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Edit Note for Reactor {editingReactorNote}</h3>
-                  <input
-                    type="text"
-                    value={tempReactorNote}
-                    onChange={(e) => setTempReactorNote(e.target.value)}
-                    placeholder="Enter short note (e.g. USE LANCE 2)..."
-                    className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg p-3 mb-4 focus:ring-2 focus:ring-blue-500 outline-none font-bold text-center"
-                    autoFocus
-                  />
+                  <div className="flex justify-center mb-4">
+                      <textarea
+                        value={tempReactorNote}
+                        onChange={(e) => setTempReactorNote(e.target.value)}
+                        placeholder="Enter note..."
+                        className="w-[220px] border-2 border-red-600 bg-yellow-400 text-black rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none font-bold text-left resize-none shadow-sm leading-tight text-sm"
+                        rows={3}
+                        autoFocus
+                      />
+                  </div>
                   <div className="flex gap-2 justify-end">
                       <button onClick={() => setEditingReactorNote(null)} className="px-4 py-2 text-slate-500 font-bold hover:bg-slate-100 dark:hover:bg-slate-700 rounded">
                           Cancel

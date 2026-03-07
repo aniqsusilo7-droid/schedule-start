@@ -54,8 +54,8 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
                 <Database className="w-8 h-8" />
             </div>
             <div>
-                <h2 className="text-4xl font-black text-slate-800 dark:text-white tracking-tight">SILO MONITOR</h2>
-                <p className="text-slate-500 dark:text-slate-400 font-bold uppercase text-sm tracking-wider">O - P - Q Control</p>
+                <h2 className="text-3xl font-black text-slate-800 dark:text-white tracking-tight">SILO MONITOR</h2>
+                <p className="text-slate-500 dark:text-slate-400 font-bold uppercase text-xs tracking-wider">O - P - Q Control</p>
             </div>
           </div>
           <div className="bg-yellow-100 text-yellow-800 px-4 py-2 rounded-lg text-sm font-bold border border-yellow-200 animate-pulse">
@@ -69,14 +69,14 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
         <div className="grid grid-cols-[160px_1fr_1fr_1fr] gap-[2px] bg-slate-800 border-b-[2px] border-slate-800">
             
             {/* Header Row */}
-            <div className="bg-[#FFF8DC] dark:bg-slate-800 p-4 flex items-center justify-center font-black text-xl text-slate-800 dark:text-slate-200 border-r-2 border-slate-800">SILO</div>
-            <div className={`p-6 flex items-center justify-center font-black text-5xl tracking-widest relative transition-all duration-300 border-r-2 border-slate-800 ${activeSilo === 'O' ? 'bg-teal-600 text-white animate-pulse ring-4 ring-teal-300 dark:ring-teal-900 z-10' : 'bg-[#FFF8DC] dark:bg-slate-800 text-slate-800 dark:text-slate-200'}`}>
+            <div className="bg-[#FFF8DC] dark:bg-slate-800 p-3 flex items-center justify-center font-black text-lg text-slate-800 dark:text-slate-200 border-r-2 border-slate-800">SILO</div>
+            <div className={`p-4 flex items-center justify-center font-black text-4xl tracking-widest relative transition-all duration-300 border-r-2 border-slate-800 ${activeSilo === 'O' ? 'bg-teal-600 text-white animate-pulse ring-4 ring-teal-300 dark:ring-teal-900 z-10' : 'bg-[#FFF8DC] dark:bg-slate-800 text-slate-800 dark:text-slate-200'}`}>
                 O
             </div>
-            <div className={`p-6 flex items-center justify-center font-black text-5xl tracking-widest relative transition-all duration-300 border-r-2 border-slate-800 ${activeSilo === 'P' ? 'bg-teal-600 text-white animate-pulse ring-4 ring-teal-300 dark:ring-teal-900 z-10' : 'bg-[#FFF8DC] dark:bg-slate-800 text-slate-800 dark:text-slate-200'}`}>
+            <div className={`p-4 flex items-center justify-center font-black text-4xl tracking-widest relative transition-all duration-300 border-r-2 border-slate-800 ${activeSilo === 'P' ? 'bg-teal-600 text-white animate-pulse ring-4 ring-teal-300 dark:ring-teal-900 z-10' : 'bg-[#FFF8DC] dark:bg-slate-800 text-slate-800 dark:text-slate-200'}`}>
                 P
             </div>
-            <div className={`p-6 flex items-center justify-center font-black text-5xl tracking-widest relative transition-all duration-300 ${activeSilo === 'Q' ? 'bg-teal-600 text-white animate-pulse ring-4 ring-teal-300 dark:ring-teal-900 z-10' : 'bg-[#FFF8DC] dark:bg-slate-800 text-slate-800 dark:text-slate-200'}`}>
+            <div className={`p-4 flex items-center justify-center font-black text-4xl tracking-widest relative transition-all duration-300 ${activeSilo === 'Q' ? 'bg-teal-600 text-white animate-pulse ring-4 ring-teal-300 dark:ring-teal-900 z-10' : 'bg-[#FFF8DC] dark:bg-slate-800 text-slate-800 dark:text-slate-200'}`}>
                 Q
             </div>
 
@@ -110,7 +110,7 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
                     type="text" 
                     value={silos.O.lotNumber} 
                     onChange={(e) => handleChange('O', 'lotNumber', e.target.value)}
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded p-2 text-xl font-bold text-center text-red-600 dark:text-red-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded p-1 text-lg font-bold text-center text-red-600 dark:text-red-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
                     placeholder="---"
                 />
             </div>
@@ -119,7 +119,7 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
                     type="text" 
                     value={silos.P.lotNumber}
                     onChange={(e) => handleChange('P', 'lotNumber', e.target.value)} 
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded p-2 text-xl font-bold text-center text-emerald-600 dark:text-emerald-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded p-1 text-lg font-bold text-center text-emerald-600 dark:text-emerald-400 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
                     placeholder="---"
                 />
             </div>
@@ -128,7 +128,7 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
                     type="text" 
                     value={silos.Q.lotNumber}
                     onChange={(e) => handleChange('Q', 'lotNumber', e.target.value)} 
-                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded p-2 text-xl font-bold text-center text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
+                    className="w-full bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-600 rounded p-1 text-lg font-bold text-center text-slate-800 dark:text-slate-200 focus:outline-none focus:ring-2 focus:ring-teal-500 transition-all"
                     placeholder="---"
                 />
             </div>
@@ -136,7 +136,7 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
             {/* Set Row */}
             <div className="bg-slate-100 dark:bg-slate-700 p-2 flex items-center justify-center text-sm font-black uppercase text-slate-600 dark:text-slate-300 border-r-2 border-slate-800">SET</div>
             
-            <div className="p-3 bg-white dark:bg-slate-900 border-r-2 border-slate-800 flex items-center justify-between px-6 font-bold text-2xl">
+            <div className="p-2 bg-white dark:bg-slate-900 border-r-2 border-slate-800 flex items-center justify-between px-4 font-bold text-xl">
                 <input 
                     type="number" 
                     value={silos.O.capacitySet} 
@@ -144,10 +144,10 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
                     className="w-full bg-transparent text-center text-red-600 dark:text-red-400 outline-none"
                     placeholder="-"
                 /> 
-                <span className="text-base text-slate-400 ml-2">T</span>
+                <span className="text-sm text-slate-400 ml-1">T</span>
             </div>
             
-            <div className="p-3 bg-white dark:bg-slate-900 border-r-2 border-slate-800 flex items-center justify-between px-6 font-bold text-2xl">
+            <div className="p-2 bg-white dark:bg-slate-900 border-r-2 border-slate-800 flex items-center justify-between px-4 font-bold text-xl">
                  <input 
                     type="number" 
                     value={silos.P.capacitySet} 
@@ -155,10 +155,10 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
                     className="w-full bg-transparent text-center text-emerald-600 dark:text-emerald-400 outline-none"
                     placeholder="-"
                 /> 
-                <span className="text-base text-slate-400 ml-2">T</span>
+                <span className="text-sm text-slate-400 ml-1">T</span>
             </div>
             
-             <div className="p-3 bg-white dark:bg-slate-900 flex items-center justify-between px-6 font-bold text-2xl">
+             <div className="p-2 bg-white dark:bg-slate-900 flex items-center justify-between px-4 font-bold text-xl">
                  <input 
                     type="number" 
                     value={silos.Q.capacitySet} 
@@ -166,7 +166,7 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
                     className="w-full bg-transparent text-center text-slate-800 dark:text-slate-200 outline-none"
                     placeholder="-"
                 /> 
-                <span className="text-base text-slate-400 ml-2">T</span>
+                <span className="text-sm text-slate-400 ml-1">T</span>
             </div>
 
             {/* Start Row */}
@@ -303,8 +303,8 @@ interface UpdateRowProps {
 }
 
 const UpdateRow = ({val, total, isEmpty, isHash, onPercentChange, onTotalChange, getInputClass}: UpdateRowProps) => (
-    <div className="bg-slate-50 h-[64px] flex items-center border border-slate-200 text-black">
-        <div className={`w-16 h-full flex items-center justify-center font-bold text-xl border-r border-slate-300 bg-slate-100`}>
+    <div className="bg-slate-50 h-[52px] flex items-center border border-slate-200 text-black">
+        <div className={`w-14 h-full flex items-center justify-center font-bold text-lg border-r border-slate-300 bg-slate-100`}>
             {isEmpty ? (
                 <span className="w-full h-full bg-transparent"></span>
             ) : (
@@ -314,13 +314,14 @@ const UpdateRow = ({val, total, isEmpty, isHash, onPercentChange, onTotalChange,
                     onChange={(e) => onPercentChange && onPercentChange(e.target.value)}
                     className={getInputClass(val, 'bg-yellow-300 text-black')}
                     placeholder="%"
+                    style={{ fontSize: '0.9em' }}
                 />
             )}
         </div>
-        <div className="w-8 h-full flex items-center justify-center font-bold text-slate-400 text-sm border-r border-slate-300 bg-slate-100 select-none">
+        <div className="w-6 h-full flex items-center justify-center font-bold text-slate-400 text-[10px] border-r border-slate-300 bg-slate-100 select-none">
             %
         </div>
-        <div className="flex-1 h-full flex items-center justify-between px-2 font-bold text-lg bg-white">
+        <div className="flex-1 h-full flex items-center justify-between px-2 font-bold text-base bg-white">
              {isEmpty ? (
                  <span className="w-full h-full bg-transparent"></span>
              ) : (
@@ -330,9 +331,10 @@ const UpdateRow = ({val, total, isEmpty, isHash, onPercentChange, onTotalChange,
                     onChange={(e) => onTotalChange && onTotalChange(e.target.value)}
                     className={getInputClass(total, 'bg-white text-black')}
                     placeholder="0.0"
+                    style={{ fontSize: '0.9em' }}
                 />
              )}
-             <span className="text-slate-400 text-sm ml-1 select-none">T</span>
+             <span className="text-slate-400 text-[10px] ml-1 select-none">T</span>
         </div>
     </div>
 );
