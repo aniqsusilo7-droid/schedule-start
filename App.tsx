@@ -166,7 +166,7 @@ const App: React.FC = () => {
     marqueeSpeed: 30, // Default 30s
     theme: 'light',
     layoutOrder: ['header', 'scheduler', 'catalyst'], // Updated: Header first to match request "move to top"
-    tableRowHeight: 76, 
+    tableRowHeight: 60, 
     tableFontSize: 19,
     hiddenReactors: [],
     hiddenFields: [],
@@ -1072,62 +1072,62 @@ const App: React.FC = () => {
       <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 shadow-sm z-30 relative transition-colors duration-300">
         
         {/* Main Header Container */}
-        <div className="flex flex-col xl:grid xl:grid-cols-3 items-center gap-4 max-w-[1920px] mx-auto relative">
+        <div className="flex flex-row items-center justify-between gap-4 w-full max-w-[1920px] mx-auto relative overflow-x-auto pb-1">
           
           {/* Left Section: Widget */}
-          <div className="flex flex-col gap-3 justify-self-start">
+          <div className="flex shrink-0">
               {/* Widget: Interval & Time */}
-              <div className="flex bg-slate-800 rounded-lg p-1 shadow-md shrink-0">
+              <div className="flex bg-slate-800 rounded-lg p-1.5 shadow-md">
                      {/* Interval */}
-                     <div className="px-4 py-1.5 flex flex-col items-center justify-center border-r border-slate-700/50 min-w-[110px]">
-                        <span className="text-[8px] text-cyan-400 font-bold uppercase tracking-wider mb-1">INTERVAL</span>
-                        <div className="text-3xl font-mono font-black text-cyan-300 leading-none">
+                     <div className="px-5 py-2 flex flex-col items-center justify-center border-r border-slate-700/50 min-w-[130px]">
+                        <span className="text-xs text-cyan-400 font-bold uppercase tracking-wider mb-1">INTERVAL</span>
+                        <div className="text-5xl font-mono font-black text-cyan-300 leading-none">
                             {config.intervalHours.toString().padStart(2, '0')}:{config.intervalMinutes.toString().padStart(2, '0')}
                         </div>
                      </div>
                      {/* Time */}
-                     <div className="px-4 py-1.5 flex flex-col items-center justify-center min-w-[180px]">
-                        <span className="text-[8px] text-slate-400 font-bold uppercase tracking-wider mb-1">CURRENT TIME</span>
-                        <div className="bg-white w-full mx-2 text-slate-900 px-2 py-1 rounded shadow-sm font-mono font-black text-2xl tracking-widest leading-none flex items-center justify-center">
+                     <div className="px-5 py-2 flex flex-col items-center justify-center min-w-[220px]">
+                        <span className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">CURRENT TIME</span>
+                        <div className="bg-white w-full mx-2 text-slate-900 px-3 py-1.5 rounded shadow-sm font-mono font-black text-4xl tracking-widest leading-none flex items-center justify-center">
                             {now.toLocaleTimeString('en-GB', { hour12: false })}
-                            <span className="text-[10px] ml-1 text-slate-500 font-bold self-end mb-1">s</span>
+                            <span className="text-sm ml-1 text-slate-500 font-bold self-end mb-1">s</span>
                         </div>
                      </div>
               </div>
           </div>
 
           {/* Center Section: Title */}
-          <div className="flex flex-col items-center justify-center shrink-0 p-2 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-sm animate-pulse justify-self-center">
-            <h1 className="text-5xl font-black text-slate-900 dark:text-white tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm">
+          <div className="flex flex-col items-center justify-center shrink-0 p-2 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-sm animate-pulse mx-4">
+            <h1 className="text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm">
                <span className="text-blue-600 dark:text-blue-400">SCHEDULE</span> 
                <span className="text-slate-800 dark:text-slate-200">START</span>
             </h1>
-            <span className="text-lg font-black text-slate-500 dark:text-slate-400 tracking-[0.3em] block w-full text-center uppercase mt-1 border-t-2 border-slate-200 dark:border-slate-700 pt-1">
+            <span className="text-sm lg:text-lg font-black text-slate-500 dark:text-slate-400 tracking-[0.3em] block w-full text-center uppercase mt-1 border-t-2 border-slate-200 dark:border-slate-700 pt-1">
                 REAKTOR PVC 5
             </span>
           </div>
 
           {/* Right Section: Navigation & Settings */}
-          <div className="flex flex-col items-end gap-3 justify-self-end">
+          <div className="flex shrink-0">
               
               {/* Navigation Pill */}
               <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner">
-                    <button onClick={() => setCurrentView('scheduler')} className={`px-5 py-2.5 text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'scheduler' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
-                        <LayoutGrid className="w-5 h-5" /> <span>POLYMER</span>
+                    <button onClick={() => setCurrentView('scheduler')} className={`px-3 lg:px-5 py-2 lg:py-2.5 text-sm lg:text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'scheduler' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+                        <LayoutGrid className="w-4 lg:w-5 h-4 lg:h-5" /> <span>POLYMER</span>
                     </button>
-                    <button onClick={() => setCurrentView('demonomer')} className={`px-5 py-2.5 text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'demonomer' ? 'bg-white dark:bg-slate-600 text-teal-700 dark:text-teal-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
-                        <Activity className="w-5 h-5" /> <span>DEMONOMER</span>
+                    <button onClick={() => setCurrentView('demonomer')} className={`px-3 lg:px-5 py-2 lg:py-2.5 text-sm lg:text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'demonomer' ? 'bg-white dark:bg-slate-600 text-teal-700 dark:text-teal-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+                        <Activity className="w-4 lg:w-5 h-4 lg:h-5" /> <span>DEMONOMER</span>
                     </button>
-                     <button onClick={() => setCurrentView('silo')} className={`px-5 py-2.5 text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'silo' ? 'bg-white dark:bg-slate-600 text-cyan-700 dark:text-cyan-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
-                        <Database className="w-5 h-5" /> <span>SILO</span>
+                     <button onClick={() => setCurrentView('silo')} className={`px-3 lg:px-5 py-2 lg:py-2.5 text-sm lg:text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'silo' ? 'bg-white dark:bg-slate-600 text-cyan-700 dark:text-cyan-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+                        <Database className="w-4 lg:w-5 h-4 lg:h-5" /> <span>SILO</span>
                     </button>
                     <div className={`w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1 transition-opacity duration-500 ${isSettingsButtonVisible || isSettingsOpen ? 'opacity-100' : 'opacity-0'}`}></div>
                     <button 
                         onClick={() => setIsSettingsOpen(!isSettingsOpen)} 
-                        className={`p-2.5 rounded-lg transition-all duration-500 ${isSettingsButtonVisible || isSettingsOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 pointer-events-none'} ${isSettingsOpen ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`} 
+                        className={`p-2 lg:p-2.5 rounded-lg transition-all duration-500 ${isSettingsButtonVisible || isSettingsOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 pointer-events-none'} ${isSettingsOpen ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`} 
                         title="Settings"
                     >
-                        <Settings className="w-6 h-6" />
+                        <Settings className="w-5 lg:w-6 h-5 lg:h-6" />
                     </button>
               </div>
           </div>
@@ -1800,7 +1800,7 @@ const App: React.FC = () => {
                         HITUNG CYCLE TIME
                     </div>
                     <div className={`${GRADE_COLORS[config.currentGrade] ? GRADE_COLORS[config.currentGrade].replace('bg-', 'bg-').concat('/10') : 'bg-white dark:bg-slate-800'} rounded-b-xl p-3 flex flex-col gap-3 flex-1 overflow-x-auto transition-colors`}>
-                        <table className="w-full border-collapse text-center font-semibold text-sm">
+                        <table className="w-[80%] mx-auto border-collapse text-center font-semibold text-sm">
                             <thead>
                                 <tr>
                                     <th className="border-b border-slate-200 dark:border-slate-700 p-2 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">NS</th>
