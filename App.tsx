@@ -1463,7 +1463,7 @@ const App: React.FC = () => {
                             title="Click to edit note"
                           >
                              {config.reactorNotes[reactor.id] ? (
-                                 <div className="bg-yellow-400 text-black font-bold text-left rounded px-1 border-2 border-red-600 shadow-sm overflow-hidden text-ellipsis line-clamp-3 whitespace-pre-wrap break-words leading-tight" style={{ fontSize: '0.6em' }}>
+                                 <div className="bg-yellow-400 text-black font-bold text-left rounded px-1 border-2 border-red-600 shadow-sm whitespace-pre-wrap break-words leading-tight" style={{ fontSize: '0.6em' }}>
                                      {config.reactorNotes[reactor.id]}
                                  </div>
                              ) : (
@@ -1611,8 +1611,8 @@ const App: React.FC = () => {
       if (currentView !== 'scheduler') return null;
 
       const colWidth1 = "w-[3em]";
-      const colWidth2 = "w-[6em]";
-      const colWidth3 = "w-[6em]";
+      const colWidth2 = "flex-1";
+      const colWidth3 = "flex-1";
 
       const activeSiloData = siloState.activeSilo ? siloState.silos[siloState.activeSilo] : null;
 
@@ -1620,96 +1620,96 @@ const App: React.FC = () => {
            <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start mt-6" style={{ fontSize: `${config.tableFontSize}px` }}>
                
                {/* 1. CATALYST TABLE */}
-               <div className="lg:col-span-3 border-4 border-slate-800 dark:border-slate-700 flex flex-col bg-white dark:bg-slate-800 shadow-[6px_6px_0px_0px_rgba(30,41,59,0.2)] rounded-xl overflow-hidden h-full">
+               <div className="lg:col-span-3 border border-slate-200 dark:border-slate-700 flex flex-col bg-white dark:bg-slate-800 shadow-sm rounded-xl overflow-hidden h-full">
                     {/* Headers */}
-                    <div className="flex text-center font-black text-white border-b-4 border-slate-800 dark:border-slate-700">
-                         <div className={`${colWidth1} bg-emerald-600 border-r-2 border-slate-800 dark:border-slate-700 py-3 flex items-center justify-center`}>
-                            <span className="text-[0.9em] tracking-wider">CATA</span>
+                    <div className="flex text-center font-bold text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
+                         <div className={`${colWidth1} border-r border-slate-200 dark:border-slate-700 py-2 flex items-center justify-center`}>
+                            <span className="text-[0.8em] tracking-wider uppercase">CATA</span>
                          </div>
-                         <div className={`${colWidth2} bg-emerald-600 border-r-2 border-slate-800 dark:border-slate-700 py-3 flex items-center justify-center`}>
-                            <span className="text-[0.9em] tracking-wider">NETO</span>
+                         <div className={`${colWidth2} border-r border-slate-200 dark:border-slate-700 py-2 flex items-center justify-center`}>
+                            <span className="text-[0.8em] tracking-wider uppercase">NETO</span>
                          </div>
-                         <div className={`${colWidth3} bg-emerald-600 py-3 flex items-center justify-center`}>
-                            <span className="text-[0.9em] tracking-wider">BRUTO</span>
+                         <div className={`${colWidth3} py-2 flex items-center justify-center`}>
+                            <span className="text-[0.8em] tracking-wider uppercase">BRUTO</span>
                          </div>
                     </div>
 
                     {/* Row F */}
-                    <div className="flex h-[3.5em] border-b-2 border-slate-200 dark:border-slate-700 last:border-0">
-                        <div className={`${colWidth1} bg-slate-900 text-white font-black flex items-center justify-center border-r-2 border-slate-800 dark:border-slate-700`}>
-                            <span className="text-[1.4em]">F</span>
+                    <div className="flex h-[3.5em] border-b border-slate-100 dark:border-slate-700/50 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors">
+                        <div className={`${colWidth1} bg-slate-800 text-white font-black flex items-center justify-center border-r border-slate-200 dark:border-slate-700`}>
+                            <span className="text-[1.2em]">F</span>
                         </div>
-                        <div className={`${colWidth2} bg-white dark:bg-slate-800 border-r-2 border-slate-200 dark:border-slate-700 p-1`}>
+                        <div className={`${colWidth2} border-r border-slate-100 dark:border-slate-700/50 p-1`}>
                             <input 
                                 type="text" 
                                 value={catalystData.f.netto} 
                                 onChange={(e) => handleCatalystChange('f', 'netto', e.target.value)}
-                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.4em] outline-none"
+                                className="w-full h-full bg-transparent text-slate-700 dark:text-slate-200 text-center font-semibold text-[1.2em] outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
                             />
                         </div>
-                        <div className={`${colWidth3} bg-white dark:bg-slate-800 p-1`}>
+                        <div className={`${colWidth3} p-1`}>
                             <input 
                                 type="text" 
                                 value={catalystData.f.bruto} 
                                 onChange={(e) => handleCatalystChange('f', 'bruto', e.target.value)}
-                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.4em] outline-none"
+                                className="w-full h-full bg-transparent text-slate-700 dark:text-slate-200 text-center font-semibold text-[1.2em] outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
                             />
                         </div>
                     </div>
 
                      {/* Row H */}
-                      <div className="flex h-[3.5em] border-b-2 border-slate-200 dark:border-slate-700 last:border-0">
-                        <div className={`${colWidth1} bg-yellow-400 text-black font-black flex items-center justify-center border-r-2 border-slate-800 dark:border-slate-700`}>
-                            <span className="text-[1.4em]">H</span>
+                      <div className="flex h-[3.5em] border-b border-slate-100 dark:border-slate-700/50 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors">
+                        <div className={`${colWidth1} bg-yellow-400 text-slate-900 font-black flex items-center justify-center border-r border-slate-200 dark:border-slate-700`}>
+                            <span className="text-[1.2em]">H</span>
                         </div>
-                        <div className={`${colWidth2} bg-white dark:bg-slate-800 border-r-2 border-slate-200 dark:border-slate-700 p-1`}>
+                        <div className={`${colWidth2} border-r border-slate-100 dark:border-slate-700/50 p-1`}>
                             <input 
                                 type="text" 
                                 value={catalystData.h.netto} 
                                 onChange={(e) => handleCatalystChange('h', 'netto', e.target.value)}
-                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.4em] outline-none"
+                                className="w-full h-full bg-transparent text-slate-700 dark:text-slate-200 text-center font-semibold text-[1.2em] outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
                             />
                         </div>
-                        <div className={`${colWidth3} bg-white dark:bg-slate-800 p-1`}>
+                        <div className={`${colWidth3} p-1`}>
                             <input 
                                 type="text" 
                                 value={catalystData.h.bruto} 
                                 onChange={(e) => handleCatalystChange('h', 'bruto', e.target.value)}
-                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.4em] outline-none"
+                                className="w-full h-full bg-transparent text-slate-700 dark:text-slate-200 text-center font-semibold text-[1.2em] outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
                             />
                         </div>
                     </div>
 
                     {/* Row G */}
-                    <div className="flex h-[3.5em] border-b-2 border-slate-200 dark:border-slate-700 last:border-0">
-                        <div className={`${colWidth1} bg-purple-700 text-white font-black flex items-center justify-center border-r-2 border-slate-800 dark:border-slate-700`}>
-                            <span className="text-[1.4em]">G</span>
+                    <div className="flex h-[3.5em] border-b border-slate-100 dark:border-slate-700/50 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors">
+                        <div className={`${colWidth1} bg-purple-600 text-white font-black flex items-center justify-center border-r border-slate-200 dark:border-slate-700`}>
+                            <span className="text-[1.2em]">G</span>
                         </div>
-                        <div className={`${colWidth2} bg-white dark:bg-slate-800 border-r-2 border-slate-200 dark:border-slate-700 p-1`}>
+                        <div className={`${colWidth2} border-r border-slate-100 dark:border-slate-700/50 p-1`}>
                             <input 
                                 type="text" 
                                 value={catalystData.g.netto} 
                                 onChange={(e) => handleCatalystChange('g', 'netto', e.target.value)}
-                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.4em] outline-none"
+                                className="w-full h-full bg-transparent text-slate-700 dark:text-slate-200 text-center font-semibold text-[1.2em] outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
                             />
                         </div>
-                        <div className={`${colWidth3} bg-white dark:bg-slate-800 p-1`}>
+                        <div className={`${colWidth3} p-1`}>
                             <input 
                                 type="text" 
                                 value={catalystData.g.bruto} 
                                 onChange={(e) => handleCatalystChange('g', 'bruto', e.target.value)}
-                                className="w-full h-full bg-transparent text-slate-800 dark:text-white text-center font-bold text-[1.4em] outline-none"
+                                className="w-full h-full bg-transparent text-slate-700 dark:text-slate-200 text-center font-semibold text-[1.2em] outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
                             />
                         </div>
                     </div>
                </div>
 
                {/* 2. SILO SETTING WIDGET */}
-               <div className="lg:col-span-3 flex flex-col shadow-[6px_6px_0px_0px_rgba(30,41,59,0.2)] rounded-xl h-full">
+               <div className="lg:col-span-3 flex flex-col shadow-sm rounded-xl h-full border border-slate-200 dark:border-slate-700">
                     {/* Header Button to Open Modal */}
                     <button 
                         onClick={() => setCurrentView('silo')}
-                        className="bg-amber-500 hover:bg-amber-600 text-white font-black text-[0.9em] px-4 py-3 text-center border-4 border-slate-800 dark:border-slate-700 border-b-0 rounded-t-xl flex items-center justify-center gap-2 transition-colors cursor-pointer w-full uppercase tracking-tight"
+                        className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-[0.9em] px-4 py-3 text-center rounded-t-xl flex items-center justify-center gap-2 transition-colors cursor-pointer w-full uppercase tracking-tight"
                     >
                         <Maximize2 className="w-4 h-4" />
                         SILO SETTING
@@ -1717,7 +1717,7 @@ const App: React.FC = () => {
 
                     {/* Big Display for Active Silo */}
                     <div className="flex flex-1">
-                        <div className="bg-white dark:bg-slate-800 text-slate-800 dark:text-white font-black p-4 flex items-center justify-center w-full border-4 border-slate-800 dark:border-slate-700 rounded-b-xl relative overflow-hidden group">
+                        <div className="bg-white dark:bg-slate-800 text-slate-800 dark:text-white font-black p-4 flex items-center justify-center w-full rounded-b-xl relative overflow-hidden group">
                              
                              {/* Silo Letter - Blinking Animation */}
                              <span className="text-[7rem] mr-4 drop-shadow-sm text-cyan-600 dark:text-cyan-400 animate-pulse leading-none">{siloState.activeSilo || '-'}</span>
@@ -1737,24 +1737,16 @@ const App: React.FC = () => {
                                  
                                  {/* Lot Number Table */}
                                  <div className="mt-2 pr-4">
-                                     <table className="w-full border-collapse border-2 border-slate-300 dark:border-slate-600">
-                                         <thead>
-                                             <tr>
-                                                 <th className="bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 text-[0.7em] font-black uppercase tracking-wider py-1 border-b-2 border-slate-300 dark:border-slate-600">
-                                                     LOT NUMBER
-                                                 </th>
-                                             </tr>
-                                         </thead>
-                                         <tbody>
-                                             <tr>
-                                                 <td className="bg-white dark:bg-slate-800 text-center py-2">
-                                                     <span className="text-[1.5em] font-mono font-bold text-slate-800 dark:text-white">
-                                                         {activeSiloData?.lotNumber || '---'}
-                                                     </span>
-                                                 </td>
-                                             </tr>
-                                         </tbody>
-                                     </table>
+                                     <div className="w-full border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden shadow-sm">
+                                         <div className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-[0.7em] font-bold uppercase tracking-wider py-1.5 border-b border-slate-200 dark:border-slate-700 text-center">
+                                             LOT NUMBER
+                                         </div>
+                                         <div className="bg-white dark:bg-slate-800 text-center py-2.5">
+                                             <span className="text-[1.5em] font-mono font-bold text-slate-800 dark:text-white">
+                                                 {activeSiloData?.lotNumber || '---'}
+                                             </span>
+                                         </div>
+                                     </div>
                                  </div>
                              </div>
                         </div>
@@ -1762,18 +1754,18 @@ const App: React.FC = () => {
                </div>
 
                {/* 3. F2002 & STEAM WIDGET (SIMPLIFIED) - REDUCED SIZE */}
-               <div className="lg:col-span-2 flex flex-col shadow-[6px_6px_0px_0px_rgba(30,41,59,0.2)] rounded-xl h-full w-full">
+               <div className="lg:col-span-2 flex flex-col shadow-sm rounded-xl h-full w-full border border-slate-200 dark:border-slate-700">
                     <button 
                         onClick={() => setCurrentView('demonomer')}
-                        className="bg-teal-600 hover:bg-teal-700 text-white font-black text-[0.9em] px-2 py-2 text-center border-4 border-slate-800 dark:border-slate-700 border-b-0 rounded-t-xl flex items-center justify-center gap-1 uppercase tracking-tight cursor-pointer transition-colors w-full"
+                        className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[0.9em] px-2 py-2 text-center rounded-t-xl flex items-center justify-center gap-1 uppercase tracking-tight cursor-pointer transition-colors w-full"
                     >
                         <Activity className="w-4 h-4" />
                         ADJUST STEAM
                     </button>
-                    <div className="bg-white dark:bg-slate-800 border-4 border-slate-800 dark:border-slate-700 rounded-b-xl p-2 flex flex-col gap-2 flex-1">
+                    <div className="bg-white dark:bg-slate-800 rounded-b-xl p-2 flex flex-col gap-2 flex-1">
                         {/* FIE2002 Input Row */}
-                        <div className="bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-white p-1 rounded-lg border-4 border-slate-300 dark:border-slate-600 shadow-inner flex-1 flex flex-col justify-center">
-                            <label className="text-[0.55em] font-black uppercase tracking-wider block text-center mb-0.5 opacity-60">FIE2002</label>
+                        <div className="bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white p-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-inner flex-1 flex flex-col justify-center">
+                            <label className="text-[0.55em] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block text-center mb-0.5">FIE2002</label>
                             <input 
                                 type="number"
                                 step="0.1"
@@ -1784,8 +1776,8 @@ const App: React.FC = () => {
                         </div>
 
                         {/* Steam Calculation Result */}
-                        <div className="bg-slate-100 dark:bg-slate-900 text-slate-900 dark:text-white p-1 rounded-lg border-4 border-slate-300 dark:border-slate-600 shadow-inner flex-1 flex flex-col justify-center">
-                            <span className="text-[0.55em] font-black uppercase tracking-wider block text-center mb-0.5 opacity-60">RESULT</span>
+                        <div className="bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white p-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-inner flex-1 flex flex-col justify-center">
+                            <span className="text-[0.55em] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block text-center mb-0.5">RESULT</span>
                             <div className="text-4xl font-black text-center drop-shadow-sm">
                                 {Math.round(evaluateMath(demonomerData.steamFormula, {
                                     'PVC': evaluateMath(demonomerData.pvcFormula, {
@@ -1802,21 +1794,21 @@ const App: React.FC = () => {
                </div>
 
                {/* 4. CYCLE TIME WIDGET - EXPANDED */}
-               <div className="lg:col-span-4 flex flex-col shadow-[6px_6px_0px_0px_rgba(30,41,59,0.2)] rounded-xl h-full">
-                    <div className={`${GRADE_COLORS[config.currentGrade] || 'bg-indigo-600'} text-white font-black text-[0.9em] px-3 py-2 text-center border-4 border-slate-800 dark:border-slate-700 border-b-0 rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight transition-colors`}>
+               <div className="lg:col-span-4 flex flex-col shadow-sm rounded-xl h-full border border-slate-200 dark:border-slate-700">
+                    <div className={`${GRADE_COLORS[config.currentGrade] || 'bg-indigo-600'} text-white font-bold text-[0.9em] px-3 py-2 text-center rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight transition-colors`}>
                         <Calculator className="w-4 h-4" />
                         HITUNG CYCLE TIME
                     </div>
-                    <div className={`${GRADE_COLORS[config.currentGrade] ? GRADE_COLORS[config.currentGrade].replace('bg-', 'bg-').concat('/10') : 'bg-white dark:bg-slate-800'} border-4 border-slate-800 dark:border-slate-700 rounded-b-xl p-2 flex flex-col gap-2 flex-1 overflow-x-auto transition-colors`}>
-                        <table className="w-full border-collapse text-center font-bold text-sm">
+                    <div className={`${GRADE_COLORS[config.currentGrade] ? GRADE_COLORS[config.currentGrade].replace('bg-', 'bg-').concat('/10') : 'bg-white dark:bg-slate-800'} rounded-b-xl p-3 flex flex-col gap-3 flex-1 overflow-x-auto transition-colors`}>
+                        <table className="w-full border-collapse text-center font-semibold text-sm">
                             <thead>
                                 <tr>
-                                    <th className="border border-slate-400 p-1 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">NS</th>
-                                    <th className="border border-slate-400 p-1 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">READY</th>
-                                    <th className="border border-slate-400 p-1 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">BLOW</th>
-                                    <th className="border border-slate-400 p-1 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">HOLD</th>
-                                    <th className="border border-slate-400 p-1 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">COMP</th>
-                                    <th className="border border-slate-400 p-1 bg-slate-100 dark:bg-slate-700 text-slate-800 dark:text-white uppercase tracking-wider text-sm">CYC</th>
+                                    <th className="border-b border-slate-200 dark:border-slate-700 p-2 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">NS</th>
+                                    <th className="border-b border-slate-200 dark:border-slate-700 p-2 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">READY</th>
+                                    <th className="border-b border-slate-200 dark:border-slate-700 p-2 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">BLOW</th>
+                                    <th className="border-b border-slate-200 dark:border-slate-700 p-2 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">HOLD</th>
+                                    <th className="border-b border-slate-200 dark:border-slate-700 p-2 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">COMP</th>
+                                    <th className="border-b border-slate-200 dark:border-slate-700 p-2 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">CYC</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1839,44 +1831,48 @@ const App: React.FC = () => {
                                     }
 
                                     return (
-                                        <tr key={row.id}>
-                                            <td className="border border-slate-400 p-1 bg-[#D9E1F2] text-black">
+                                        <tr key={row.id} className="border-b border-slate-100 dark:border-slate-700/50 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                            <td className="p-1">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-transparent outline-none w-full text-center font-black text-sm" 
+                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-bold text-sm rounded py-1 focus:ring-2 focus:ring-blue-500/50" 
                                                     value={row.ns} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'ns', e.target.value)}
                                                 />
                                             </td>
-                                            <td className="border border-slate-400 p-1 bg-[#D9E1F2] text-black">
+                                            <td className="p-1">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-transparent outline-none w-full text-center font-black text-sm" 
+                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-bold text-sm rounded py-1 focus:ring-2 focus:ring-blue-500/50" 
                                                     value={row.readyBlowing} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'readyBlowing', e.target.value)}
                                                 />
                                             </td>
-                                            <td className="border border-slate-400 p-1 bg-[#E2EFDA] text-black">
+                                            <td className="p-1">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-transparent outline-none w-full text-center font-black text-sm" 
+                                                    className="bg-green-50 dark:bg-green-900/20 text-green-900 dark:text-green-100 outline-none w-full text-center font-bold text-sm rounded py-1 focus:ring-2 focus:ring-green-500/50" 
                                                     value={row.blowing} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'blowing', e.target.value)}
                                                 />
                                             </td>
-                                            <td className="border border-slate-400 p-1 bg-[#F4B084] text-black text-sm font-black">
-                                                {blowingHold}
+                                            <td className="p-1">
+                                                <div className="bg-orange-50 dark:bg-orange-900/20 text-orange-900 dark:text-orange-100 w-full text-center font-bold text-sm rounded py-1">
+                                                    {blowingHold || '-'}
+                                                </div>
                                             </td>
-                                            <td className="border border-slate-400 p-1 bg-[#D9E1F2] text-black">
+                                            <td className="p-1">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-transparent outline-none w-full text-center font-black text-sm" 
+                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-bold text-sm rounded py-1 focus:ring-2 focus:ring-blue-500/50" 
                                                     value={row.blowingComplete} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'blowingComplete', e.target.value)}
                                                 />
                                             </td>
-                                            <td className="border border-slate-400 p-1 bg-[#E6B8B7] text-black text-sm font-black">
-                                                {cycleTime}
+                                            <td className="p-1">
+                                                <div className="bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-100 w-full text-center font-bold text-sm rounded py-1">
+                                                    {cycleTime || '-'}
+                                                </div>
                                             </td>
                                         </tr>
                                     );
