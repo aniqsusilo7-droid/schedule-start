@@ -55,7 +55,9 @@ const playSirenSound = () => {
 const SECTIONS = {
     header: 'Header & Controls',
     scheduler: 'Main Schedule Table',
-    catalyst: 'Catalyst Input Section'
+    catalyst: 'Catalyst Input Section',
+    demonomer: 'Demonomer Monitor',
+    silo: 'Silo Monitor'
 };
 
 const App: React.FC = () => {
@@ -1506,16 +1508,16 @@ const App: React.FC = () => {
                             {/* Top Row: Batch & Grade */}
                             <div className="flex justify-between items-start mb-0.5">
                               <div className="flex flex-col leading-none">
-                                {!isSkipped ? (
-                                    <span className={`font-bold font-mono ${isActive ? 'text-white' : (reactor.id === 'S' || reactor.id === 'T' ? 'text-red-600 dark:text-red-400' : 'text-red-500 dark:text-red-400')} ${isPast ? '!text-inherit' : ''}`} style={{ fontSize: '1.0em' }}>
+                                 {!isSkipped ? (
+                                    <span className={`font-bold font-mono ${isActive ? 'text-white' : (reactor.id === 'S' || reactor.id === 'T' ? 'text-red-600 dark:text-red-400' : 'text-red-500 dark:text-red-400')} ${isPast ? '!text-inherit' : ''}`} style={{ fontSize: '1.2em' }}>
                                         <span className="opacity-50 text-[0.6em] mr-0.5">#</span>{item.batchNumber}
                                     </span>
                                 ) : (
-                                    <span className="text-xs font-bold font-mono text-stone-400 dark:text-stone-600">---</span>
+                                    <span className="text-sm font-bold font-mono text-stone-400 dark:text-stone-600">---</span>
                                 )}
                               </div>
                               <div className="text-right">
-                                <div className={`font-black px-1.5 py-0.5 rounded leading-none ${isActive ? 'bg-white text-red-600' : (isSkipped ? 'bg-stone-300 dark:bg-stone-800 text-stone-600 dark:text-stone-400' : `${GRADE_COLORS[item.grade] || 'bg-slate-200'} text-white`)}`} style={{ fontSize: '0.8em' }}>
+                                <div className={`font-black px-1.5 py-0.5 rounded leading-none ${isActive ? 'bg-white text-red-600' : (isSkipped ? 'bg-stone-300 dark:bg-stone-800 text-stone-600 dark:text-stone-400' : `${GRADE_COLORS[item.grade] || 'bg-slate-200'} text-white`)}`} style={{ fontSize: '1.0em' }}>
                                     {item.grade}
                                 </div>
                               </div>
@@ -1525,23 +1527,23 @@ const App: React.FC = () => {
                             <div className="text-center relative flex flex-col items-center justify-center flex-1 my-1">
                               {isSkipped ? (
                                 <div className="flex flex-col items-center opacity-60 gap-1">
-                                    <Ban className="w-[1.5em] h-[1.5em]" />
-                                    <span className="text-[0.6em] font-bold">SKIPPED</span>
+                                    <Ban className="w-[2.0em] h-[2.0em]" />
+                                    <span className="text-[0.8em] font-bold">SKIPPED</span>
                                 </div>
                               ) : (
                                 <>
                                     {/* Unified Time Display - Significantly Larger */}
-                                    <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-110' : (isPast ? 'text-slate-500 dark:text-slate-400 opacity-90 line-through' : (config.theme === 'dark' ? 'text-emerald-100' : 'text-slate-800 dark:text-slate-100'))} transition-transform`} style={{ fontSize: '2.5em' }}>
+                                    <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-110' : (isPast ? 'text-slate-500 dark:text-slate-400 opacity-90 line-through' : (config.theme === 'dark' ? 'text-emerald-100' : 'text-slate-800 dark:text-slate-100'))} transition-transform`} style={{ fontSize: '3.0em' }}>
                                         {formatTime(item.startTime)}
                                     </div>
                                     
                                     {/* Status / Badges */}
                                     {isPast ? (
-                                        <div className="font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1 opacity-75" style={{ fontSize: '0.6em' }}>
+                                        <div className="font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1 opacity-75" style={{ fontSize: '0.8em' }}>
                                             SUDAH START
                                         </div>
                                     ) : isActive ? (
-                                        <div className="font-black text-yellow-300 uppercase tracking-widest animate-bounce mt-1" style={{ fontSize: '0.7em' }}>
+                                        <div className="font-black text-yellow-300 uppercase tracking-widest animate-bounce mt-1" style={{ fontSize: '0.9em' }}>
                                             START NOW
                                         </div>
                                     ) : null}
@@ -1549,12 +1551,12 @@ const App: React.FC = () => {
                                     <div className="flex justify-center gap-1 mt-1 flex-wrap w-full items-center">
                                         {/* Adjusted Time Delta Badge (HH:MM) */}
                                         {item.deltaMinutes !== 0 && (
-                                            <div className={`font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-0.5 ${item.deltaMinutes > 0 ? 'bg-yellow-400 text-yellow-900' : 'bg-cyan-100 text-cyan-800'}`} style={{ fontSize: '0.6em' }}>
+                                            <div className={`font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-0.5 ${item.deltaMinutes > 0 ? 'bg-yellow-400 text-yellow-900' : 'bg-cyan-100 text-cyan-800'}`} style={{ fontSize: '0.8em' }}>
                                                 <Timer className="w-[1em] h-[1em]" /> {formatDelay(item.deltaMinutes)}
                                             </div>
                                         )}
                                         {/* Mode Badge - Visible for Open/Close Status */}
-                                        <div className={`font-bold px-1.5 py-0.5 rounded uppercase border flex items-center gap-1 ${mode === 'OPEN' ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border-cyan-200 dark:border-cyan-800' : (mode === 'CLOSE TO OPEN' && config.theme === 'dark') ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600'}`} style={{ fontSize: '0.6em' }}>
+                                        <div className={`font-bold px-1.5 py-0.5 rounded uppercase border flex items-center gap-1 ${mode === 'OPEN' ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border-cyan-200 dark:border-cyan-800' : (mode === 'CLOSE TO OPEN' && config.theme === 'dark') ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600'}`} style={{ fontSize: '0.8em' }}>
                                             <span className="text-[0.7em] opacity-70 mr-0.5">MODE</span>
                                             {mode}
                                         </div>
@@ -1585,12 +1587,12 @@ const App: React.FC = () => {
                                 </div>
                                 
                                 {stageInfo && (
-                                    <div className="flex-1 mx-1 self-center bg-yellow-400 text-black font-black text-center animate-pulse rounded px-1 uppercase tracking-tighter border-2 border-red-600 shadow-sm overflow-hidden text-ellipsis whitespace-nowrap" style={{ fontSize: '0.6em' }}>
+                                    <div className="flex-1 mx-1 self-center bg-yellow-400 text-black font-black text-center animate-pulse rounded px-1 uppercase tracking-tighter border-2 border-red-600 shadow-sm overflow-hidden text-ellipsis whitespace-nowrap" style={{ fontSize: '0.8em' }}>
                                         {stageInfo}
                                     </div>
                                 )}
 
-                                <span className={`font-bold shrink-0 ${isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} style={{ fontSize: '0.9em' }}>
+                                <span className={`font-bold shrink-0 ${isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} style={{ fontSize: '1.0em' }}>
                                     {formatDate(item.startTime)}
                                 </span>
                             </div>
@@ -1799,16 +1801,16 @@ const App: React.FC = () => {
                         <Calculator className="w-4 h-4" />
                         HITUNG CYCLE TIME
                     </div>
-                    <div className={`${GRADE_COLORS[config.currentGrade] ? GRADE_COLORS[config.currentGrade].replace('bg-', 'bg-').concat('/10') : 'bg-white dark:bg-slate-800'} rounded-b-xl p-3 flex flex-col gap-3 flex-1 overflow-x-auto transition-colors`}>
-                        <table className="w-[80%] mx-auto border-collapse text-center font-semibold text-sm">
+                    <div className={`${GRADE_COLORS[config.currentGrade] ? GRADE_COLORS[config.currentGrade].replace('bg-', 'bg-').concat('/10') : 'bg-white dark:bg-slate-800'} rounded-b-xl p-4 flex flex-col gap-3 flex-1 overflow-x-auto transition-colors`}>
+                        <table className="w-full border-collapse text-center font-semibold text-base">
                             <thead>
                                 <tr>
-                                    <th className="border-b border-slate-200 dark:border-slate-700 p-2 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">NS</th>
-                                    <th className="border-b border-slate-200 dark:border-slate-700 p-2 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">READY</th>
-                                    <th className="border-b border-slate-200 dark:border-slate-700 p-2 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">BLOW</th>
-                                    <th className="border-b border-slate-200 dark:border-slate-700 p-2 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">HOLD</th>
-                                    <th className="border-b border-slate-200 dark:border-slate-700 p-2 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">COMP</th>
-                                    <th className="border-b border-slate-200 dark:border-slate-700 p-2 bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 uppercase tracking-wider text-xs">CYC</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-3 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-sm">NS</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-3 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-sm">READY</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-3 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-sm">BLOW</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-3 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-sm">HOLD</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-3 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-sm">COMP</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-3 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-sm">CYC</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1832,18 +1834,18 @@ const App: React.FC = () => {
 
                                     return (
                                         <tr key={row.id} className="border-b border-slate-100 dark:border-slate-700/50 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                            <td className="p-1">
+                                            <td className="p-2">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-bold text-sm rounded py-1 focus:ring-2 focus:ring-blue-500/50" 
+                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-lg rounded-lg py-2 focus:ring-4 focus:ring-blue-500/30 transition-all" 
                                                     value={row.ns} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'ns', e.target.value)}
                                                 />
                                             </td>
-                                            <td className="p-1">
+                                            <td className="p-2">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-bold text-sm rounded py-1 focus:ring-2 focus:ring-blue-500/50" 
+                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-lg rounded-lg py-2 focus:ring-4 focus:ring-blue-500/30 transition-all" 
                                                     value={row.readyBlowing} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'readyBlowing', e.target.value)}
                                                 />
@@ -1898,6 +1900,30 @@ const App: React.FC = () => {
           case 'header': content = renderHeader(); break;
           case 'scheduler': content = renderScheduler(); break;
           case 'catalyst': content = renderCatalyst(); break;
+          case 'demonomer': content = (
+            <Demonomer 
+                currentGrade={config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade} 
+                onGradeChange={(g) => {
+                    if (config.gradeMode === 'normal') {
+                        handleConfigChange('currentGrade', g);
+                    } else {
+                        setDemonomerGrade(g);
+                    }
+                }}
+                data={demonomerData}
+                onDataChange={handleDemonomerChange}
+                gradeMode={config.gradeMode}
+                onGradeModeChange={(m) => handleConfigChange('gradeMode', m)}
+            />
+          ); break;
+          case 'silo': content = (
+            <Silo 
+                activeSilo={siloState.activeSilo}
+                silos={siloState.silos}
+                onDataChange={handleSiloDataChange}
+                onSiloSelect={handleSiloSwitch}
+            />
+          ); break;
           default: content = null;
       }
 
@@ -2020,7 +2046,7 @@ const App: React.FC = () => {
           {config.layoutOrder.map((sectionId, index) => renderSection(sectionId, index))}
           
           {/* Always render these if selected in view, regardless of layout order, but put them at end if not in layout (fallback) */}
-          {currentView === 'demonomer' && (
+          {currentView === 'demonomer' && !config.layoutOrder.includes('demonomer') && (
             <Demonomer 
                 currentGrade={config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade} 
                 onGradeChange={(g) => {
@@ -2037,7 +2063,7 @@ const App: React.FC = () => {
             />
           )}
 
-          {currentView === 'silo' && (
+          {currentView === 'silo' && !config.layoutOrder.includes('silo') && (
             <Silo 
                 activeSilo={siloState.activeSilo}
                 silos={siloState.silos}
