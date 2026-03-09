@@ -1,0 +1,12 @@
+{
+  "name": "alarm-desktop-app",
+  "version": "1.0.0",
+  "description": "Contoh Alarm Full Screen dengan Electron",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron ."
+  },
+  "dependencies": {
+    "electron": "^30.0.0"
+  }
+}

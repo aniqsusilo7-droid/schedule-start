@@ -12,12 +12,27 @@ import { supabase } from './supabaseClient';
 const GRADES: GradeType[] = ['SM', 'SLK', 'SLP', 'SE', 'SR'];
 const STAGE_OPTIONS = ['Sample Blowing', 'Sample Washing', 'Sample Air Slurry'];
 
+// Global AudioContext to prevent autoplay issues in background tabs
+let globalAudioCtx: AudioContext | null = null;
+
+const initAudioContext = () => {
+    if (!globalAudioCtx) {
+        const AudioContextClass = window.AudioContext || (window as any).webkitAudioContext;
+        if (AudioContextClass) {
+            globalAudioCtx = new AudioContextClass();
+        }
+    }
+    if (globalAudioCtx && globalAudioCtx.state === 'suspended') {
+        globalAudioCtx.resume();
+    }
+    return globalAudioCtx;
+};
+
 // Web Audio API Sound Effect (Siren)
 const playSirenSound = () => {
     try {
-        const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-        if (!AudioContext) return;
-        const ctx = new AudioContext();
+        const ctx = initAudioContext();
+        if (!ctx) return;
 
         const t = ctx.currentTime;
         const duration = 12.0; // 12 seconds siren
@@ -56,7 +71,7 @@ const SECTIONS = {
     header: 'Header & Controls',
     scheduler: 'Main Schedule Table',
     catalyst: 'Catalyst Input Section',
-    demonomer: 'Demonomer Monitor',
+    demonomer: 'HITUNG STEAM RASIO DEMONOMER',
     silo: 'Silo Monitor'
 };
 
@@ -477,12 +492,39 @@ const App: React.FC = () => {
       handleConfigChange('layoutOrder', newOrder);
   };
 
-  // Update "now" every second
+  // Update "now" every second using Web Worker to prevent background throttling
   useEffect(() => {
     if (config.isStopped) return; 
 
-    const timer = setInterval(() => setNow(new Date()), 1000);
-    return () => clearInterval(timer);
+    const workerCode = `
+      let timer;
+      self.onmessage = function(e) {
+        if (e.data === 'start') {
+          timer = setInterval(() => {
+            self.postMessage('tick');
+          }, 1000);
+        } else if (e.data === 'stop') {
+          clearInterval(timer);
+        }
+      };
+    `;
+    const blob = new Blob([workerCode], { type: 'application/javascript' });
+    const workerUrl = URL.createObjectURL(blob);
+    const worker = new Worker(workerUrl);
+
+    worker.onmessage = (e) => {
+      if (e.data === 'tick') {
+        setNow(new Date());
+      }
+    };
+
+    worker.postMessage('start');
+
+    return () => {
+      worker.postMessage('stop');
+      worker.terminate();
+      URL.revokeObjectURL(workerUrl);
+    };
   }, [config.isStopped]);
 
   const handleApply = async () => {
@@ -1004,16 +1046,14 @@ const App: React.FC = () => {
             playSirenSound();
             announcedBatches.current.add(item.id);
             
-            // Check if audio context is allowed (simple check)
-            const AudioContext = window.AudioContext || (window as any).webkitAudioContext;
-            if (AudioContext) {
-                const ctx = new AudioContext();
+            // Check if audio context is allowed
+            const ctx = initAudioContext();
+            if (ctx) {
                 if (ctx.state === 'suspended') {
                     setAudioAllowed(false);
                 } else {
                     setAudioAllowed(true);
                 }
-                ctx.close();
             }
         }
     });
@@ -2073,7 +2113,7 @@ const App: React.FC = () => {
           )}
       </div>
 
-      <div className="max-w-7xl mx-auto mt-6 pb-6 text-center text-slate-400 dark:text-slate-500 text-base font-bold">
+      <div className="max-w-7xl mx-auto mt-6 pb-6 text-center text-slate-400 dark:text-slate-500 text-sm font-bold">
           AILO CORP | SCHEDULE START PVC 5
       </div>
 
@@ -2105,7 +2145,7 @@ const App: React.FC = () => {
                               type="text" 
                               autoFocus
                               value={startSiloData.lotNumber}
-                              onChange={(e) => setStartSiloData({...startSiloData, lotNumber: e.target.value})}
+                              onChange={(e) => setStartSiloData({...startSiloData, lotNumber: e.target.value.toUpperCase()})}
                               placeholder="e.g. E5ZB16"
                               className="w-full text-center text-3xl font-black p-3 rounded-xl border-2 border-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 outline-none uppercase dark:bg-slate-800 dark:border-slate-700 dark:text-white"
                           />

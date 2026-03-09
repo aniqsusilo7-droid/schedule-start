@@ -84,9 +84,8 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
                 <Activity className="w-8 h-8" />
             </div>
             <div>
-                <h2 className="text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight">Demonomer Monitor</h2>
+                <h2 className="text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight">HITUNG STEAM RASIO DEMONOMER</h2>
                 <div className="flex items-center gap-3 mt-1">
-                    <p className="text-slate-500 dark:text-slate-400 font-semibold uppercase text-sm tracking-widest">Operational Intelligence</p>
                     <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700 uppercase flex items-center gap-1">
                         <Database className="w-4 h-4" /> Real-time Sync
                     </span>

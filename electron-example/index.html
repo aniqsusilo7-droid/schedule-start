@@ -1,0 +1,74 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ALARM!</title>
+  <style>
+    body {
+      margin: 0;
+      padding: 0;
+      background-color: #ff3333;
+      color: white;
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      overflow: hidden;
+      animation: blink 1s infinite alternate;
+    }
+
+    @keyframes blink {
+      0% { background-color: #ff3333; }
+      100% { background-color: #cc0000; }
+    }
+
+    h1 {
+      font-size: 8rem;
+      margin: 0;
+      text-shadow: 4px 4px 10px rgba(0,0,0,0.5);
+    }
+
+    p {
+      font-size: 2rem;
+      margin-bottom: 50px;
+    }
+
+    button {
+      padding: 20px 50px;
+      font-size: 2rem;
+      font-weight: bold;
+      color: #ff3333;
+      background-color: white;
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      box-shadow: 0 10px 20px rgba(0,0,0,0.3);
+      transition: transform 0.2s;
+    }
+
+    button:hover {
+      transform: scale(1.1);
+    }
+  </style>
+</head>
+<body>
+  <h1>WAKTUNYA BANGUN!</h1>
+  <p>Alarm Anda Sedang Berbunyi</p>
+  <button id="stopBtn">MATIKAN ALARM</button>
+
+  <script>
+    // Memanggil fungsi yang diekspos dari preload.js untuk menutup jendela
+    document.getElementById('stopBtn').addEventListener('click', () => {
+      window.electronAPI.stopAlarm();
+    });
+
+    // Opsional: Mainkan suara alarm
+    // const audio = new Audio('path/to/alarm-sound.mp3');
+    // audio.loop = true;
+    // audio.play();
+  </script>
+</body>
+</html>
