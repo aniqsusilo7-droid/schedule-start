@@ -16,6 +16,7 @@ CREATE TABLE IF NOT EXISTS app_settings (
     layout_order TEXT[] DEFAULT ARRAY['header', 'scheduler', 'catalyst'],
     table_row_height BIGINT DEFAULT 95,
     table_font_size BIGINT DEFAULT 24,
+    batch_duration_minutes BIGINT DEFAULT 120,
     hidden_reactors TEXT[] DEFAULT ARRAY[]::TEXT[],
     hidden_fields TEXT[] DEFAULT ARRAY[]::TEXT[],
     zoom_level DOUBLE PRECISION DEFAULT 1.0,

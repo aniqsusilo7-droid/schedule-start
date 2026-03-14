@@ -56,6 +56,7 @@ export interface AppState {
   layoutOrder: string[]; // Array of section IDs e.g. ['header', 'scheduler', 'catalyst']
   tableRowHeight: number; // pixel height
   tableFontSize: number; // pixel font size base
+  batchDurationMinutes: number; // estimated duration of a batch in minutes
   hiddenReactors: string[]; // IDs of reactors to hide
   hiddenFields: string[]; // IDs of fields to hide (batch, time, grade, note, stage)
   gradeMode: 'normal' | 'gradeChange'; // Added grade mode

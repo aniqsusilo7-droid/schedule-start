@@ -8,6 +8,7 @@ import { Demonomer } from './components/Demonomer';
 import { Silo } from './components/Silo';
 import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator } from 'lucide-react';
 import { supabase } from './supabaseClient';
+import { Reorder } from 'framer-motion';
 
 const GRADES: GradeType[] = ['SM', 'SLK', 'SLP', 'SE', 'SR'];
 const STAGE_OPTIONS = ['Sample Blowing', 'Sample Washing', 'Sample Air Slurry'];
@@ -183,8 +184,9 @@ const App: React.FC = () => {
     marqueeSpeed: 30, // Default 30s
     theme: 'light',
     layoutOrder: ['header', 'scheduler', 'catalyst'], // Updated: Header first to match request "move to top"
-    tableRowHeight: 60, 
-    tableFontSize: 19,
+    tableRowHeight: 40, 
+    tableFontSize: 14,
+    batchDurationMinutes: 120,
     hiddenReactors: [],
     hiddenFields: [],
     gradeMode: 'normal'
@@ -319,6 +321,11 @@ const App: React.FC = () => {
 
       // Apply to State
       if (settingsData) {
+          const loadedLayoutOrder = settingsData.layout_order || ['header', 'scheduler', 'catalyst'];
+          if (!loadedLayoutOrder.includes('timeline')) {
+              loadedLayoutOrder.push('timeline');
+          }
+
           setConfig({
               baseBatchNumber: settingsData.base_batch_number,
               baseStartTime: settingsData.base_start_time,
@@ -335,9 +342,10 @@ const App: React.FC = () => {
               theme: (settingsData.theme as 'light' | 'dark') || 'light',
               reactorNotes: notesMap,
               itemConfigs: itemConfigsMap,
-              layoutOrder: settingsData.layout_order || ['header', 'scheduler', 'catalyst'], // Fallback
-              tableRowHeight: settingsData.table_row_height || 95,
-              tableFontSize: settingsData.table_font_size || 24,
+              layoutOrder: loadedLayoutOrder,
+              tableRowHeight: settingsData.table_row_height || 76,
+              tableFontSize: settingsData.table_font_size || 22,
+              batchDurationMinutes: settingsData.batch_duration_minutes || 120,
           });
 
           // Load Zoom Level
@@ -455,6 +463,7 @@ const App: React.FC = () => {
         layoutOrder: 'layout_order',
         tableRowHeight: 'table_row_height',
         tableFontSize: 'table_font_size',
+        batchDurationMinutes: 'batch_duration_minutes',
         gradeMode: 'grade_mode'
     };
 
@@ -1111,42 +1120,49 @@ const App: React.FC = () => {
   // --- Render Components Logic ---
   
   const renderHeader = () => (
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-3 shadow-sm z-30 relative transition-colors duration-300">
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-1 shadow-sm z-30 relative transition-colors duration-300" style={{ fontSize: `${config.tableFontSize}px` }}>
         
         {/* Main Header Container */}
-        <div className="flex flex-row items-center justify-between gap-4 w-full max-w-[1920px] mx-auto relative overflow-x-auto pb-1">
+        <div className="flex flex-row items-center justify-between gap-2 w-full max-w-[1920px] mx-auto relative overflow-x-auto pb-0.5">
           
           {/* Left Section: Widget */}
           <div className="flex shrink-0">
               {/* Widget: Interval & Time */}
-              <div className="flex bg-slate-800 rounded-lg p-1.5 shadow-md">
+              <div className="flex bg-slate-800 rounded-lg p-1 shadow-md">
                      {/* Interval */}
-                     <div className="px-5 py-2 flex flex-col items-center justify-center border-r border-slate-700/50 min-w-[130px]">
-                        <span className="text-xs text-cyan-400 font-bold uppercase tracking-wider mb-1">INTERVAL</span>
-                        <div className="text-5xl font-mono font-black text-cyan-300 leading-none">
+                     <div className="px-4 py-1.5 flex flex-col items-center justify-center border-r border-slate-700/50 min-w-[120px]">
+                        <span className="text-[0.5em] text-cyan-400 font-bold uppercase tracking-wider mb-1">INTERVAL</span>
+                        <div className="text-[1.5em] font-mono font-black text-cyan-300 leading-none">
                             {config.intervalHours.toString().padStart(2, '0')}:{config.intervalMinutes.toString().padStart(2, '0')}
                         </div>
                      </div>
                      {/* Time */}
-                     <div className="px-5 py-2 flex flex-col items-center justify-center min-w-[220px]">
-                        <span className="text-xs text-slate-400 font-bold uppercase tracking-wider mb-1">CURRENT TIME</span>
-                        <div className="bg-white w-full mx-2 text-slate-900 px-3 py-1.5 rounded shadow-sm font-mono font-black text-4xl tracking-widest leading-none flex items-center justify-center">
+                     <div className="px-4 py-1.5 flex flex-col items-center justify-center min-w-[200px]">
+                        <span className="text-[0.5em] text-slate-400 font-bold uppercase tracking-wider mb-1">CURRENT TIME</span>
+                        <div className="bg-white w-full mx-2 text-slate-900 px-2 py-1 rounded shadow-sm font-mono font-black text-[1.5em] tracking-widest leading-none flex items-center justify-center">
                             {now.toLocaleTimeString('en-GB', { hour12: false })}
-                            <span className="text-sm ml-1 text-slate-500 font-bold self-end mb-1">s</span>
+                            <span className="text-[0.4em] ml-1 text-slate-500 font-bold self-end mb-1">s</span>
                         </div>
                      </div>
               </div>
           </div>
 
           {/* Center Section: Title */}
-          <div className="flex flex-col items-center justify-center shrink-0 p-2 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-sm animate-pulse mx-4">
-            <h1 className="text-4xl lg:text-5xl font-black text-slate-900 dark:text-white tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm">
-               <span className="text-blue-600 dark:text-blue-400">SCHEDULE</span> 
-               <span className="text-slate-800 dark:text-slate-200">START</span>
+          <div className="flex flex-col items-center justify-center shrink-0 p-1.5 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-sm mx-4">
+            <h1 className="text-[2.0em] font-black text-slate-900 dark:text-white tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm">
+               <span className="text-blue-600 dark:text-blue-400">REACTOR</span> 
+               <span className="text-slate-800 dark:text-slate-200">SCHEDULE</span>
             </h1>
-            <span className="text-sm lg:text-lg font-black text-slate-500 dark:text-slate-400 tracking-[0.3em] block w-full text-center uppercase mt-1 border-t-2 border-slate-200 dark:border-slate-700 pt-1">
-                REAKTOR PVC 5
-            </span>
+            <div className="flex items-center gap-4 mt-1 border-t-2 border-slate-200 dark:border-slate-700 pt-1 w-full justify-center">
+                <span className="text-[0.8em] font-black text-slate-500 dark:text-slate-400 tracking-widest uppercase">
+                    REAKTOR PVC 5
+                </span>
+                <div className="h-3 w-px bg-slate-300 dark:bg-slate-600"></div>
+                <span className="text-[0.8em] font-black text-blue-600 dark:text-blue-400 tracking-widest uppercase flex items-center gap-2">
+                    <Calendar className="w-[1.2em] h-[1.2em]" />
+                    {formatDate(now)}
+                </span>
+            </div>
           </div>
 
           {/* Right Section: Navigation & Settings */}
@@ -1291,6 +1307,34 @@ const App: React.FC = () => {
                       </div>
                   </div>
 
+                  {/* LAYOUT REORDERING */}
+                  <div className="md:col-span-1 flex flex-col gap-2">
+                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block flex items-center gap-1">
+                          <Move className="w-3 h-3" /> Dashboard Layout
+                      </label>
+                      <Reorder.Group 
+                        axis="y" 
+                        values={config.layoutOrder} 
+                        onReorder={(newOrder) => handleConfigChange('layoutOrder', newOrder)}
+                        className="space-y-1"
+                      >
+                        {config.layoutOrder.map((sectionId) => (
+                          <Reorder.Item 
+                            key={sectionId} 
+                            value={sectionId}
+                            className="flex items-center gap-2 p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm cursor-grab active:cursor-grabbing hover:border-blue-400 transition-colors"
+                          >
+                            <div className="p-1 text-slate-400">
+                                <Move className="w-3 h-3" />
+                            </div>
+                            <span className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-300">
+                                {SECTIONS[sectionId as keyof typeof SECTIONS]}
+                            </span>
+                          </Reorder.Item>
+                        ))}
+                      </Reorder.Group>
+                  </div>
+
                   {isDesignMode && (
                       <div className="md:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-4 bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
                           <div>
@@ -1357,6 +1401,13 @@ const App: React.FC = () => {
                     </div>
                   </div>
                   
+                   <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
+                        <ClockIcon className="w-3 h-3" /> Batch Duration (Min)
+                    </label>
+                    <input type="number" min="1" max="600" value={config.batchDurationMinutes} onChange={(e) => handleConfigChange('batchDurationMinutes', parseInt(e.target.value) || 1)} className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" />
+                  </div>
+
                    <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
                         <LayoutGrid className="w-3 h-3" /> View Cycles
@@ -1426,6 +1477,175 @@ const App: React.FC = () => {
     </header>
   );
 
+  const renderGradeSelectionWidget = () => {
+      return (
+          <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden">
+              <div className="bg-slate-800 text-white font-bold text-[0.7em] px-3 py-2 text-center uppercase tracking-tight">
+                  Grade Selection Mode
+              </div>
+              <div className="p-2 flex flex-col gap-2">
+                  <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
+                      <button 
+                        onClick={() => handleConfigChange('gradeMode', 'normal')}
+                        className={`flex-1 py-2 rounded-md font-black text-[0.7em] transition-all ${config.gradeMode === 'normal' ? 'bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-400 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                      >
+                          NORMAL
+                      </button>
+                      <button 
+                        onClick={() => handleConfigChange('gradeMode', 'gradeChange')}
+                        className={`flex-1 py-2 rounded-md font-black text-[0.7em] transition-all ${config.gradeMode === 'gradeChange' ? 'bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-400 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
+                      >
+                          GRADE CHANGE
+                      </button>
+                  </div>
+                  
+                  <div className="grid grid-cols-3 gap-1">
+                      {GRADES.map(g => (
+                          <button 
+                            key={g} 
+                            onClick={() => handleConfigChange('currentGrade', g)}
+                            className={`py-2 rounded-lg font-black text-[0.8em] transition-all ${config.currentGrade === g ? `${GRADE_COLORS[g]} text-white shadow-md` : 'bg-slate-50 dark:bg-slate-900 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                          >
+                              {g}
+                          </button>
+                      ))}
+                  </div>
+              </div>
+          </div>
+      );
+  };
+
+  const renderSiloWidget = () => {
+      const activeSiloData = siloState.activeSilo ? siloState.silos[siloState.activeSilo] : null;
+      return (
+          <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700">
+              <button 
+                  onClick={() => setCurrentView('silo')}
+                  className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-[0.7em] px-3 py-2 text-center rounded-t-xl flex items-center justify-center gap-2 transition-colors cursor-pointer w-full uppercase tracking-tight"
+              >
+                  <Maximize2 className="w-3 h-3" />
+                  SILO SETTING
+              </button>
+              <div className="flex min-h-0">
+                  <div className="bg-white dark:bg-slate-800 text-slate-800 dark:text-white font-black p-2 flex items-center justify-center w-full rounded-b-xl relative overflow-hidden group">
+                       <span className="text-[3.5rem] mr-2 drop-shadow-sm text-cyan-600 dark:text-cyan-400 animate-pulse leading-none">{siloState.activeSilo || '-'}</span>
+                       <div className="flex flex-col leading-tight text-left border-l-2 border-slate-200 dark:border-slate-700 pl-2 gap-1 w-full">
+                           <div className="flex flex-col gap-0.5 text-center">
+                               <div>
+                                   <span className="text-[0.5em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">START</span>
+                                   <span className="text-[0.9em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.startTime || '--:--'}</span>
+                               </div>
+                               <div>
+                                   <span className="text-[0.5em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">SET</span>
+                                   <span className="text-[0.9em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.capacitySet || '0'} T</span>
+                               </div>
+                           </div>
+                           <div className="mt-1 pr-2">
+                               <div className="w-full border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden shadow-sm">
+                                   <div className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-[0.5em] font-bold uppercase tracking-wider py-1 border-b border-slate-200 dark:border-slate-700 text-center">
+                                       LOT NUMBER
+                                   </div>
+                                   <div className="bg-white dark:bg-slate-800 text-center py-1.5">
+                                       <span className="text-[1.2em] font-mono font-bold text-slate-800 dark:text-white">
+                                           {activeSiloData?.lotNumber || '---'}
+                                       </span>
+                                   </div>
+                               </div>
+                           </div>
+                       </div>
+                  </div>
+              </div>
+          </div>
+      );
+  };
+
+  const renderSteamWidget = () => {
+      return (
+          <div className="flex flex-col shadow-sm rounded-xl w-full border border-slate-200 dark:border-slate-700">
+              <button 
+                  onClick={() => setCurrentView('demonomer')}
+                  className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[0.8em] px-2 py-2 text-center rounded-t-xl flex items-center justify-center gap-1 uppercase tracking-tight cursor-pointer transition-colors w-full"
+              >
+                  <Activity className="w-3 h-3" />
+                  ADJUST STEAM
+              </button>
+              <div className="bg-white dark:bg-slate-800 rounded-b-xl p-1.5 flex flex-col gap-1.5 justify-center">
+                  <div className="bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white p-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-inner flex flex-col justify-center">
+                      <label className="text-[0.5em] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block text-center mb-0.5">FIE2002</label>
+                      <input 
+                          type="number"
+                          step="0.1"
+                          value={demonomerData.f2002}
+                          onChange={(e) => handleDemonomerChange('f2002', parseFloat(e.target.value) || 0)}
+                          className="w-full bg-transparent text-2xl font-black text-center outline-none drop-shadow-sm appearance-none"
+                      />
+                  </div>
+                  <div className="bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white p-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-inner flex flex-col justify-center">
+                      <span className="text-[0.5em] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block text-center mb-0.5">RESULT</span>
+                      <div className="text-2xl font-black text-center drop-shadow-sm">
+                          {Math.round(evaluateMath(demonomerData.steamFormula, {
+                              'PVC': evaluateMath(demonomerData.pvcFormula, {
+                                  'AI2802': demonomerData.aie2802,
+                                  '%PVC': demonomerData.pvcPercent / 100,
+                                  'F2002': demonomerData.f2002
+                              }),
+                              'Steam Rasio': demonomerData.multipliers[config.currentGrade] || 0,
+                              'Multiplier': demonomerData.multipliers[config.currentGrade] || 0
+                          }))}
+                      </div>
+                  </div>
+              </div>
+          </div>
+      );
+  };
+
+  const renderCatalystMiniWidget = () => {
+      return (
+          <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800">
+              <div className="bg-indigo-600 text-white font-bold text-[0.8em] px-3 py-2 text-center flex items-center justify-center gap-2 uppercase tracking-tight">
+                  <Activity className="w-3 h-3" />
+                  CATALYST DATA
+              </div>
+              <div className="p-2">
+                  <table className="w-full border-collapse">
+                      <thead>
+                          <tr className="text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
+                              <th className="py-1 text-left font-black text-[0.7em] uppercase tracking-wider">CATA</th>
+                              <th className="py-1 text-center font-black text-[0.7em] uppercase tracking-wider">NETO</th>
+                              <th className="py-1 text-center font-black text-[0.7em] uppercase tracking-wider">BRUTO</th>
+                          </tr>
+                      </thead>
+                      <tbody>
+                          {(['f', 'h', 'g'] as const).map((key) => (
+                              <tr key={key} className="border-b border-slate-50 dark:border-slate-700/50 last:border-0">
+                                  <td className={`py-2 font-black uppercase text-center rounded-l-md ${key === 'f' ? 'bg-slate-800 text-white' : key === 'h' ? 'bg-yellow-400 text-slate-900' : 'bg-purple-600 text-white'}`} style={{ width: '30px', fontSize: '1.1em' }}>
+                                      {key}
+                                  </td>
+                                  <td className="py-1 px-1">
+                                      <input 
+                                          type="text" 
+                                          value={catalystData[key].netto} 
+                                          onChange={(e) => handleCatalystChange(key, 'netto', e.target.value)}
+                                          className="w-full bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-white text-center font-bold py-1 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 text-[1.1em]"
+                                      />
+                                  </td>
+                                  <td className="py-1 px-1">
+                                      <input 
+                                          type="text" 
+                                          value={catalystData[key].bruto} 
+                                          onChange={(e) => handleCatalystChange(key, 'bruto', e.target.value)}
+                                          className="w-full bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-white text-center font-bold py-1 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 text-[1.1em]"
+                                      />
+                                  </td>
+                              </tr>
+                          ))}
+                      </tbody>
+                  </table>
+              </div>
+          </div>
+      );
+  };
+
   const renderScheduler = () => {
     if (currentView !== 'scheduler') return null;
 
@@ -1439,418 +1659,411 @@ const App: React.FC = () => {
     };
 
     return (
-        <div className="w-full bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors" style={{ fontSize: `${config.tableFontSize}px` }}>
-          
-           {/* MARQUEE BAR: Placed between header and table rows */}
-           <div className="w-full bg-blue-100 dark:bg-blue-900/50 border-b border-blue-200 dark:border-blue-800 overflow-hidden h-12 relative flex items-center">
-                
-                {/* Grade Selector: Positioned top left, same size as before */}
-                <div className="flex gap-1 bg-slate-800 p-1 rounded-r-lg border-r border-y border-slate-700 shadow-md z-20 h-full items-center">
-                    {GRADES.map(g => (
-                        <button key={g} onClick={() => handleConfigChange('currentGrade', g)} className={`px-4 py-1 text-base font-black rounded transition-all h-full ${config.currentGrade === g ? `${GRADE_COLORS[g]} text-white shadow-md` : 'bg-slate-700 text-slate-400 hover:bg-slate-600 hover:text-slate-200'}`}>
-                            {g}
-                        </button>
-                    ))}
-                </div>
-
-                <div className="flex-1 overflow-hidden h-full relative flex items-center">
-                     <div className="absolute inset-0 flex items-center w-full">
-                          <div className="absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r from-blue-100 dark:from-slate-900/50 to-transparent pointer-events-none"></div>
-                          <div className="absolute right-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-l from-blue-100 dark:from-slate-900/50 to-transparent pointer-events-none"></div>
-                          
-                          <div className="flex whitespace-nowrap w-full">
-                               <div 
-                                   className={`flex shrink-0 animate-marquee items-center min-w-full ${config.isMarqueePaused ? 'paused' : ''}`}
-                                   style={{ animationDuration: `${config.marqueeSpeed}s` }}
-                               >
-                                   {Array(5).fill(null).map((_, i) => (
-                                       <span key={i} className="flex items-center gap-2 mx-8 font-black text-blue-800 dark:text-blue-100 uppercase tracking-wider text-[0.875em]">
-                                           <AlertTriangle className="w-[1.25em] h-[1.25em]" />
-                                           {config.runningText}
-                                       </span>
-                                   ))}
-                               </div>
-                               <div 
-                                   className={`flex shrink-0 animate-marquee items-center min-w-full ${config.isMarqueePaused ? 'paused' : ''}`} 
-                                   style={{ animationDuration: `${config.marqueeSpeed}s` }}
-                                   aria-hidden="true"
-                               >
-                                   {Array(5).fill(null).map((_, i) => (
-                                       <span key={i + 10} className="flex items-center gap-2 mx-8 font-black text-blue-800 dark:text-blue-100 uppercase tracking-wider text-[0.875em]">
-                                           <AlertTriangle className="w-[1.25em] h-[1.25em]" />
-                                           {config.runningText}
-                                       </span>
-                                   ))}
-                               </div>
-                           </div>
-                     </div>
-                </div>
-           </div>
-
-          <div className="overflow-x-auto h-full">
-            <table className="w-full border-collapse h-full">
-              {/* Removed <thead> to align with image where the first row is just data rows */}
-              <tbody>
-                {REACTORS.map((reactor) => (
-                  <tr key={reactor.id} className="border-b border-slate-200 dark:border-slate-700 last:border-0" style={{ height: `${config.tableRowHeight}px` }}>
-                    
-                    <td className={`${reactor.color} ${reactor.textColor} border-r border-slate-900/10 dark:border-slate-900/30 p-2 relative group w-[140px]`}>
-                       <div className="flex flex-col items-center justify-center h-full">
-                          <span className="font-black font-serif drop-shadow-md leading-none" style={{ fontSize: '2.5em' }}>{reactor.label}</span>
-                          
-                          {/* Reactor Note Display */}
-                          <div 
-                            className="mt-2 w-full cursor-pointer hover:scale-105 transition-transform"
-                            onClick={() => openReactorNoteModal(reactor.id)}
-                            title="Click to edit note"
-                          >
-                             {config.reactorNotes[reactor.id] ? (
-                                 <div className="bg-yellow-400 text-black font-bold text-left rounded px-1 border-2 border-red-600 shadow-sm whitespace-pre-wrap break-words leading-tight" style={{ fontSize: '0.6em' }}>
-                                     {config.reactorNotes[reactor.id]}
-                                 </div>
-                             ) : (
-                                 <div className="opacity-50 flex items-center justify-center scale-75"><Edit3 className="w-4 h-4" /></div>
-                             )}
-                          </div>
-                       </div>
-                    </td>
-
-                    {scheduleMatrix[reactor.id].map((item) => {
-                      const isSkipped = item.status === 'skipped';
-                      const isPast = item.status === 'past';
-                      const isActive = item.status === 'active';
-                      const mode = item.config?.mode || 'CLOSE';
-                      const stageInfo = item.config?.stageInfo;
-                      
-                      let cellClasses = "bg-white dark:bg-slate-700 dark:text-white shadow-sm transition-colors dark:border dark:border-slate-600/50"; 
-                      if (isSkipped) {
-                          cellClasses = "bg-stone-200 dark:bg-stone-950 text-stone-500 dark:text-stone-600 border-stone-300 dark:border-stone-800"; 
-                      } else if (isActive) {
-                          cellClasses = "bg-red-500 dark:bg-red-600 text-white animate-pulse ring-4 ring-red-300 dark:ring-red-900 z-10 relative"; 
-                      } else if (isPast) {
-                          cellClasses = "bg-slate-800 dark:bg-slate-950 text-slate-500 dark:text-slate-600 shadow-inner"; 
-                      } else if (mode === 'CLOSE TO OPEN') {
-                          // Cream/Light Yellow for CLOSE TO OPEN that hasn't started
-                          cellClasses = "bg-amber-50 dark:bg-amber-900/40 text-amber-900 dark:text-amber-100 border-amber-200 dark:border-amber-800 shadow-sm";
-                      } else if (!isPast && config.theme === 'dark') {
-                          // Future reactors in dark theme: Thin Yellow
-                          cellClasses = "bg-yellow-900/20 text-yellow-100 border-yellow-900/30 shadow-sm";
-                      }
-                      
-                      return (
-                        <td 
-                            key={item.id} 
-                            onClick={() => openRescheduleModal(item)}
-                            className={`p-0 border-r border-slate-200 dark:border-slate-700 cursor-pointer transition-all duration-300 relative group hover:z-20 ${cellClasses} hover:ring-2 hover:ring-blue-400`}
-                        >
-                          <div className="h-full flex flex-col justify-between p-2">
+        <div className="w-full h-full flex flex-row gap-2" style={{ fontSize: `${config.tableFontSize}px` }}>
+          {/* LEFT SIDE: 80% Table */}
+          <div className="w-[80%] flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
+            
+             {/* MARQUEE BAR: Placed between header and table rows */}
+             <div className="w-full bg-blue-100 dark:bg-blue-900/50 border-b border-blue-200 dark:border-blue-800 overflow-hidden h-10 relative flex items-center">
+                  
+                  <div className="flex-1 overflow-hidden h-full relative flex items-center">
+                       <div className="absolute inset-0 flex items-center w-full">
+                            <div className="absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r from-blue-100 dark:from-slate-900/50 to-transparent pointer-events-none"></div>
+                            <div className="absolute right-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-l from-blue-100 dark:from-slate-900/50 to-transparent pointer-events-none"></div>
                             
-                            {/* Top Row: Batch & Grade */}
-                            <div className="flex justify-between items-start mb-0.5">
-                              <div className="flex flex-col leading-none">
-                                 {!isSkipped ? (
-                                    <span className={`font-bold font-mono ${isActive ? 'text-white' : (reactor.id === 'S' || reactor.id === 'T' ? 'text-red-600 dark:text-red-400' : 'text-red-500 dark:text-red-400')} ${isPast ? '!text-inherit' : ''}`} style={{ fontSize: '1.2em' }}>
-                                        <span className="opacity-50 text-[0.6em] mr-0.5">#</span>{item.batchNumber}
-                                    </span>
-                                ) : (
-                                    <span className="text-sm font-bold font-mono text-stone-400 dark:text-stone-600">---</span>
-                                )}
-                              </div>
-                              <div className="text-right">
-                                <div className={`font-black px-1.5 py-0.5 rounded leading-none ${isActive ? 'bg-white text-red-600' : (isSkipped ? 'bg-stone-300 dark:bg-stone-800 text-stone-600 dark:text-stone-400' : `${GRADE_COLORS[item.grade] || 'bg-slate-200'} text-white`)}`} style={{ fontSize: '1.0em' }}>
-                                    {item.grade}
-                                </div>
-                              </div>
+                            <div className="flex whitespace-nowrap w-full">
+                                 <div 
+                                     className={`flex shrink-0 animate-marquee items-center min-w-full ${config.isMarqueePaused ? 'paused' : ''}`}
+                                     style={{ animationDuration: `${config.marqueeSpeed}s` }}
+                                 >
+                                     {Array(5).fill(null).map((_, i) => (
+                                         <span key={i} className="flex items-center gap-2 mx-8 font-black text-blue-800 dark:text-blue-100 uppercase tracking-wider text-[0.875em]">
+                                             <AlertTriangle className="w-[1.25em] h-[1.25em]" />
+                                             {config.runningText}
+                                         </span>
+                                     ))}
+                                 </div>
+                                 <div 
+                                     className={`flex shrink-0 animate-marquee items-center min-w-full ${config.isMarqueePaused ? 'paused' : ''}`} 
+                                     style={{ animationDuration: `${config.marqueeSpeed}s` }}
+                                     aria-hidden="true"
+                                 >
+                                     {Array(5).fill(null).map((_, i) => (
+                                         <span key={i + 10} className="flex items-center gap-2 mx-8 font-black text-blue-800 dark:text-blue-100 uppercase tracking-wider text-[0.875em]">
+                                             <AlertTriangle className="w-[1.25em] h-[1.25em]" />
+                                             {config.runningText}
+                                         </span>
+                                     ))}
+                                 </div>
+                             </div>
+                       </div>
+                  </div>
+             </div>
+
+            <div className="overflow-x-auto h-full">
+              <table className="w-full border-collapse h-full table-fixed">
+                {/* Removed <thead> to align with image where the first row is just data rows */}
+                <tbody>
+                  {REACTORS.map((reactor) => (
+                    <tr key={reactor.id} className="border-b border-slate-200 dark:border-slate-700 last:border-0" style={{ height: `${config.tableRowHeight}px` }}>
+                      
+                      <td className={`${reactor.color} ${reactor.textColor} border-r border-slate-900/10 dark:border-slate-900/30 p-2 relative group w-[140px]`}>
+                         <div className="flex flex-col items-center justify-center h-full">
+                            <span className="font-black font-serif drop-shadow-md leading-none" style={{ fontSize: '2.2em' }}>{reactor.label}</span>
+                            
+                            {/* Reactor Note Display */}
+                            <div 
+                              className="mt-2 w-full cursor-pointer hover:scale-105 transition-transform"
+                              onClick={() => openReactorNoteModal(reactor.id)}
+                              title="Click to edit note"
+                            >
+                               {config.reactorNotes[reactor.id] ? (
+                                   <div className="bg-yellow-400 text-black font-bold text-left rounded px-1 border-2 border-red-600 shadow-sm whitespace-pre-wrap break-words leading-tight" style={{ fontSize: '0.6em' }}>
+                                       {config.reactorNotes[reactor.id]}
+                                   </div>
+                               ) : (
+                                   <div className="opacity-50 flex items-center justify-center scale-75"><Edit3 className="w-4 h-4" /></div>
+                               )}
                             </div>
+                         </div>
+                      </td>
 
-                            {/* Middle: Start Time & Badges */}
-                            <div className="text-center relative flex flex-col items-center justify-center flex-1 my-1">
-                              {isSkipped ? (
-                                <div className="flex flex-col items-center opacity-60 gap-1">
-                                    <Ban className="w-[2.0em] h-[2.0em]" />
-                                    <span className="text-[0.8em] font-bold">SKIPPED</span>
-                                </div>
-                              ) : (
-                                <>
-                                    {/* Unified Time Display - Significantly Larger */}
-                                    <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-110' : (isPast ? 'text-slate-500 dark:text-slate-400 opacity-90 line-through' : (config.theme === 'dark' ? 'text-emerald-100' : 'text-slate-800 dark:text-slate-100'))} transition-transform`} style={{ fontSize: '3.0em' }}>
-                                        {formatTime(item.startTime)}
-                                    </div>
-                                    
-                                    {/* Status / Badges */}
-                                    {isPast ? (
-                                        <div className="font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1 opacity-75" style={{ fontSize: '0.8em' }}>
-                                            SUDAH START
-                                        </div>
-                                    ) : isActive ? (
-                                        <div className="font-black text-yellow-300 uppercase tracking-widest animate-bounce mt-1" style={{ fontSize: '0.9em' }}>
-                                            START NOW
-                                        </div>
-                                    ) : null}
-                                    
-                                    <div className="flex justify-center gap-1 mt-1 flex-wrap w-full items-center">
-                                        {/* Adjusted Time Delta Badge (HH:MM) */}
-                                        {item.deltaMinutes !== 0 && (
-                                            <div className={`font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-0.5 ${item.deltaMinutes > 0 ? 'bg-yellow-400 text-yellow-900' : 'bg-cyan-100 text-cyan-800'}`} style={{ fontSize: '0.8em' }}>
-                                                <Timer className="w-[1em] h-[1em]" /> {formatDelay(item.deltaMinutes)}
-                                            </div>
-                                        )}
-                                        {/* Mode Badge - Visible for Open/Close Status */}
-                                        <div className={`font-bold px-1.5 py-0.5 rounded uppercase border flex items-center gap-1 ${mode === 'OPEN' ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border-cyan-200 dark:border-cyan-800' : (mode === 'CLOSE TO OPEN' && config.theme === 'dark') ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600'}`} style={{ fontSize: '0.8em' }}>
-                                            <span className="text-[0.7em] opacity-70 mr-0.5">MODE</span>
-                                            {mode}
-                                        </div>
-                                        {/* Shift Indicator */}
-                                        {item.config?.shiftSubsequent && (
-                                            <div className="font-bold bg-orange-100 text-orange-700 px-1 py-0.5 rounded uppercase border border-orange-200 flex items-center" style={{ fontSize: '0.6em' }}>
-                                                <ArrowRightCircle className="w-[1em] h-[1em]" />
-                                            </div>
-                                        )}
-                                    </div>
-                                </>
-                              )}
-
-                              {/* Edit Overlay Icon */}
-                              <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
-                                  <div className="bg-blue-600 text-white rounded-full p-2 shadow-lg">
-                                      <Edit3 className="w-6 h-6" />
-                                  </div>
-                              </div>
-                            </div>
-
-                            {/* Bottom: Notes & Stage Info */}
-                            <div className={`mt-auto flex justify-between items-end border-t pt-1 ${isActive ? 'border-white/30' : 'border-black/5 dark:border-white/10'}`}>
-                                <div className="flex gap-1 items-center shrink-0">
-                                    {item.config?.note && (
-                                        <FileText className={`w-4 h-4 ${isActive ? 'text-yellow-300' : 'text-blue-500 dark:text-blue-400'}`} />
-                                    )}
+                      {scheduleMatrix[reactor.id].map((item) => {
+                        const isSkipped = item.status === 'skipped';
+                        const isPast = item.status === 'past';
+                        const isActive = item.status === 'active';
+                        const mode = item.config?.mode || 'CLOSE';
+                        const stageInfo = item.config?.stageInfo;
+                        
+                        let cellClasses = "bg-white dark:bg-slate-700 dark:text-white shadow-sm transition-colors dark:border dark:border-slate-600/50"; 
+                        if (isSkipped) {
+                            cellClasses = "bg-stone-200 dark:bg-stone-950 text-stone-500 dark:text-stone-600 border-stone-300 dark:border-stone-800"; 
+                        } else if (isActive) {
+                            cellClasses = "bg-red-500 dark:bg-red-600 text-white animate-pulse ring-4 ring-red-300 dark:ring-red-900 z-10 relative"; 
+                        } else if (isPast) {
+                            cellClasses = "bg-slate-800 dark:bg-slate-950 text-slate-500 dark:text-slate-600 shadow-inner"; 
+                        } else if (mode === 'CLOSE TO OPEN') {
+                            // Cream/Light Yellow for CLOSE TO OPEN that hasn't started
+                            cellClasses = "bg-amber-50 dark:bg-amber-900/40 text-amber-900 dark:text-amber-100 border-amber-200 dark:border-amber-800 shadow-sm";
+                        } else if (!isPast && config.theme === 'dark') {
+                            // Future reactors in dark theme: Thin Yellow
+                            cellClasses = "bg-yellow-900/20 text-yellow-100 border-yellow-900/30 shadow-sm";
+                        }
+                        
+                        return (
+                          <td 
+                              key={item.id} 
+                              onClick={() => openRescheduleModal(item)}
+                              className={`p-0 border-r border-slate-200 dark:border-slate-700 cursor-pointer transition-all duration-300 relative group hover:z-20 ${cellClasses} hover:ring-2 hover:ring-blue-400 overflow-hidden`}
+                          >
+                            <div className="h-full flex flex-col justify-between p-1">
+                              
+                              {/* Top Row: Batch, Date, Grade */}
+                              <div className="flex justify-between items-start mb-0.5 relative">
+                                <div className="flex flex-col leading-none z-10">
+                                   {!isSkipped ? (
+                                      <span className={`font-bold font-mono ${isActive ? 'text-white' : (reactor.id === 'S' || reactor.id === 'T' ? 'text-red-600 dark:text-red-400' : 'text-red-500 dark:text-red-400')} ${isPast ? '!text-inherit' : ''}`} style={{ fontSize: '1.0em' }}>
+                                          <span className="opacity-50 text-[0.5em] mr-0.5">#</span>{item.batchNumber}
+                                      </span>
+                                  ) : (
+                                      <span className="text-sm font-bold font-mono text-stone-400 dark:text-stone-600">---</span>
+                                  )}
                                 </div>
                                 
-                                {stageInfo && (
-                                    <div className="flex-1 mx-1 self-center bg-yellow-400 text-black font-black text-center animate-pulse rounded px-1 uppercase tracking-tighter border-2 border-red-600 shadow-sm overflow-hidden text-ellipsis whitespace-nowrap" style={{ fontSize: '0.8em' }}>
-                                        {stageInfo}
-                                    </div>
+                                <div className="absolute inset-0 flex justify-center pointer-events-none">
+                                    <span className={`font-bold ${isActive ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'}`} style={{ fontSize: '0.85em' }}>
+                                        {formatDate(item.startTime)}
+                                    </span>
+                                </div>
+
+                                <div className="text-right z-10">
+                                  <div className={`font-black px-1.5 py-0.5 rounded leading-none ${isActive ? 'bg-white text-red-600' : (isSkipped ? 'bg-stone-300 dark:bg-stone-800 text-stone-600 dark:text-stone-400' : `${GRADE_COLORS[item.grade] || 'bg-slate-200'} text-white`)}`} style={{ fontSize: '0.9em' }}>
+                                      {item.grade}
+                                  </div>
+                                </div>
+                              </div>
+
+                              {/* Middle: Start Time & Badges */}
+                              <div className="text-center relative flex flex-col items-center justify-center flex-1 my-1">
+                                {isSkipped ? (
+                                  <div className="flex flex-col items-center opacity-60 gap-1">
+                                      <Ban className="w-[2.0em] h-[2.0em]" />
+                                      <span className="text-[0.8em] font-bold">SKIPPED</span>
+                                  </div>
+                                ) : (
+                                  <>
+                                      {/* Unified Time Display - Significantly Larger */}
+                                      <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-105' : (isPast ? 'text-slate-500 dark:text-slate-400 opacity-90 line-through' : (config.theme === 'dark' ? 'text-emerald-100' : 'text-slate-800 dark:text-slate-100'))} transition-transform`} style={{ fontSize: '2.0em' }}>
+                                          {formatTime(item.startTime)}
+                                      </div>
+                                      
+                                      {/* Status / Badges */}
+                                      {isPast ? (
+                                          <div className="font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1 opacity-75" style={{ fontSize: '0.7em' }}>
+                                              SUDAH START
+                                          </div>
+                                      ) : isActive ? (
+                                          <div className="font-black text-yellow-300 uppercase tracking-widest animate-bounce mt-1" style={{ fontSize: '0.8em' }}>
+                                              START NOW
+                                          </div>
+                                      ) : null}
+                                      
+                                      <div className="flex justify-center gap-1 mt-1 flex-wrap w-full items-center">
+                                          {/* Adjusted Time Delta Badge (HH:MM) */}
+                                          {item.deltaMinutes !== 0 && (
+                                              <div className={`font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-0.5 ${item.deltaMinutes > 0 ? 'bg-yellow-400 text-yellow-900' : 'bg-cyan-100 text-cyan-800'}`} style={{ fontSize: '0.7em' }}>
+                                                  <Timer className="w-[1em] h-[1em]" /> {formatDelay(item.deltaMinutes)}
+                                              </div>
+                                          )}
+                                          {/* Mode Badge - Visible for Open/Close Status */}
+                                          <div className={`font-bold px-1.5 py-0.5 rounded uppercase border flex items-center gap-1 ${mode === 'OPEN' ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border-cyan-200 dark:border-cyan-800' : (mode === 'CLOSE TO OPEN' && config.theme === 'dark') ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600'}`} style={{ fontSize: '0.7em' }}>
+                                              <span className="text-[0.5em] opacity-70 mr-0.5">MODE</span>
+                                              {mode}
+                                          </div>
+                                          {/* Shift Indicator */}
+                                          {item.config?.shiftSubsequent && (
+                                              <div className="font-bold bg-orange-100 text-orange-700 px-1 py-0.5 rounded uppercase border border-orange-200 flex items-center" style={{ fontSize: '0.5em' }}>
+                                                  <ArrowRightCircle className="w-[1em] h-[1em]" />
+                                              </div>
+                                          )}
+                                      </div>
+                                  </>
                                 )}
 
-                                <span className={`font-bold shrink-0 ${isActive ? 'text-white' : 'text-slate-400 dark:text-slate-500'}`} style={{ fontSize: '1.0em' }}>
-                                    {formatDate(item.startTime)}
-                                </span>
+                                {/* Edit Overlay Icon */}
+                                <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
+                                    <div className="bg-blue-600 text-white rounded-full p-2 shadow-lg">
+                                        <Edit3 className="w-6 h-6" />
+                                    </div>
+                                </div>
+                              </div>
+
+                              {/* Bottom: Notes & Stage Info */}
+                              <div className={`mt-auto flex justify-between items-end border-t pt-1 ${isActive ? 'border-white/30' : 'border-black/5 dark:border-white/10'} min-h-[20px]`}>
+                                  <div className="flex gap-1 items-center shrink-0">
+                                      {item.config?.note && (
+                                          <FileText className={`w-4 h-4 ${isActive ? 'text-yellow-300' : 'text-blue-500 dark:text-blue-400'}`} />
+                                      )}
+                                  </div>
+                                  
+                                  {stageInfo && (
+                                      <div className="flex-1 mx-1 self-center bg-yellow-400 text-black font-black text-center animate-pulse rounded px-1 uppercase tracking-tighter border-2 border-red-600 shadow-sm overflow-hidden text-ellipsis whitespace-nowrap" style={{ fontSize: '0.7em' }}>
+                                          {stageInfo}
+                                      </div>
+                                  )}
+                              </div>
                             </div>
-                          </div>
-                        </td>
-                      );
-                    })}
-                  </tr>
-                ))}
-              </tbody>
-            </table>
+                          </td>
+                        );
+                      })}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* RIGHT SIDE: 20% Widgets */}
+          <div className="w-[20%] flex flex-col gap-2 overflow-y-auto">
+              {renderGradeSelectionWidget()}
+              {renderSiloWidget()}
+              {renderSteamWidget()}
+              {renderCatalystMiniWidget()}
           </div>
         </div>
+    );
+  };
+
+  const renderConflictTimeline = () => {
+    // 1. Flatten and filter items (include past items so it matches the main table)
+    const allItems = (Object.values(scheduleMatrix).flat() as ScheduleItem[])
+      .filter(item => item.status !== 'skipped');
+
+    // 2. Determine start and end times based on the schedule
+    const earliestTime = allItems.length > 0 
+        ? new Date(Math.min(...allItems.map(i => i.startTime.getTime()))) 
+        : new Date(now);
+
+    const startTime = new Date(earliestTime);
+    startTime.setMinutes(startTime.getMinutes() < 30 ? 0 : 30, 0, 0); // Round down to nearest 30
+
+    const latestTime = allItems.length > 0
+        ? new Date(Math.max(...allItems.map(i => i.startTime.getTime() + (config.batchDurationMinutes || 240) * 60000)))
+        : new Date(now.getTime() + 12 * 3600000);
+
+    const totalMinutesNeeded = (latestTime.getTime() - startTime.getTime()) / 60000;
+    // Calculate how many 30-min slots we need. Minimum 24 slots (12 hours).
+    const slotsCount = Math.max(24, Math.ceil(totalMinutesNeeded / 30));
+    
+    const slots = Array.from({ length: slotsCount }).map((_, i) => addMinutes(startTime, i * 30));
+    const totalMinutes = slotsCount * 30;
+    
+    // 3. Current time position (%)
+    const nowMinutes = (now.getTime() - startTime.getTime()) / 60000;
+    const nowPos = (nowMinutes / totalMinutes) * 100;
+
+    return (
+      <div className="flex flex-col shadow-xl rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
+        {/* Header */}
+        <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-500 rounded-xl text-white">
+              <Activity className="w-4 h-4" />
+            </div>
+            <div>
+              <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Reactor Cycle Timeline</h3>
+              <p className="text-[8px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Visual Gantt Chart & Conflict Detection</p>
+            </div>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Conflict</span>
+            </div>
+            <div className="flex items-center gap-2">
+              <div className="w-2.5 h-2.5 rounded-full bg-indigo-500"></div>
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Scheduled</span>
+            </div>
+          </div>
+        </div>
+
+        <div className="p-0 overflow-x-auto relative">
+          {/* Current Time Indicator Line */}
+          {nowPos >= 0 && nowPos <= 100 && (
+            <div 
+              className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-30 pointer-events-none"
+              style={{ left: `calc(80px + ${nowPos * (100 - 80/100)}%)` }} // Adjust for sticky column width
+            >
+              <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[8px] font-black px-1 rounded">NOW</div>
+            </div>
+          )}
+
+          <table className="w-full border-collapse table-fixed" style={{ minWidth: `${Math.max(1200, slotsCount * 60 + 80)}px` }}>
+            <thead>
+              <tr className="bg-slate-50 dark:bg-slate-900/50">
+                <th className="sticky left-0 z-40 bg-slate-50 dark:bg-slate-900 border-b border-r border-slate-200 dark:border-slate-800 p-2 text-slate-500 uppercase tracking-wider text-[0.6em] font-black w-20">
+                  REACTOR
+                </th>
+                {slots.map((slot, i) => (
+                  <th key={i} className="border-b border-slate-200 dark:border-slate-800 p-1 text-slate-500 uppercase tracking-wider text-[0.7em] font-black w-[60px]">
+                    {formatTime(slot)}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {REACTORS.map((reactor) => (
+                <tr key={reactor.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
+                  <td className="sticky left-0 z-40 bg-white dark:bg-slate-900 border-r border-b border-slate-100 dark:border-slate-800 p-2 font-black text-[0.75em] text-slate-700 dark:text-slate-300 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
+                    <div className="flex items-center gap-2">
+                      <div className={`w-2 h-2 rounded-full ${reactor.color}`}></div>
+                      {reactor.label}
+                    </div>
+                  </td>
+                  <td colSpan={slotsCount} className="border-b border-slate-100 dark:border-slate-800 p-0 relative h-12">
+                    {/* Grid lines for the row */}
+                    <div className="absolute inset-0 flex">
+                      {slots.map((_, i) => (
+                        <div key={i} className="flex-1 border-r border-slate-100 dark:border-slate-800/30 last:border-0"></div>
+                      ))}
+                    </div>
+
+                    {/* Batch Bars */}
+                    {allItems
+                      .filter(item => item.reactorId === reactor.id)
+                      .map(item => {
+                        const itemStartMinutes = (item.startTime.getTime() - startTime.getTime()) / 60000;
+                        const duration = config.batchDurationMinutes || 240;
+                        
+                        const left = (itemStartMinutes / totalMinutes) * 100;
+                        const width = (duration / totalMinutes) * 100;
+
+                        if (left + width < 0 || left > 100) return null;
+
+                        const actualLeft = Math.max(0, left);
+                        const actualRight = Math.min(100, left + width);
+                        const actualWidth = actualRight - actualLeft;
+
+                        // Conflict detection
+                        const isConflict = allItems.some(other => 
+                          other.id !== item.id && 
+                          Math.abs(other.startTime.getTime() - item.startTime.getTime()) < 10 * 60000
+                        );
+
+                        return (
+                          <div 
+                            key={item.id}
+                            className={`absolute top-1 bottom-1 rounded-lg flex flex-col items-center justify-center text-[0.65em] font-black text-white shadow-lg z-10 transition-all hover:scale-[1.02] hover:z-20 border border-white/20 ${GRADE_COLORS[item.grade] || 'bg-slate-500'}`}
+                            style={{ 
+                              left: `${actualLeft}%`, 
+                              width: `${actualWidth}%`,
+                              ...(isConflict ? {
+                                backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, transparent 10px, transparent 20px)',
+                                boxShadow: '0 0 0 2px #ef4444, 0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                              } : {})
+                            }}
+                          >
+                            <div className="flex items-center gap-1.5">
+                              <span className="bg-black/20 px-1 rounded">#{item.batchNumber}</span>
+                              <span>{item.grade}</span>
+                            </div>
+                            <div className="text-[0.8em] opacity-90 mt-0.5">
+                              {formatTime(item.startTime)}
+                            </div>
+                          </div>
+                        );
+                      })}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        {/* Footer */}
+        <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <Info className="w-3.5 h-3.5 text-indigo-500" />
+            <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+              Gantt chart shows batch duration ({config.batchDurationMinutes}m). Red outlines indicate potential start-time conflicts (within 10m).
+            </p>
+          </div>
+          <div className="flex items-center gap-2">
+            <div className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 rounded-lg">
+              Full Schedule View
+            </div>
+            <div className="text-[9px] font-black text-red-600 dark:text-red-400 uppercase tracking-widest bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded-lg flex items-center gap-1">
+              <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></div>
+              Live
+            </div>
+          </div>
+        </div>
+      </div>
     );
   };
 
   const renderCatalyst = () => {
       if (currentView !== 'scheduler') return null;
 
-      const colWidth1 = "w-[3em]";
-      const colWidth2 = "flex-1";
-      const colWidth3 = "flex-1";
-
-      const activeSiloData = siloState.activeSilo ? siloState.silos[siloState.activeSilo] : null;
-
       return (
-           <div className="grid grid-cols-1 lg:grid-cols-12 gap-3 items-start mt-6" style={{ fontSize: `${config.tableFontSize}px` }}>
-               
-               {/* 1. CATALYST TABLE */}
-               <div className="lg:col-span-3 border border-slate-200 dark:border-slate-700 flex flex-col bg-white dark:bg-slate-800 shadow-sm rounded-xl overflow-hidden h-full">
-                    {/* Headers */}
-                    <div className="flex text-center font-bold text-slate-500 dark:text-slate-400 border-b border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50">
-                         <div className={`${colWidth1} border-r border-slate-200 dark:border-slate-700 py-2 flex items-center justify-center`}>
-                            <span className="text-[0.8em] tracking-wider uppercase">CATA</span>
-                         </div>
-                         <div className={`${colWidth2} border-r border-slate-200 dark:border-slate-700 py-2 flex items-center justify-center`}>
-                            <span className="text-[0.8em] tracking-wider uppercase">NETO</span>
-                         </div>
-                         <div className={`${colWidth3} py-2 flex items-center justify-center`}>
-                            <span className="text-[0.8em] tracking-wider uppercase">BRUTO</span>
-                         </div>
-                    </div>
-
-                    {/* Row F */}
-                    <div className="flex h-[3.5em] border-b border-slate-100 dark:border-slate-700/50 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors">
-                        <div className={`${colWidth1} bg-slate-800 text-white font-black flex items-center justify-center border-r border-slate-200 dark:border-slate-700`}>
-                            <span className="text-[1.2em]">F</span>
-                        </div>
-                        <div className={`${colWidth2} border-r border-slate-100 dark:border-slate-700/50 p-1`}>
-                            <input 
-                                type="text" 
-                                value={catalystData.f.netto} 
-                                onChange={(e) => handleCatalystChange('f', 'netto', e.target.value)}
-                                className="w-full h-full bg-transparent text-slate-700 dark:text-slate-200 text-center font-semibold text-[1.2em] outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
-                            />
-                        </div>
-                        <div className={`${colWidth3} p-1`}>
-                            <input 
-                                type="text" 
-                                value={catalystData.f.bruto} 
-                                onChange={(e) => handleCatalystChange('f', 'bruto', e.target.value)}
-                                className="w-full h-full bg-transparent text-slate-700 dark:text-slate-200 text-center font-semibold text-[1.2em] outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
-                            />
-                        </div>
-                    </div>
-
-                     {/* Row H */}
-                      <div className="flex h-[3.5em] border-b border-slate-100 dark:border-slate-700/50 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors">
-                        <div className={`${colWidth1} bg-yellow-400 text-slate-900 font-black flex items-center justify-center border-r border-slate-200 dark:border-slate-700`}>
-                            <span className="text-[1.2em]">H</span>
-                        </div>
-                        <div className={`${colWidth2} border-r border-slate-100 dark:border-slate-700/50 p-1`}>
-                            <input 
-                                type="text" 
-                                value={catalystData.h.netto} 
-                                onChange={(e) => handleCatalystChange('h', 'netto', e.target.value)}
-                                className="w-full h-full bg-transparent text-slate-700 dark:text-slate-200 text-center font-semibold text-[1.2em] outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
-                            />
-                        </div>
-                        <div className={`${colWidth3} p-1`}>
-                            <input 
-                                type="text" 
-                                value={catalystData.h.bruto} 
-                                onChange={(e) => handleCatalystChange('h', 'bruto', e.target.value)}
-                                className="w-full h-full bg-transparent text-slate-700 dark:text-slate-200 text-center font-semibold text-[1.2em] outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
-                            />
-                        </div>
-                    </div>
-
-                    {/* Row G */}
-                    <div className="flex h-[3.5em] border-b border-slate-100 dark:border-slate-700/50 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/80 transition-colors">
-                        <div className={`${colWidth1} bg-purple-600 text-white font-black flex items-center justify-center border-r border-slate-200 dark:border-slate-700`}>
-                            <span className="text-[1.2em]">G</span>
-                        </div>
-                        <div className={`${colWidth2} border-r border-slate-100 dark:border-slate-700/50 p-1`}>
-                            <input 
-                                type="text" 
-                                value={catalystData.g.netto} 
-                                onChange={(e) => handleCatalystChange('g', 'netto', e.target.value)}
-                                className="w-full h-full bg-transparent text-slate-700 dark:text-slate-200 text-center font-semibold text-[1.2em] outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
-                            />
-                        </div>
-                        <div className={`${colWidth3} p-1`}>
-                            <input 
-                                type="text" 
-                                value={catalystData.g.bruto} 
-                                onChange={(e) => handleCatalystChange('g', 'bruto', e.target.value)}
-                                className="w-full h-full bg-transparent text-slate-700 dark:text-slate-200 text-center font-semibold text-[1.2em] outline-none focus:ring-2 focus:ring-blue-500/50 rounded"
-                            />
-                        </div>
-                    </div>
-               </div>
-
-               {/* 2. SILO SETTING WIDGET */}
-               <div className="lg:col-span-3 flex flex-col shadow-sm rounded-xl h-full border border-slate-200 dark:border-slate-700">
-                    {/* Header Button to Open Modal */}
-                    <button 
-                        onClick={() => setCurrentView('silo')}
-                        className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-[0.9em] px-4 py-3 text-center rounded-t-xl flex items-center justify-center gap-2 transition-colors cursor-pointer w-full uppercase tracking-tight"
-                    >
-                        <Maximize2 className="w-4 h-4" />
-                        SILO SETTING
-                    </button>
-
-                    {/* Big Display for Active Silo */}
-                    <div className="flex flex-1">
-                        <div className="bg-white dark:bg-slate-800 text-slate-800 dark:text-white font-black p-4 flex items-center justify-center w-full rounded-b-xl relative overflow-hidden group">
-                             
-                             {/* Silo Letter - Blinking Animation */}
-                             <span className="text-[7rem] mr-4 drop-shadow-sm text-cyan-600 dark:text-cyan-400 animate-pulse leading-none">{siloState.activeSilo || '-'}</span>
-                             
-                             {/* Details */}
-                             <div className="flex flex-col leading-tight text-left border-l-4 border-slate-200 dark:border-slate-700 pl-4 gap-2 w-full">
-                                 <div className="flex flex-col gap-1 text-center">
-                                     <div>
-                                         <span className="text-[0.6em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">START</span>
-                                         <span className="text-[1.2em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.startTime || '--:--'}</span>
-                                     </div>
-                                     <div>
-                                         <span className="text-[0.6em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">SET</span>
-                                         <span className="text-[1.2em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.capacitySet || '0'} T</span>
-                                     </div>
-                                 </div>
-                                 
-                                 {/* Lot Number Table */}
-                                 <div className="mt-2 pr-4">
-                                     <div className="w-full border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden shadow-sm">
-                                         <div className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-[0.7em] font-bold uppercase tracking-wider py-1.5 border-b border-slate-200 dark:border-slate-700 text-center">
-                                             LOT NUMBER
-                                         </div>
-                                         <div className="bg-white dark:bg-slate-800 text-center py-2.5">
-                                             <span className="text-[1.5em] font-mono font-bold text-slate-800 dark:text-white">
-                                                 {activeSiloData?.lotNumber || '---'}
-                                             </span>
-                                         </div>
-                                     </div>
-                                 </div>
-                             </div>
-                        </div>
-                    </div>
-               </div>
-
-               {/* 3. F2002 & STEAM WIDGET (SIMPLIFIED) - REDUCED SIZE */}
-               <div className="lg:col-span-2 flex flex-col shadow-sm rounded-xl h-full w-full border border-slate-200 dark:border-slate-700">
-                    <button 
-                        onClick={() => setCurrentView('demonomer')}
-                        className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[0.9em] px-2 py-2 text-center rounded-t-xl flex items-center justify-center gap-1 uppercase tracking-tight cursor-pointer transition-colors w-full"
-                    >
-                        <Activity className="w-4 h-4" />
-                        ADJUST STEAM
-                    </button>
-                    <div className="bg-white dark:bg-slate-800 rounded-b-xl p-2 flex flex-col gap-2 flex-1">
-                        {/* FIE2002 Input Row */}
-                        <div className="bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white p-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-inner flex-1 flex flex-col justify-center">
-                            <label className="text-[0.55em] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block text-center mb-0.5">FIE2002</label>
-                            <input 
-                                type="number"
-                                step="0.1"
-                                value={demonomerData.f2002}
-                                onChange={(e) => handleDemonomerChange('f2002', parseFloat(e.target.value) || 0)}
-                                className="w-full bg-transparent text-4xl font-black text-center outline-none drop-shadow-sm appearance-none"
-                            />
-                        </div>
-
-                        {/* Steam Calculation Result */}
-                        <div className="bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white p-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-inner flex-1 flex flex-col justify-center">
-                            <span className="text-[0.55em] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block text-center mb-0.5">RESULT</span>
-                            <div className="text-4xl font-black text-center drop-shadow-sm">
-                                {Math.round(evaluateMath(demonomerData.steamFormula, {
-                                    'PVC': evaluateMath(demonomerData.pvcFormula, {
-                                        'AI2802': demonomerData.aie2802,
-                                        '%PVC': demonomerData.pvcPercent / 100,
-                                        'F2002': demonomerData.f2002
-                                    }),
-                                    'Steam Rasio': demonomerData.multipliers[config.currentGrade] || 0,
-                                    'Multiplier': demonomerData.multipliers[config.currentGrade] || 0
-                                }))}
-                            </div>
-                        </div>
-                    </div>
-               </div>
-
-               {/* 4. CYCLE TIME WIDGET - EXPANDED */}
-               <div className="lg:col-span-4 flex flex-col shadow-sm rounded-xl h-full border border-slate-200 dark:border-slate-700">
-                    <div className={`${GRADE_COLORS[config.currentGrade] || 'bg-indigo-600'} text-white font-bold text-[0.9em] px-3 py-2 text-center rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight transition-colors`}>
-                        <Calculator className="w-4 h-4" />
+           <div className="flex flex-col gap-4" style={{ fontSize: `${config.tableFontSize}px` }}>
+                
+                {/* 1. CYCLE TIME WIDGET - FULL WIDTH */}
+               <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                    <div className={`${GRADE_COLORS[config.currentGrade] || 'bg-indigo-600'} text-white font-bold text-[0.7em] px-3 py-1 text-center rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight transition-colors`}>
+                        <Calculator className="w-3 h-3" />
                         HITUNG CYCLE TIME
                     </div>
-                    <div className={`${GRADE_COLORS[config.currentGrade] ? GRADE_COLORS[config.currentGrade].replace('bg-', 'bg-').concat('/10') : 'bg-white dark:bg-slate-800'} rounded-b-xl p-4 flex flex-col gap-3 flex-1 overflow-x-auto transition-colors`}>
-                        <table className="w-full border-collapse text-center font-semibold text-base">
+                    <div className={`${GRADE_COLORS[config.currentGrade] ? GRADE_COLORS[config.currentGrade].replace('bg-', 'bg-').concat('/10') : 'bg-white dark:bg-slate-800'} rounded-b-xl p-1.5 flex flex-col gap-1.5 transition-colors`}>
+                        <table className="w-full border-collapse text-center font-semibold text-[0.75em]">
                             <thead>
                                 <tr>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-3 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-sm">NS</th>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-3 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-sm">READY</th>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-3 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-sm">BLOW</th>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-3 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-sm">HOLD</th>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-3 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-sm">COMP</th>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-3 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-sm">CYC</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">NS</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">READY</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">BLOW</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">HOLD</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">COMP</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">CYC</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -1874,45 +2087,45 @@ const App: React.FC = () => {
 
                                     return (
                                         <tr key={row.id} className="border-b border-slate-100 dark:border-slate-700/50 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                            <td className="p-2">
+                                            <td className="p-0.5">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-lg rounded-lg py-2 focus:ring-4 focus:ring-blue-500/30 transition-all" 
+                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-[0.9em] rounded-md py-0.5 focus:ring-2 focus:ring-blue-500/30 transition-all" 
                                                     value={row.ns} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'ns', e.target.value)}
                                                 />
                                             </td>
-                                            <td className="p-2">
+                                            <td className="p-1">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-lg rounded-lg py-2 focus:ring-4 focus:ring-blue-500/30 transition-all" 
+                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-[0.9em] rounded-md py-0.5 focus:ring-4 focus:ring-blue-500/30 transition-all" 
                                                     value={row.readyBlowing} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'readyBlowing', e.target.value)}
                                                 />
                                             </td>
-                                            <td className="p-1">
+                                            <td className="p-0.5">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-green-50 dark:bg-green-900/20 text-green-900 dark:text-green-100 outline-none w-full text-center font-bold text-sm rounded py-1 focus:ring-2 focus:ring-green-500/50" 
+                                                    className="bg-green-50 dark:bg-green-900/20 text-green-900 dark:text-green-100 outline-none w-full text-center font-bold text-[0.9em] rounded py-0.5 focus:ring-2 focus:ring-green-500/50" 
                                                     value={row.blowing} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'blowing', e.target.value)}
                                                 />
                                             </td>
-                                            <td className="p-1">
-                                                <div className="bg-orange-50 dark:bg-orange-900/20 text-orange-900 dark:text-orange-100 w-full text-center font-bold text-sm rounded py-1">
+                                            <td className="p-0.5">
+                                                <div className="bg-orange-50 dark:bg-orange-900/20 text-orange-900 dark:text-orange-100 w-full text-center font-bold text-[0.9em] rounded py-0.5">
                                                     {blowingHold || '-'}
                                                 </div>
                                             </td>
-                                            <td className="p-1">
+                                            <td className="p-0.5">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-bold text-sm rounded py-1 focus:ring-2 focus:ring-blue-500/50" 
+                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-bold text-[0.9em] rounded py-0.5 focus:ring-2 focus:ring-blue-500/50" 
                                                     value={row.blowingComplete} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'blowingComplete', e.target.value)}
                                                 />
                                             </td>
-                                            <td className="p-1">
-                                                <div className="bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-100 w-full text-center font-bold text-sm rounded py-1">
+                                            <td className="p-0.5">
+                                                <div className="bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-100 w-full text-center font-bold text-[0.9em] rounded py-0.5">
                                                     {cycleTime || '-'}
                                                 </div>
                                             </td>
@@ -1923,13 +2136,16 @@ const App: React.FC = () => {
                         </table>
                         <button 
                             onClick={() => setCycleTimeData(prev => [...prev, { id: Date.now(), ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }])}
-                            className="mt-2 w-full py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold rounded-lg border border-dashed border-indigo-300 dark:border-indigo-700 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-1 text-[10px]"
+                            className="mt-1 w-full py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold rounded-lg border border-dashed border-indigo-300 dark:border-indigo-700 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-1 text-[7px]"
                         >
                             <LayoutGrid className="w-3 h-3" />
                             ADD ROW
                         </button>
                     </div>
                </div>
+
+               {/* 2. CONFLICT TIMELINE TABLE */}
+               {renderConflictTimeline()}
            </div>
       );
   };
@@ -1998,7 +2214,7 @@ const App: React.FC = () => {
           );
       }
 
-      return <div key={sectionId}>{content}</div>;
+      return <div key={sectionId} className={sectionId === 'scheduler' && currentView === 'scheduler' ? 'h-full' : ''}>{content}</div>;
   };
 
   return (
@@ -2082,10 +2298,31 @@ const App: React.FC = () => {
       )}
 
       {/* Dynamic Layout Rendering */}
-      <div className="flex-1 overflow-auto p-2 flex flex-col gap-4">
-          {config.layoutOrder.map((sectionId, index) => renderSection(sectionId, index))}
+      <div className={`flex-1 flex flex-col ${currentView === 'scheduler' ? 'overflow-hidden p-1 gap-1' : 'overflow-auto p-2 gap-4'}`}>
+          {config.layoutOrder.map((sectionId, index) => {
+              // Logic to group Header, Scheduler, and Catalyst as the "Main Page"
+              const isMainSection = ['header', 'scheduler', 'catalyst'].includes(sectionId);
+              
+              if (currentView === 'scheduler') {
+                  // In scheduler view, only show the main sections
+                  if (!isMainSection) return null;
+              } else {
+                  // In other views, show the header and the specific section
+                  if (sectionId !== 'header' && sectionId !== currentView) return null;
+              }
+              
+              const content = renderSection(sectionId, index);
+              if (!content) return null;
+
+              // If it's the scheduler in the main view, make it flexible to fill space
+              if (currentView === 'scheduler' && sectionId === 'scheduler') {
+                  return <div key={sectionId} className="flex-1 min-h-0">{content}</div>;
+              }
+
+              return content;
+          })}
           
-          {/* Always render these if selected in view, regardless of layout order, but put them at end if not in layout (fallback) */}
+          {/* Fallback for views not in layoutOrder */}
           {currentView === 'demonomer' && !config.layoutOrder.includes('demonomer') && (
             <Demonomer 
                 currentGrade={config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade} 
