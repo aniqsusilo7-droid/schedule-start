@@ -1,0 +1,14 @@
+1325:                            className="flex items-center gap-2 p-2 bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/50 rounded-lg shadow-sm dark:shadow-none cursor-grab active:cursor-grabbing hover:border-indigo-400 transition-colors"
+1339:                      <div className="md:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-4 bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200/60 dark:border-slate-700/50">
+1482:          <div className="flex flex-col shadow-sm dark:shadow-none rounded-xl border border-slate-200/60 dark:border-slate-700/50 bg-white dark:bg-slate-800 overflow-hidden">
+1530:                  <div className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-black p-2 flex items-center justify-center w-full rounded-b-xl relative overflow-hidden group">
+1548:                                   <div className="bg-white dark:bg-slate-800 text-center py-1.5">
+1572:              <div className="bg-white dark:bg-slate-800 rounded-b-xl p-1.5 flex flex-col gap-1.5 justify-center">
+1604:          <div className="flex flex-col shadow-sm dark:shadow-none rounded-xl border border-slate-200/60 dark:border-slate-700/50 overflow-hidden bg-white dark:bg-slate-800">
+1664:          <div className="w-[80%] flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg dark:shadow-none border border-slate-200/60 dark:border-slate-700/50 overflow-hidden transition-colors">
+2046:               <div className="flex flex-col shadow-sm dark:shadow-none rounded-xl border border-slate-200/60 dark:border-slate-700/50 bg-white dark:bg-slate-800">
+2051:                    <div className={`${GRADE_COLORS[config.currentGrade] ? GRADE_COLORS[config.currentGrade].replace('bg-', 'bg-').concat('/10') : 'bg-white dark:bg-slate-800'} rounded-b-xl p-1.5 flex flex-col gap-1.5 transition-colors`}>
+2434:            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl dark:shadow-none w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+2523:                                <input type="datetime-local" value={editForm.timeValue} onChange={(e) => setEditForm(prev => ({...prev, timeValue: e.target.value}))} className="w-full border-2 border-slate-300/50 dark:border-slate-600/50 rounded-xl p-4 text-2xl font-mono font-black text-slate-800 dark:text-slate-100 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none transition-all bg-white dark:bg-slate-800" />
+2545:                                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${editForm.shiftSubsequent ? 'bg-orange-500 border-orange-600' : 'bg-white dark:bg-slate-800 border-slate-300/50 dark:border-slate-600/50'}`}>
+2586:              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl dark:shadow-none w-full max-w-sm p-6 animate-in zoom-in-95">

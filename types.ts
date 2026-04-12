@@ -50,7 +50,6 @@ export interface AppState {
   runningText: string; // Dynamic marquee text
   isMarqueePaused: boolean; // Control running text animation
   marqueeSpeed: number; // Duration in seconds for marquee animation
-  theme: 'light' | 'dark'; // UI Theme
   
   // Design / Layout Props
   layoutOrder: string[]; // Array of section IDs e.g. ['header', 'scheduler', 'catalyst']
@@ -60,6 +59,7 @@ export interface AppState {
   hiddenReactors: string[]; // IDs of reactors to hide
   hiddenFields: string[]; // IDs of fields to hide (batch, time, grade, note, stage)
   gradeMode: 'normal' | 'gradeChange'; // Added grade mode
+  theme: 'light' | 'dark'; // Added theme
 }
 
 // --- Silo Types ---

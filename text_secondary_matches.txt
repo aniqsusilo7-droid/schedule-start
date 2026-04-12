@@ -1,0 +1,37 @@
+1157:                <span className="text-[0.8em] font-black text-secondary tracking-widest uppercase">
+1230:                      <label className="text-xs font-bold text-secondary uppercase mb-2 block">Appearance & Sound</label>
+1248:                          <span className="text-xs font-black flex-1 text-center text-secondary select-none cursor-pointer" onClick={handleZoomReset}>
+1259:                      <label className="text-xs font-bold text-secondary uppercase mb-2 block">Sequence Control</label>
+1282:                      <label className="text-xs font-bold text-secondary uppercase mb-2 block">Alert System</label>
+1312:                      <label className="text-xs font-bold text-secondary uppercase mb-2 block flex items-center gap-1">
+1394:                    <label className="text-xs font-bold text-secondary uppercase flex items-center gap-1">
+1405:                    <label className="text-xs font-bold text-secondary uppercase flex items-center gap-1">
+1412:                    <label className="text-xs font-bold text-secondary uppercase flex items-center gap-1">
+1420:                    <label className="text-xs font-bold text-secondary uppercase flex items-center gap-1">
+1434:                            <label className="text-xs font-bold text-secondary uppercase flex items-center gap-1 mb-2">
+1447:                            <label className="text-xs font-bold text-secondary uppercase flex items-center gap-1 mb-2">
+1545:                                   <div className="bg-slate-50/50 dark:bg-slate-800/50 text-secondary text-[0.5em] font-bold uppercase tracking-wider py-1 border-b border-slate-200/60 dark:border-slate-700/50 text-center">
+1574:                      <label className="text-[0.5em] font-bold text-secondary uppercase tracking-wider block text-center mb-0.5">FIE2002</label>
+1584:                      <span className="text-[0.5em] font-bold text-secondary uppercase tracking-wider block text-center mb-0.5">RESULT</span>
+1612:                          <tr className="text-secondary border-b border-slate-100 dark:border-slate-700">
+1791:                                      <div className={`font-bold mb-0.5 ${isActive ? 'text-white/90' : 'text-secondary'}`} style={{ fontSize: '0.85em' }}>
+1795:                                      <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-105' : (isPast ? 'text-secondary opacity-90 line-through' : (config.theme === 'dark' ? 'text-emerald-100' : 'text-slate-800 dark:text-slate-100'))} transition-transform`} style={{ fontSize: '2.0em' }}>
+1801:                                          <div className="font-black text-secondary uppercase tracking-widest mt-1 opacity-75" style={{ fontSize: '0.7em' }}>
+2055:                                    <th className="border-b-2 border-slate-200/60 dark:border-slate-700/50 p-1 bg-slate-50/50 dark:bg-slate-800/50 text-secondary uppercase tracking-wider text-[0.65em]">NS</th>
+2056:                                    <th className="border-b-2 border-slate-200/60 dark:border-slate-700/50 p-1 bg-slate-50/50 dark:bg-slate-800/50 text-secondary uppercase tracking-wider text-[0.65em]">READY</th>
+2057:                                    <th className="border-b-2 border-slate-200/60 dark:border-slate-700/50 p-1 bg-slate-50/50 dark:bg-slate-800/50 text-secondary uppercase tracking-wider text-[0.65em]">BLOW</th>
+2058:                                    <th className="border-b-2 border-slate-200/60 dark:border-slate-700/50 p-1 bg-slate-50/50 dark:bg-slate-800/50 text-secondary uppercase tracking-wider text-[0.65em]">HOLD</th>
+2059:                                    <th className="border-b-2 border-slate-200/60 dark:border-slate-700/50 p-1 bg-slate-50/50 dark:bg-slate-800/50 text-secondary uppercase tracking-wider text-[0.65em]">COMP</th>
+2060:                                    <th className="border-b-2 border-slate-200/60 dark:border-slate-700/50 p-1 bg-slate-50/50 dark:bg-slate-800/50 text-secondary uppercase tracking-wider text-[0.65em]">CYC</th>
+2374:                          <label className="text-xs font-bold text-secondary uppercase tracking-widest block">Lot Number</label>
+2387:                          <label className="text-xs font-bold text-secondary uppercase tracking-widest block">Capacity Set (T)</label>
+2399:                          <label className="text-xs font-bold text-secondary uppercase tracking-widest block mb-1">Start Time Confirmation</label>
+2481:                            <label className="text-sm font-black text-secondary uppercase">Status</label>
+2488:                            <label className="text-sm font-black text-secondary uppercase">Mode</label>
+2505:                        <label className="text-sm font-black text-secondary uppercase mb-3 block">Change Grade (Override)</label>
+2519:                                <label className="block text-base font-black text-secondary mb-3 flex justify-between">
+2526:                                    <label className="text-sm font-black text-secondary uppercase mb-3 block">Quick Delay Adjustment</label>
+2552:                                    <span className="block text-xs font-bold text-secondary">Delay will push all subsequent batches forward</span>
+2561:                        <label className="text-sm font-black text-secondary uppercase mb-3 block">Operator Notes</label>
+2633:                          <label className="text-xs font-bold text-secondary uppercase tracking-widest block">New Start Batch Number</label>
+2645:                          <label className="text-xs font-bold text-secondary uppercase tracking-widest block mb-1">New Start Time (Reactor S)</label>
