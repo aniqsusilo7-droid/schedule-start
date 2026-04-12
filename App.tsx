@@ -130,6 +130,7 @@ const App: React.FC = () => {
       cyc: { start: 'ns', end: 'blowingComplete', subtractHold: true, constant: 2 }
   });
   const [catalystNotes, setCatalystNotes] = useState("");
+  const isEditingNotesRef = useRef(false);
 
   const [formulaModalOpen, setFormulaModalOpen] = useState<'hold' | 'cyc' | null>(null);
   const [editingFormula, setEditingFormula] = useState<any>(null);
@@ -425,7 +426,9 @@ const App: React.FC = () => {
 
           // Load Catalyst Notes
           if (settingsData.catalyst_notes !== undefined) {
-              setCatalystNotes(settingsData.catalyst_notes);
+              if (!isEditingNotesRef.current) {
+                  setCatalystNotes(settingsData.catalyst_notes);
+              }
           }
 
           // Load Grade Mode
@@ -1724,13 +1727,18 @@ const App: React.FC = () => {
               <div className="p-2 flex-1 flex flex-col">
                   <textarea 
                       value={catalystNotes}
-                      onChange={(e) => setCatalystNotes(e.target.value)}
-                      onBlur={async () => {
-                          try {
-                              await supabase.from('app_settings').update({ catalyst_notes: catalystNotes }).eq('id', 1);
-                          } catch (error) {
-                              console.error("Error saving catalyst notes:", error);
-                          }
+                      onFocus={() => { isEditingNotesRef.current = true; }}
+                      onChange={(e) => {
+                          const val = e.target.value;
+                          setCatalystNotes(val);
+                          // Saving on every keystroke might be too much, but it ensures it's saved.
+                          // We can just save it directly here since Supabase handles it well enough for small strings.
+                          supabase.from('app_settings').update({ catalyst_notes: val }).eq('id', 1).then(({ error }) => {
+                              if (error) console.error("Error saving catalyst notes:", error);
+                          });
+                      }}
+                      onBlur={() => {
+                          isEditingNotesRef.current = false;
                       }}
                       className="w-full h-full flex-1 bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-slate-100 font-bold p-2 rounded border border-slate-200/60 dark:border-slate-700/50 outline-none focus:ring-2 focus:ring-indigo-500 resize-none text-[0.85em]"
                       placeholder="Tulis catatan di sini..."
