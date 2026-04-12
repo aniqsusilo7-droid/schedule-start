@@ -60,6 +60,9 @@ export interface AppState {
   hiddenFields: string[]; // IDs of fields to hide (batch, time, grade, note, stage)
   gradeMode: 'normal' | 'gradeChange'; // Added grade mode
   theme: 'light' | 'dark'; // Added theme
+  cycleTimeData?: any[];
+  cycleFormulas?: any;
+  catalystNotes?: string;
 }
 
 // --- Silo Types ---

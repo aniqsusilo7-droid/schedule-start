@@ -124,19 +124,12 @@ const App: React.FC = () => {
   const [demonomerGrade, setDemonomerGrade] = useState<GradeType>('SM');
 
   // --- Cycle Time State ---
-  const [cycleTimeData, setCycleTimeData] = useState([
-      { id: 1, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' },
-      { id: 2, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }
-  ]);
-
-  const [formulas, setFormulas] = useState(() => {
-      const saved = localStorage.getItem('cycleFormulas');
-      if (saved) return JSON.parse(saved);
-      return {
-          hold: { start: 'readyBlowing', end: 'blowing', constant: 0 },
-          cyc: { start: 'ns', end: 'blowingComplete', subtractHold: true, constant: 2 }
-      };
+  const [cycleTimeData, setCycleTimeData] = useState<any[]>([]);
+  const [formulas, setFormulas] = useState<any>({
+      hold: { start: 'readyBlowing', end: 'blowing', constant: 0 },
+      cyc: { start: 'ns', end: 'blowingComplete', subtractHold: true, constant: 2 }
   });
+  const [catalystNotes, setCatalystNotes] = useState("");
 
   const [formulaModalOpen, setFormulaModalOpen] = useState<'hold' | 'cyc' | null>(null);
   const [editingFormula, setEditingFormula] = useState<any>(null);
@@ -146,11 +139,15 @@ const App: React.FC = () => {
       setFormulaModalOpen(type);
   };
 
-  const saveFormula = () => {
+  const saveFormula = async () => {
       const newFormulas = { ...formulas, [formulaModalOpen!]: editingFormula };
       setFormulas(newFormulas);
-      localStorage.setItem('cycleFormulas', JSON.stringify(newFormulas));
       setFormulaModalOpen(null);
+      try {
+          await supabase.from('app_settings').update({ cycle_formulas: newFormulas }).eq('id', 1);
+      } catch (error) {
+          console.error("Error saving formulas:", error);
+      }
   };
 
   const evaluateFormula = (formula: any, row: any, holdVal?: string) => {
@@ -409,6 +406,26 @@ const App: React.FC = () => {
           // Load Demonomer Data
           if (settingsData.demonomer_data) {
               setDemonomerData(settingsData.demonomer_data);
+          }
+
+          // Load Cycle Time Data
+          if (settingsData.cycle_time_data) {
+              setCycleTimeData(settingsData.cycle_time_data);
+          } else {
+              setCycleTimeData([
+                  { id: 1, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' },
+                  { id: 2, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }
+              ]);
+          }
+
+          // Load Cycle Formulas
+          if (settingsData.cycle_formulas) {
+              setFormulas(settingsData.cycle_formulas);
+          }
+
+          // Load Catalyst Notes
+          if (settingsData.catalyst_notes !== undefined) {
+              setCatalystNotes(settingsData.catalyst_notes);
           }
 
           // Load Grade Mode
@@ -714,8 +731,14 @@ const App: React.FC = () => {
       return `${Math.floor(totalMins / 60).toString().padStart(2, '0')}:${(totalMins % 60).toString().padStart(2, '0')}`;
   };
 
-  const handleCycleTimeChange = (id: number, field: string, value: string) => {
-      setCycleTimeData(prev => prev.map(row => row.id === id ? { ...row, [field]: value } : row));
+  const handleCycleTimeChange = async (id: number, field: string, value: string) => {
+      const newData = cycleTimeData.map(row => row.id === id ? { ...row, [field]: value } : row);
+      setCycleTimeData(newData);
+      try {
+          await supabase.from('app_settings').update({ cycle_time_data: newData }).eq('id', 1);
+      } catch (error) {
+          console.error("Error saving cycle time data:", error);
+      }
   };
 
   // --- Silo Handlers ---
@@ -1691,6 +1714,32 @@ const App: React.FC = () => {
       );
   };
 
+  const renderCatalystNotesWidget = () => {
+      return (
+          <div className="flex flex-col flex-1 shadow-sm dark:shadow-none rounded-xl border border-slate-200/60 dark:border-slate-700/50 overflow-hidden bg-white dark:bg-slate-800 min-h-[150px]">
+              <div className="bg-indigo-600 dark:bg-indigo-500 text-white font-bold text-[0.8em] px-3 py-2 text-center flex items-center justify-center gap-2 uppercase tracking-tight">
+                  <FileText className="w-3 h-3" />
+                  CATATAN PENGINGAT
+              </div>
+              <div className="p-2 flex-1 flex flex-col">
+                  <textarea 
+                      value={catalystNotes}
+                      onChange={(e) => setCatalystNotes(e.target.value)}
+                      onBlur={async () => {
+                          try {
+                              await supabase.from('app_settings').update({ catalyst_notes: catalystNotes }).eq('id', 1);
+                          } catch (error) {
+                              console.error("Error saving catalyst notes:", error);
+                          }
+                      }}
+                      className="w-full h-full flex-1 bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-slate-100 font-bold p-2 rounded border border-slate-200/60 dark:border-slate-700/50 outline-none focus:ring-2 focus:ring-indigo-500 resize-none text-[0.85em]"
+                      placeholder="Tulis catatan di sini..."
+                  />
+              </div>
+          </div>
+      );
+  };
+
   const renderScheduler = () => {
     if (currentView !== 'scheduler') return null;
 
@@ -1916,6 +1965,7 @@ const App: React.FC = () => {
               {renderSiloWidget()}
               {renderSteamWidget()}
               {renderCatalystMiniWidget()}
+              {renderCatalystNotesWidget()}
           </div>
         </div>
     );
@@ -2185,7 +2235,15 @@ const App: React.FC = () => {
                             </tbody>
                         </table>
                         <button 
-                            onClick={() => setCycleTimeData(prev => [...prev, { id: Date.now(), ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }])}
+                            onClick={async () => {
+                                const newData = [...cycleTimeData, { id: Date.now(), ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }];
+                                setCycleTimeData(newData);
+                                try {
+                                    await supabase.from('app_settings').update({ cycle_time_data: newData }).eq('id', 1);
+                                } catch (error) {
+                                    console.error("Error saving cycle time data:", error);
+                                }
+                            }}
                             className="mt-1 w-full py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-primary font-bold rounded-lg border border-dashed border-indigo-300 dark:border-indigo-700 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-1 text-[7px]"
                         >
                             <LayoutGrid className="w-3 h-3" />
