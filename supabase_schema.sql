@@ -23,10 +23,7 @@ CREATE TABLE IF NOT EXISTS app_settings (
     catalyst_data JSONB DEFAULT '{"f": {"netto": "24,9", "bruto": ""}, "h": {"netto": "10,8", "bruto": ""}, "g": {"netto": "", "bruto": ""}}'::jsonb,
     silo_state JSONB DEFAULT '{"activeSilo": null, "silos": {"O": {"id": "O", "lotNumber": "", "capacitySet": "", "startTime": "", "finishTime": "", "percentage": "", "totalUpdate": ""}, "P": {"id": "P", "lotNumber": "", "capacitySet": "", "startTime": "", "finishTime": "", "percentage": "", "totalUpdate": ""}, "Q": {"id": "Q", "lotNumber": "", "capacitySet": "", "startTime": "", "finishTime": "", "percentage": "", "totalUpdate": ""}}}'::jsonb,
     demonomer_data JSONB DEFAULT '{"f2002": 125, "aie2802": 1070, "pvcPercent": 25, "multipliers": {"SM": 118, "SLP": 108, "SLK": 128, "SE": 140, "SR": 100}, "pvcFormula": "F2002*AI2802/1000*%PVC", "steamFormula": "PVC * Multiplier"}'::jsonb,
-    grade_mode TEXT DEFAULT 'normal',
-    cycle_time_data JSONB DEFAULT '[{"id": 1, "ns": "", "readyBlowing": "", "blowing": "", "blowingComplete": ""}, {"id": 2, "ns": "", "readyBlowing": "", "blowing": "", "blowingComplete": ""}]'::jsonb,
-    cycle_formulas JSONB DEFAULT '{"hold": {"start": "readyBlowing", "end": "blowing", "constant": 0}, "cyc": {"start": "ns", "end": "blowingComplete", "subtractHold": true, "constant": 2}}'::jsonb,
-    catalyst_notes TEXT DEFAULT ''
+    grade_mode TEXT DEFAULT 'normal'
 );
 
 INSERT INTO app_settings (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
@@ -88,4 +85,3 @@ BEGIN
         CREATE POLICY "Allow all access to reactor_notes" ON reactor_notes FOR ALL USING (true) WITH CHECK (true);
     END IF;
 END $$;
-

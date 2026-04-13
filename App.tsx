@@ -6,7 +6,7 @@ import { addMinutes, formatDate, formatTime } from './utils/dateUtils';
 import { Clock } from './components/Clock';
 import { Demonomer } from './components/Demonomer';
 import { Silo } from './components/Silo';
-import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, BookOpen, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator } from 'lucide-react';
+import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { Reorder } from 'framer-motion';
 
@@ -124,51 +124,10 @@ const App: React.FC = () => {
   const [demonomerGrade, setDemonomerGrade] = useState<GradeType>('SM');
 
   // --- Cycle Time State ---
-  const [cycleTimeData, setCycleTimeData] = useState<any[]>([]);
-  const [formulas, setFormulas] = useState<any>({
-      hold: { start: 'readyBlowing', end: 'blowing', constant: 0 },
-      cyc: { start: 'ns', end: 'blowingComplete', subtractHold: true, constant: 2 }
-  });
-  const [catalystNotes, setCatalystNotes] = useState("");
-  const isEditingNotesRef = useRef(false);
-
-  const [formulaModalOpen, setFormulaModalOpen] = useState<'hold' | 'cyc' | null>(null);
-  const [editingFormula, setEditingFormula] = useState<any>(null);
-
-  const openFormulaModal = (type: 'hold' | 'cyc') => {
-      setEditingFormula({ ...formulas[type] });
-      setFormulaModalOpen(type);
-  };
-
-  const saveFormula = async () => {
-      const newFormulas = { ...formulas, [formulaModalOpen!]: editingFormula };
-      setFormulas(newFormulas);
-      setFormulaModalOpen(null);
-      try {
-          await supabase.from('app_settings').update({ cycle_formulas: newFormulas }).eq('id', 1);
-      } catch (error) {
-          console.error("Error saving formulas:", error);
-      }
-  };
-
-  const evaluateFormula = (formula: any, row: any, holdVal?: string) => {
-      if (!formula.start || !formula.end || !row[formula.start] || !row[formula.end]) return '';
-      const duration = calculateDuration(row[formula.start], row[formula.end]);
-      if (!duration) return '';
-      
-      let [h, m] = duration.split(':').map(Number);
-      let totalMins = h * 60 + m;
-      
-      if (formula.subtractHold && holdVal) {
-          const [hh, hm] = holdVal.split(':').map(Number);
-          totalMins -= (hh * 60 + hm);
-      }
-      
-      totalMins += (Number(formula.constant) || 0);
-      
-      if (totalMins < 0) return '';
-      return `${Math.floor(totalMins / 60).toString().padStart(2, '0')}:${(totalMins % 60).toString().padStart(2, '0')}`;
-  };
+  const [cycleTimeData, setCycleTimeData] = useState([
+      { id: 1, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' },
+      { id: 2, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }
+  ]);
 
   // --- Silo State ---
   const [siloState, setSiloState] = useState<SiloState>({
@@ -407,28 +366,6 @@ const App: React.FC = () => {
           // Load Demonomer Data
           if (settingsData.demonomer_data) {
               setDemonomerData(settingsData.demonomer_data);
-          }
-
-          // Load Cycle Time Data
-          if (settingsData.cycle_time_data) {
-              setCycleTimeData(settingsData.cycle_time_data);
-          } else {
-              setCycleTimeData([
-                  { id: 1, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' },
-                  { id: 2, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }
-              ]);
-          }
-
-          // Load Cycle Formulas
-          if (settingsData.cycle_formulas) {
-              setFormulas(settingsData.cycle_formulas);
-          }
-
-          // Load Catalyst Notes
-          if (settingsData.catalyst_notes !== undefined) {
-              if (!isEditingNotesRef.current) {
-                  setCatalystNotes(settingsData.catalyst_notes);
-              }
           }
 
           // Load Grade Mode
@@ -734,14 +671,8 @@ const App: React.FC = () => {
       return `${Math.floor(totalMins / 60).toString().padStart(2, '0')}:${(totalMins % 60).toString().padStart(2, '0')}`;
   };
 
-  const handleCycleTimeChange = async (id: number, field: string, value: string) => {
-      const newData = cycleTimeData.map(row => row.id === id ? { ...row, [field]: value } : row);
-      setCycleTimeData(newData);
-      try {
-          await supabase.from('app_settings').update({ cycle_time_data: newData }).eq('id', 1);
-      } catch (error) {
-          console.error("Error saving cycle time data:", error);
-      }
+  const handleCycleTimeChange = (id: number, field: string, value: string) => {
+      setCycleTimeData(prev => prev.map(row => row.id === id ? { ...row, [field]: value } : row));
   };
 
   // --- Silo Handlers ---
@@ -990,9 +921,9 @@ const App: React.FC = () => {
     }
   };
 
-  // --- Logic: Generate Schedule ---
-  const { scheduleData, nextStartParams } = useMemo(() => {
-    const schedule: Record<string, ScheduleItem[]> = {};
+  // --- Logic: Generate Matrix ---
+  const { scheduleMatrix, nextStartParams } = useMemo(() => {
+    const matrix: Record<string, ScheduleItem[]> = {};
     const baseDate = new Date(config.baseStartTime);
     const totalIntervalMinutes = (config.intervalHours * 60) + config.intervalMinutes;
 
@@ -1000,7 +931,7 @@ const App: React.FC = () => {
     let sequenceCursor = baseDate.getTime();
     let globalIndex = 0;
 
-    REACTORS.forEach(r => schedule[r.id] = []);
+    REACTORS.forEach(r => matrix[r.id] = []);
 
     for (let col = 0; col < config.columnsToDisplay; col++) {
       for (let rIndex = 0; rIndex < REACTORS.length; rIndex++) {
@@ -1035,7 +966,7 @@ const App: React.FC = () => {
             }
         }
 
-        schedule[reactor.id].push({
+        matrix[reactor.id].push({
           id: uniqueId,
           reactorId: reactor.id,
           cycleIndex: col,
@@ -1059,7 +990,7 @@ const App: React.FC = () => {
     }
     
     return { 
-        scheduleData: schedule, 
+        scheduleMatrix: matrix, 
         nextStartParams: { 
             batch: currentBatch, 
             time: new Date(sequenceCursor).toISOString() 
@@ -1068,10 +999,10 @@ const App: React.FC = () => {
   }, [config, now]);
 
   const isScheduleCompleted = useMemo(() => {
-    const allItems = Object.values(scheduleData).flat() as ScheduleItem[];
+    const allItems = Object.values(scheduleMatrix).flat() as ScheduleItem[];
     if (allItems.length === 0) return false;
     return allItems.every(item => item.status === 'past' || item.status === 'skipped');
-  }, [scheduleData]);
+  }, [scheduleMatrix]);
 
   // --- Auto Reset / Advance Logic ---
   useEffect(() => {
@@ -1119,7 +1050,7 @@ const App: React.FC = () => {
    useEffect(() => {
     if (!config.audioEnabled || config.isStopped) return;
 
-    (Object.values(scheduleData).flat() as ScheduleItem[]).forEach(item => {
+    (Object.values(scheduleMatrix).flat() as ScheduleItem[]).forEach(item => {
         if (item.status === 'active' && !announcedBatches.current.has(item.id)) {
             playSirenSound();
             announcedBatches.current.add(item.id);
@@ -1139,7 +1070,7 @@ const App: React.FC = () => {
     if (announcedBatches.current.size > 50) {
         announcedBatches.current.clear();
     }
-  }, [scheduleData, config.audioEnabled, config.isStopped]);
+  }, [scheduleMatrix, config.audioEnabled, config.isStopped]);
 
   // Handler to enable audio manually
   const enableAudio = () => {
@@ -1151,7 +1082,7 @@ const App: React.FC = () => {
   // Full Screen Alert Logic
   const fullScreenAlertItem = useMemo(() => {
       if (config.isStopped || config.alertThresholdSeconds <= 0) return null;
-      const allItems = Object.values(scheduleData).flat() as ScheduleItem[];
+      const allItems = Object.values(scheduleMatrix).flat() as ScheduleItem[];
       const impendingItem = allItems.find(item => {
           if (item.status === 'skipped' || item.status === 'past') return false;
           if (dismissedAlerts.has(item.id)) return false;
@@ -1159,7 +1090,7 @@ const App: React.FC = () => {
           return secondsUntilStart > 0 && secondsUntilStart <= config.alertThresholdSeconds;
       });
       return impendingItem || null;
-  }, [scheduleData, now, config.isStopped, config.alertThresholdSeconds, dismissedAlerts]);
+  }, [scheduleMatrix, now, config.isStopped, config.alertThresholdSeconds, dismissedAlerts]);
 
   // System Notification for Full Screen Alert
   const [lastAlertedId, setLastAlertedId] = useState<string | null>(null);
@@ -1179,9 +1110,9 @@ const App: React.FC = () => {
 
   if (isLoading) {
       return (
-          <div className="min-h-screen bg-white dark:bg-slate-950 flex flex-col items-center justify-center">
-              <RefreshCw className="w-12 h-12 text-indigo-600 animate-spin mb-4" />
-              <div className="text-secondary font-bold animate-pulse">Connecting to Supabase...</div>
+          <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center">
+              <RefreshCw className="w-12 h-12 text-blue-600 animate-spin mb-4" />
+              <div className="text-slate-500 font-bold animate-pulse">Connecting to Supabase...</div>
           </div>
       );
   }
@@ -1189,7 +1120,7 @@ const App: React.FC = () => {
   // --- Render Components Logic ---
   
   const renderHeader = () => (
-      <header className="bg-white/90 dark:bg-slate-900/90 backdrop-blur-md border-b border-slate-200/60 dark:border-slate-700/50 p-1 shadow-sm dark:shadow-none z-50 sticky top-0 transition-colors duration-300" style={{ fontSize: `${config.tableFontSize}px` }}>
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-1 shadow-sm z-30 relative transition-colors duration-300" style={{ fontSize: `${config.tableFontSize}px` }}>
         
         {/* Main Header Container */}
         <div className="flex flex-row items-center justify-between gap-2 w-full max-w-[1920px] mx-auto relative overflow-x-auto pb-0.5">
@@ -1197,7 +1128,7 @@ const App: React.FC = () => {
           {/* Left Section: Widget */}
           <div className="flex shrink-0">
               {/* Widget: Interval & Time */}
-              <div className="flex bg-slate-800 rounded-lg p-1 shadow-md dark:shadow-none">
+              <div className="flex bg-slate-800 rounded-lg p-1 shadow-md">
                      {/* Interval */}
                      <div className="px-4 py-1.5 flex flex-col items-center justify-center border-r border-slate-700/50 min-w-[120px]">
                         <span className="text-[0.5em] text-cyan-400 font-bold uppercase tracking-wider mb-1">INTERVAL</span>
@@ -1207,27 +1138,27 @@ const App: React.FC = () => {
                      </div>
                      {/* Time */}
                      <div className="px-4 py-1.5 flex flex-col items-center justify-center min-w-[200px]">
-                        <span className="text-[0.5em] text-secondary font-bold uppercase tracking-wider mb-1">CURRENT TIME</span>
-                        <div className="bg-white w-full mx-2 text-slate-900 px-2 py-1 rounded shadow-sm dark:shadow-none font-mono font-black text-[1.5em] tracking-widest leading-none flex items-center justify-center">
+                        <span className="text-[0.5em] text-slate-400 font-bold uppercase tracking-wider mb-1">CURRENT TIME</span>
+                        <div className="bg-white w-full mx-2 text-slate-900 px-2 py-1 rounded shadow-sm font-mono font-black text-[1.5em] tracking-widest leading-none flex items-center justify-center">
                             {now.toLocaleTimeString('en-GB', { hour12: false })}
-                            <span className="text-[0.4em] ml-1 text-secondary font-bold self-end mb-1">s</span>
+                            <span className="text-[0.4em] ml-1 text-slate-500 font-bold self-end mb-1">s</span>
                         </div>
                      </div>
               </div>
           </div>
 
           {/* Center Section: Title */}
-          <div className="flex flex-col items-center justify-center shrink-0 p-1.5 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-sm dark:shadow-none mx-4">
-            <h1 className="text-[2.0em] font-black text-slate-900 dark:text-slate-50 tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm dark:shadow-none">
-               <span className="text-primary">SCHEDULE</span> 
-               <span className="text-slate-700 dark:text-slate-300">START</span>
+          <div className="flex flex-col items-center justify-center shrink-0 p-1.5 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-sm mx-4">
+            <h1 className="text-[2.0em] font-black text-slate-900 dark:text-white tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm">
+               <span className="text-blue-600 dark:text-blue-400">REACTOR</span> 
+               <span className="text-slate-800 dark:text-slate-200">SCHEDULE</span>
             </h1>
-            <div className="flex items-center gap-4 mt-1 border-t-2 border-slate-200/60 dark:border-slate-700/50 pt-1 w-full justify-center">
-                <span className="text-[0.8em] font-black text-secondary tracking-widest uppercase">
+            <div className="flex items-center gap-4 mt-1 border-t-2 border-slate-200 dark:border-slate-700 pt-1 w-full justify-center">
+                <span className="text-[0.8em] font-black text-slate-500 dark:text-slate-400 tracking-widest uppercase">
                     REAKTOR PVC 5
                 </span>
                 <div className="h-3 w-px bg-slate-300 dark:bg-slate-600"></div>
-                <span className="text-[0.8em] font-black text-primary tracking-widest uppercase flex items-center gap-2">
+                <span className="text-[0.8em] font-black text-blue-600 dark:text-blue-400 tracking-widest uppercase flex items-center gap-2">
                     <Calendar className="w-[1.2em] h-[1.2em]" />
                     {formatDate(now)}
                 </span>
@@ -1238,20 +1169,20 @@ const App: React.FC = () => {
           <div className="flex shrink-0">
               
               {/* Navigation Pill */}
-              <div className="flex items-center bg-slate-50 dark:bg-slate-800 p-1 rounded-xl border border-slate-200/60 dark:border-slate-700/50 shadow-inner">
-                    <button onClick={() => setCurrentView('scheduler')} className={`px-3 lg:px-5 py-2 lg:py-2.5 text-sm lg:text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'scheduler' ? 'bg-white dark:bg-slate-700 text-primary shadow-md dark:shadow-none' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+              <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner">
+                    <button onClick={() => setCurrentView('scheduler')} className={`px-3 lg:px-5 py-2 lg:py-2.5 text-sm lg:text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'scheduler' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
                         <LayoutGrid className="w-4 lg:w-5 h-4 lg:h-5" /> <span>POLYMER</span>
                     </button>
-                    <button onClick={() => setCurrentView('demonomer')} className={`px-3 lg:px-5 py-2 lg:py-2.5 text-sm lg:text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'demonomer' ? 'bg-white dark:bg-slate-700 text-teal-700 dark:text-teal-300 shadow-md dark:shadow-none' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+                    <button onClick={() => setCurrentView('demonomer')} className={`px-3 lg:px-5 py-2 lg:py-2.5 text-sm lg:text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'demonomer' ? 'bg-white dark:bg-slate-600 text-teal-700 dark:text-teal-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
                         <Activity className="w-4 lg:w-5 h-4 lg:h-5" /> <span>DEMONOMER</span>
                     </button>
-                     <button onClick={() => setCurrentView('silo')} className={`px-3 lg:px-5 py-2 lg:py-2.5 text-sm lg:text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'silo' ? 'bg-white dark:bg-slate-700 text-cyan-700 dark:text-cyan-300 shadow-md dark:shadow-none' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+                     <button onClick={() => setCurrentView('silo')} className={`px-3 lg:px-5 py-2 lg:py-2.5 text-sm lg:text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'silo' ? 'bg-white dark:bg-slate-600 text-cyan-700 dark:text-cyan-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
                         <Database className="w-4 lg:w-5 h-4 lg:h-5" /> <span>SILO</span>
                     </button>
                     <div className={`w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1 transition-opacity duration-500 ${isSettingsButtonVisible || isSettingsOpen ? 'opacity-100' : 'opacity-0'}`}></div>
                     <button 
                         onClick={() => setIsSettingsOpen(!isSettingsOpen)} 
-                        className={`p-2 lg:p-2.5 rounded-lg transition-all duration-500 ${isSettingsButtonVisible || isSettingsOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 pointer-events-none'} ${isSettingsOpen ? 'bg-indigo-600 dark:bg-indigo-500 text-white shadow-md dark:shadow-none' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`} 
+                        className={`p-2 lg:p-2.5 rounded-lg transition-all duration-500 ${isSettingsButtonVisible || isSettingsOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 pointer-events-none'} ${isSettingsOpen ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`} 
                         title="Settings"
                     >
                         <Settings className="w-5 lg:w-6 h-5 lg:h-6" />
@@ -1262,7 +1193,7 @@ const App: React.FC = () => {
 
         {/* Settings Panel Drawer */}
             {isSettingsOpen && (
-              <div className="border-t border-slate-200/60 dark:border-slate-700/50 animate-in slide-in-from-top-2 duration-200 transition-colors bg-slate-50 dark:bg-slate-900/50 py-6 mt-3">
+              <div className="border-t border-slate-200 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200 transition-colors bg-slate-50 dark:bg-slate-900/50 py-6 mt-3">
                 <div className="w-full px-6 mx-auto">
                   {/* DB Schema Error Alert */}
                   {dbSchemaError && (
@@ -1277,7 +1208,7 @@ const App: React.FC = () => {
                                           navigator.clipboard.writeText("ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS grade_mode TEXT DEFAULT 'normal';");
                                           alert("SQL copied to clipboard!");
                                       }}
-                                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-black text-xs transition-colors shadow-lg dark:shadow-none uppercase"
+                                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-black text-xs transition-colors shadow-lg uppercase"
                                   >
                                       Copy SQL Fix
                                   </button>
@@ -1296,28 +1227,28 @@ const App: React.FC = () => {
                   
                   {/* Appearance & Sound Controls */}
                   <div className="md:col-span-1 flex flex-col gap-4">
-                      <label className="text-xs font-bold text-secondary uppercase mb-2 block">Appearance & Sound</label>
+                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Appearance & Sound</label>
                       <div className="flex gap-3">
-                          <button onClick={toggleAudio} className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-all shadow-sm dark:shadow-none ${config.audioEnabled ? 'bg-green-500 text-white border-green-600' : 'bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600'}`} title="Toggle Voice">
+                          <button onClick={toggleAudio} className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-all shadow-sm ${config.audioEnabled ? 'bg-green-500 text-white border-green-600' : 'bg-white dark:bg-slate-700 text-slate-400 border-slate-200 dark:border-slate-600'}`} title="Toggle Voice">
                               {config.audioEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
                               <span className="font-bold text-xs">{config.audioEnabled ? 'ON' : 'OFF'}</span>
                           </button>
 
-                          <button onClick={toggleTheme} className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-all shadow-sm dark:shadow-none ${config.theme === 'dark' ? 'bg-slate-800 text-slate-300 border-slate-700/50 hover:bg-slate-700 hover:text-white' : 'bg-white text-secondary border-slate-200/60 hover:bg-slate-50 hover:text-slate-900'}`} title="Toggle Theme">
+                          <button onClick={toggleTheme} className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-all shadow-sm ${config.theme === 'dark' ? 'bg-slate-700 text-yellow-400 border-slate-600' : 'bg-yellow-50 text-orange-500 border-orange-200'}`} title="Toggle Theme">
                               {config.theme === 'dark' ? <Moon className="w-6 h-6" /> : <Sun className="w-6 h-6" />}
                               <span className="font-bold text-xs uppercase">{config.theme}</span>
                           </button>
                       </div>
 
                       {/* Zoom Control */}
-                      <div className="flex items-center bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 p-1 shadow-sm dark:shadow-none">
-                          <button onClick={handleZoomOut} className="p-2 text-secondary hover:text-primary transition-colors">
+                      <div className="flex items-center bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 p-1 shadow-sm">
+                          <button onClick={handleZoomOut} className="p-2 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors">
                               <ZoomOut className="w-5 h-5" />
                           </button>
-                          <span className="text-xs font-black flex-1 text-center text-secondary select-none cursor-pointer" onClick={handleZoomReset}>
+                          <span className="text-xs font-black flex-1 text-center text-slate-600 dark:text-slate-300 select-none cursor-pointer" onClick={handleZoomReset}>
                               ZOOM: {Math.round(zoomLevel * 100)}%
                           </span>
-                          <button onClick={handleZoomIn} className="p-2 text-secondary hover:text-primary transition-colors">
+                          <button onClick={handleZoomIn} className="p-2 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors">
                               <ZoomIn className="w-5 h-5" />
                           </button>
                       </div>
@@ -1325,22 +1256,22 @@ const App: React.FC = () => {
 
                   {/* RESET SEQUENCE BUTTON (Renamed and Moved) */}
                   <div className="md:col-span-1 flex flex-col justify-end">
-                      <label className="text-xs font-bold text-secondary uppercase mb-2 block">Sequence Control</label>
-                      <button onClick={handleResetSequence} className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-black bg-red-600 text-white hover:bg-red-700 border border-red-700 transition-all shadow-lg dark:shadow-none transform active:scale-95`}>
+                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Sequence Control</label>
+                      <button onClick={handleResetSequence} className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-black bg-red-600 text-white hover:bg-red-700 border border-red-700 transition-all shadow-lg transform active:scale-95">
                         <RotateCcw className="w-6 h-6" />
                         INPUT FOR RE-S
                       </button>
                   </div>
 
                   {/* DESIGN MODE TOGGLE */}
-                  <div className="md:col-span-2 flex items-center justify-between bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-xl border border-indigo-200 dark:border-indigo-800 shadow-sm dark:shadow-none">
-                      <div className="flex items-center gap-3 text-indigo-800 dark:text-indigo-300">
+                  <div className="md:col-span-2 flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm">
+                      <div className="flex items-center gap-3 text-blue-800 dark:text-blue-300">
                           <Palette className="w-6 h-6" />
                           <span className="font-black text-xl uppercase">Layout Design Mode</span>
                       </div>
                       <button 
                         onClick={() => setIsDesignMode(!isDesignMode)}
-                        className={`px-6 py-2 rounded-full font-black text-sm transition-all shadow-sm dark:shadow-none ${isDesignMode ? 'bg-indigo-600 dark:bg-indigo-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600'}`}
+                        className={`px-6 py-2 rounded-full font-black text-sm transition-all shadow-sm ${isDesignMode ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
                       >
                           {isDesignMode ? 'ACTIVE' : 'DISABLED'}
                       </button>
@@ -1348,7 +1279,7 @@ const App: React.FC = () => {
 
                   {/* ALERT SYSTEM CONTROLS */}
                   <div className="md:col-span-1 flex flex-col gap-2">
-                      <label className="text-xs font-bold text-secondary uppercase mb-2 block">Alert System</label>
+                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Alert System</label>
                       <div className="flex flex-col gap-2">
                           <button 
                             onClick={() => {
@@ -1378,7 +1309,7 @@ const App: React.FC = () => {
 
                   {/* LAYOUT REORDERING */}
                   <div className="md:col-span-1 flex flex-col gap-2">
-                      <label className="text-xs font-bold text-secondary uppercase mb-2 block flex items-center gap-1">
+                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block flex items-center gap-1">
                           <Move className="w-3 h-3" /> Dashboard Layout
                       </label>
                       <Reorder.Group 
@@ -1391,9 +1322,9 @@ const App: React.FC = () => {
                           <Reorder.Item 
                             key={sectionId} 
                             value={sectionId}
-                            className="flex items-center gap-2 p-2 bg-white dark:bg-slate-800 border border-slate-200/60 dark:border-slate-700/50 rounded-lg shadow-sm dark:shadow-none cursor-grab active:cursor-grabbing hover:border-indigo-400 transition-colors"
+                            className="flex items-center gap-2 p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm cursor-grab active:cursor-grabbing hover:border-blue-400 transition-colors"
                           >
-                            <div className="p-1 text-secondary">
+                            <div className="p-1 text-slate-400">
                                 <Move className="w-3 h-3" />
                             </div>
                             <span className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-300">
@@ -1405,34 +1336,34 @@ const App: React.FC = () => {
                   </div>
 
                   {isDesignMode && (
-                      <div className="md:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-4 bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200/60 dark:border-slate-700/50">
+                      <div className="md:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-4 bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
                           <div>
-                              <label className="text-xs font-bold text-secondary uppercase mb-2 block">Table Row Height ({config.tableRowHeight}px)</label>
+                              <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Table Row Height ({config.tableRowHeight}px)</label>
                               <input 
                                 type="range" 
                                 min="60" 
                                 max="200" 
                                 value={config.tableRowHeight} 
                                 onChange={(e) => handleConfigChange('tableRowHeight', parseInt(e.target.value))}
-                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-indigo-600"
+                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-blue-600"
                               />
                           </div>
                           <div>
-                              <label className="text-xs font-bold text-secondary uppercase mb-2 block">Table Font Size ({config.tableFontSize}px)</label>
+                              <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Table Font Size ({config.tableFontSize}px)</label>
                               <input 
                                 type="range" 
                                 min="10" 
                                 max="24" 
                                 value={config.tableFontSize} 
                                 onChange={(e) => handleConfigChange('tableFontSize', parseInt(e.target.value))}
-                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-indigo-600"
+                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-blue-600"
                               />
                           </div>
                       </div>
                   )}
 
                   {/* NEXT PREDICTION START INFO */}
-                  <div className="md:col-span-4 bg-emerald-50 dark:bg-emerald-900/20 p-6 rounded-xl border border-emerald-200 dark:border-emerald-800 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm dark:shadow-none">
+                  <div className="md:col-span-4 bg-emerald-50 dark:bg-emerald-900/20 p-6 rounded-xl border border-emerald-200 dark:border-emerald-800 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
                       <div className="flex items-center gap-4 text-emerald-800 dark:text-emerald-300">
                           <div className="p-3 bg-emerald-100 dark:bg-emerald-800 rounded-full shadow-inner">
                               <FastForward className="w-8 h-8" />
@@ -1460,64 +1391,64 @@ const App: React.FC = () => {
 
                   {/* Standard Settings Below */}
                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-secondary uppercase flex items-center gap-1">
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
                       <Timer className="w-3 h-3" /> Interval (HH:MM)
                     </label>
                     <div className="flex gap-2 items-center">
-                      <input type="number" min="0" max="23" value={config.intervalHours} onChange={(e) => handleConfigChange('intervalHours', parseInt(e.target.value) || 0)} className={`w-full border border-slate-300/50 dark:border-slate-600/50 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono text-center focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm dark:shadow-none`} />
+                      <input type="number" min="0" max="23" value={config.intervalHours} onChange={(e) => handleConfigChange('intervalHours', parseInt(e.target.value) || 0)} className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" />
                       <span className="font-black text-2xl dark:text-white">:</span>
-                      <input type="number" min="0" max="59" value={config.intervalMinutes} onChange={(e) => handleConfigChange('intervalMinutes', parseInt(e.target.value) || 0)} className={`w-full border border-slate-300/50 dark:border-slate-600/50 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono text-center focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm dark:shadow-none`} />
+                      <input type="number" min="0" max="59" value={config.intervalMinutes} onChange={(e) => handleConfigChange('intervalMinutes', parseInt(e.target.value) || 0)} className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" />
                     </div>
                   </div>
                   
                    <div className="space-y-2">
-                    <label className="text-xs font-bold text-secondary uppercase flex items-center gap-1">
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
                         <ClockIcon className="w-3 h-3" /> Batch Duration (Min)
                     </label>
-                    <input type="number" min="1" max="600" value={config.batchDurationMinutes} onChange={(e) => handleConfigChange('batchDurationMinutes', parseInt(e.target.value) || 1)} className={`w-full border border-slate-300/50 dark:border-slate-600/50 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm dark:shadow-none`} />
+                    <input type="number" min="1" max="600" value={config.batchDurationMinutes} onChange={(e) => handleConfigChange('batchDurationMinutes', parseInt(e.target.value) || 1)} className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" />
                   </div>
 
                    <div className="space-y-2">
-                    <label className="text-xs font-bold text-secondary uppercase flex items-center gap-1">
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
                         <LayoutGrid className="w-3 h-3" /> View Cycles
                     </label>
-                    <input type="number" min="1" max="10" value={config.columnsToDisplay} onChange={(e) => handleConfigChange('columnsToDisplay', parseInt(e.target.value) || 1)} className={`w-full border border-slate-300/50 dark:border-slate-600/50 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm dark:shadow-none`} />
+                    <input type="number" min="1" max="10" value={config.columnsToDisplay} onChange={(e) => handleConfigChange('columnsToDisplay', parseInt(e.target.value) || 1)} className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" />
                   </div>
 
                    {/* Full Screen Alert Setting */}
                    <div className="space-y-2">
-                    <label className="text-xs font-bold text-secondary uppercase flex items-center gap-1">
+                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
                         <Bell className="w-3 h-3" /> Full Screen Alert
                     </label>
                     <div className="flex items-center gap-3">
-                         <input type="number" min="0" max="300" value={config.alertThresholdSeconds} onChange={(e) => handleConfigChange('alertThresholdSeconds', parseInt(e.target.value) || 0)} className={`w-24 border border-slate-300/50 dark:border-slate-600/50 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono focus:ring-2 focus:ring-indigo-500 outline-none shadow-sm dark:shadow-none`} placeholder="Sec" />
-                        <span className="text-[10px] text-secondary font-black leading-tight">SECONDS BEFORE START</span>
+                         <input type="number" min="0" max="300" value={config.alertThresholdSeconds} onChange={(e) => handleConfigChange('alertThresholdSeconds', parseInt(e.target.value) || 0)} className="w-24 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" placeholder="Sec" />
+                        <span className="text-[10px] text-slate-500 font-black leading-tight">SECONDS BEFORE START</span>
                     </div>
                    </div>
 
                   {/* Management Controls */}
-                  <div className="md:col-span-4 border-t border-slate-200/60 dark:border-slate-700/50 pt-6 mt-2 flex flex-col md:flex-row gap-8 items-center justify-between">
+                  <div className="md:col-span-4 border-t border-slate-200 dark:border-slate-700 pt-6 mt-2 flex flex-col md:flex-row gap-8 items-center justify-between">
                     <div className="flex-1 w-full max-w-2xl mr-auto space-y-4">
                         {/* Marquee Text Control */}
                         <div>
-                            <label className="text-xs font-bold text-secondary uppercase flex items-center gap-1 mb-2">
+                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1 mb-2">
                                 <Type className="w-3 h-3" /> Running Text Alert
                             </label>
                             <div className="flex gap-3">
-                                <button onClick={toggleMarqueePause} className={`px-4 py-2 rounded-lg border-2 font-black transition-all shadow-sm dark:shadow-none ${config.isMarqueePaused ? 'bg-red-100 text-red-600 border-red-200' : 'bg-green-100 text-green-600 border-green-200'}`} title={config.isMarqueePaused ? "Resume Animation" : "Pause Animation"}>
+                                <button onClick={toggleMarqueePause} className={`px-4 py-2 rounded-lg border-2 font-black transition-all shadow-sm ${config.isMarqueePaused ? 'bg-red-100 text-red-600 border-red-200' : 'bg-green-100 text-green-600 border-green-200'}`} title={config.isMarqueePaused ? "Resume Animation" : "Pause Animation"}>
                                     {config.isMarqueePaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
                                 </button>
-                                <input type="text" value={config.runningText} onChange={(e) => handleConfigChange('runningText', e.target.value)} className={`w-full border-2 border-slate-300/50 dark:border-slate-600/50 rounded-lg p-3 text-base font-black text-yellow-800 bg-yellow-50 dark:bg-slate-800 dark:text-yellow-400 focus:ring-2 focus:ring-yellow-400 outline-none shadow-inner`} placeholder="Enter alert text here..." />
+                                <input type="text" value={config.runningText} onChange={(e) => handleConfigChange('runningText', e.target.value)} className="w-full border-2 border-slate-300 dark:border-slate-600 rounded-lg p-3 text-base font-black text-yellow-800 bg-yellow-50 dark:bg-slate-800 dark:text-yellow-400 focus:ring-2 focus:ring-yellow-400 outline-none shadow-inner" placeholder="Enter alert text here..." />
                             </div>
                         </div>
 
                         {/* Marquee Speed Control */}
                         <div>
-                            <label className="text-xs font-bold text-secondary uppercase flex items-center gap-1 mb-2">
+                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1 mb-2">
                                 <Gauge className="w-3 h-3" /> Running Text Speed ({config.marqueeSpeed}s)
                             </label>
                              <div className="flex items-center gap-4">
-                                <span className="text-[10px] font-black text-secondary">FAST</span>
+                                <span className="text-[10px] font-black text-slate-400">FAST</span>
                                 <input 
                                     type="range" 
                                     min="5" 
@@ -1525,15 +1456,15 @@ const App: React.FC = () => {
                                     step="1"
                                     value={config.marqueeSpeed} 
                                     onChange={(e) => handleConfigChange('marqueeSpeed', parseInt(e.target.value))} 
-                                    className={`w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-indigo-600 shadow-inner`}
+                                    className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-blue-600 shadow-inner"
                                 />
-                                <span className="text-[10px] font-black text-secondary">SLOW</span>
+                                <span className="text-[10px] font-black text-slate-400">SLOW</span>
                             </div>
                         </div>
                     </div>
 
                     <div className="flex gap-4">
-                         <button onClick={toggleStop} className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black border-2 transition-all shadow-lg dark:shadow-none transform active:scale-95 ${config.isStopped ? 'bg-green-600 text-white border-green-700 hover:bg-green-700' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30'}`}>
+                         <button onClick={toggleStop} className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black border-2 transition-all shadow-lg transform active:scale-95 ${config.isStopped ? 'bg-green-600 text-white border-green-700 hover:bg-green-700' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30'}`}>
                             {config.isStopped ? <PlayCircle className="w-6 h-6" /> : <PauseCircle className="w-6 h-6" />}
                             {config.isStopped ? "RESUME SYSTEM" : "STOP SYSTEM"}
                          </button>
@@ -1548,21 +1479,21 @@ const App: React.FC = () => {
 
   const renderGradeSelectionWidget = () => {
       return (
-          <div className="flex flex-col shadow-sm dark:shadow-none rounded-xl border border-slate-200/60 dark:border-slate-700/50 bg-white dark:bg-slate-800 overflow-hidden">
+          <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden">
               <div className="bg-slate-800 text-white font-bold text-[0.7em] px-3 py-2 text-center uppercase tracking-tight">
                   Grade Selection Mode
               </div>
               <div className="p-2 flex flex-col gap-2">
-                  <div className="flex bg-slate-50 dark:bg-slate-900 p-1 rounded-lg">
+                  <div className="flex bg-slate-100 dark:bg-slate-900 p-1 rounded-lg">
                       <button 
                         onClick={() => handleConfigChange('gradeMode', 'normal')}
-                        className={`flex-1 py-2 rounded-md font-black text-[0.7em] transition-all ${config.gradeMode === 'normal' ? 'bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-400 shadow-sm dark:shadow-none' : 'text-slate-400 hover:text-slate-600'}`}
+                        className={`flex-1 py-2 rounded-md font-black text-[0.7em] transition-all ${config.gradeMode === 'normal' ? 'bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-400 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                       >
                           NORMAL
                       </button>
                       <button 
                         onClick={() => handleConfigChange('gradeMode', 'gradeChange')}
-                        className={`flex-1 py-2 rounded-md font-black text-[0.7em] transition-all ${config.gradeMode === 'gradeChange' ? 'bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-400 shadow-sm dark:shadow-none' : 'text-slate-400 hover:text-slate-600'}`}
+                        className={`flex-1 py-2 rounded-md font-black text-[0.7em] transition-all ${config.gradeMode === 'gradeChange' ? 'bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-400 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                       >
                           GRADE CHANGE
                       </button>
@@ -1573,7 +1504,7 @@ const App: React.FC = () => {
                           <button 
                             key={g} 
                             onClick={() => handleConfigChange('currentGrade', g)}
-                            className={`py-2 rounded-lg font-black text-[0.8em] transition-all ${config.currentGrade === g ? `${GRADE_COLORS[g]} text-white shadow-md dark:shadow-none` : 'bg-slate-50 dark:bg-slate-900 text-secondary hover:bg-slate-100 dark:hover:bg-slate-800'}`}
+                            className={`py-2 rounded-lg font-black text-[0.8em] transition-all ${config.currentGrade === g ? `${GRADE_COLORS[g]} text-white shadow-md` : 'bg-slate-50 dark:bg-slate-900 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800'}`}
                           >
                               {g}
                           </button>
@@ -1587,7 +1518,7 @@ const App: React.FC = () => {
   const renderSiloWidget = () => {
       const activeSiloData = siloState.activeSilo ? siloState.silos[siloState.activeSilo] : null;
       return (
-          <div className="flex flex-col shadow-sm dark:shadow-none rounded-xl border border-slate-200/60 dark:border-slate-700/50">
+          <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700">
               <button 
                   onClick={() => setCurrentView('silo')}
                   className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-[0.7em] px-3 py-2 text-center rounded-t-xl flex items-center justify-center gap-2 transition-colors cursor-pointer w-full uppercase tracking-tight"
@@ -1596,26 +1527,26 @@ const App: React.FC = () => {
                   SILO SETTING
               </button>
               <div className="flex min-h-0">
-                  <div className="bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-100 font-black p-2 flex items-center justify-center w-full rounded-b-xl relative overflow-hidden group">
-                       <span className="text-[3.5rem] mr-2 drop-shadow-sm dark:shadow-none text-cyan-600 dark:text-cyan-400 animate-pulse leading-none">{siloState.activeSilo || '-'}</span>
-                       <div className="flex flex-col leading-tight text-left border-l-2 border-slate-200/60 dark:border-slate-700/50 pl-2 gap-1 w-full">
+                  <div className="bg-white dark:bg-slate-800 text-slate-800 dark:text-white font-black p-2 flex items-center justify-center w-full rounded-b-xl relative overflow-hidden group">
+                       <span className="text-[3.5rem] mr-2 drop-shadow-sm text-cyan-600 dark:text-cyan-400 animate-pulse leading-none">{siloState.activeSilo || '-'}</span>
+                       <div className="flex flex-col leading-tight text-left border-l-2 border-slate-200 dark:border-slate-700 pl-2 gap-1 w-full">
                            <div className="flex flex-col gap-0.5 text-center">
                                <div>
-                                   <span className="text-[0.5em] text-secondary block font-black uppercase tracking-wider">START</span>
-                                   <span className="text-[0.9em] block text-slate-800 dark:text-slate-100 leading-none">{activeSiloData?.startTime || '--:--'}</span>
+                                   <span className="text-[0.5em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">START</span>
+                                   <span className="text-[0.9em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.startTime || '--:--'}</span>
                                </div>
                                <div>
-                                   <span className="text-[0.5em] text-secondary block font-black uppercase tracking-wider">SET</span>
-                                   <span className="text-[0.9em] block text-slate-800 dark:text-slate-100 leading-none">{activeSiloData?.capacitySet || '0'} T</span>
+                                   <span className="text-[0.5em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">SET</span>
+                                   <span className="text-[0.9em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.capacitySet || '0'} T</span>
                                </div>
                            </div>
                            <div className="mt-1 pr-2">
-                               <div className="w-full border border-slate-200/60 dark:border-slate-700/50 rounded-lg overflow-hidden shadow-sm dark:shadow-none">
-                                   <div className="bg-slate-50/50 dark:bg-slate-800/50 text-secondary text-[0.5em] font-bold uppercase tracking-wider py-1 border-b border-slate-200/60 dark:border-slate-700/50 text-center">
+                               <div className="w-full border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden shadow-sm">
+                                   <div className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-[0.5em] font-bold uppercase tracking-wider py-1 border-b border-slate-200 dark:border-slate-700 text-center">
                                        LOT NUMBER
                                    </div>
                                    <div className="bg-white dark:bg-slate-800 text-center py-1.5">
-                                       <span className="text-[1.2em] font-mono font-bold text-slate-800 dark:text-slate-100">
+                                       <span className="text-[1.2em] font-mono font-bold text-slate-800 dark:text-white">
                                            {activeSiloData?.lotNumber || '---'}
                                        </span>
                                    </div>
@@ -1629,10 +1560,8 @@ const App: React.FC = () => {
   };
 
   const renderSteamWidget = () => {
-      const activeDemonomerGrade = config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade;
-      
       return (
-          <div className="flex flex-col shadow-sm dark:shadow-none rounded-xl w-full border border-slate-200/60 dark:border-slate-700/50">
+          <div className="flex flex-col shadow-sm rounded-xl w-full border border-slate-200 dark:border-slate-700">
               <button 
                   onClick={() => setCurrentView('demonomer')}
                   className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[0.8em] px-2 py-2 text-center rounded-t-xl flex items-center justify-center gap-1 uppercase tracking-tight cursor-pointer transition-colors w-full"
@@ -1641,27 +1570,27 @@ const App: React.FC = () => {
                   ADJUST STEAM
               </button>
               <div className="bg-white dark:bg-slate-800 rounded-b-xl p-1.5 flex flex-col gap-1.5 justify-center">
-                  <div className="bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-50 p-1 rounded-lg border border-slate-200/60 dark:border-slate-700/50 shadow-inner flex flex-col justify-center">
-                      <label className="text-[0.5em] font-bold text-secondary uppercase tracking-wider block text-center mb-0.5">FIE2002</label>
+                  <div className="bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white p-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-inner flex flex-col justify-center">
+                      <label className="text-[0.5em] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block text-center mb-0.5">FIE2002</label>
                       <input 
                           type="number"
                           step="0.1"
                           value={demonomerData.f2002}
                           onChange={(e) => handleDemonomerChange('f2002', parseFloat(e.target.value) || 0)}
-                          className="w-full bg-transparent text-2xl font-black text-center outline-none drop-shadow-sm dark:shadow-none appearance-none"
+                          className="w-full bg-transparent text-2xl font-black text-center outline-none drop-shadow-sm appearance-none"
                       />
                   </div>
-                  <div className="bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-slate-50 p-1 rounded-lg border border-slate-200/60 dark:border-slate-700/50 shadow-inner flex flex-col justify-center">
-                      <span className="text-[0.5em] font-bold text-secondary uppercase tracking-wider block text-center mb-0.5">RESULT ({activeDemonomerGrade})</span>
-                      <div className="text-2xl font-black text-center drop-shadow-sm dark:shadow-none">
+                  <div className="bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white p-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-inner flex flex-col justify-center">
+                      <span className="text-[0.5em] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block text-center mb-0.5">RESULT</span>
+                      <div className="text-2xl font-black text-center drop-shadow-sm">
                           {Math.round(evaluateMath(demonomerData.steamFormula, {
                               'PVC': evaluateMath(demonomerData.pvcFormula, {
                                   'AI2802': demonomerData.aie2802,
                                   '%PVC': demonomerData.pvcPercent / 100,
                                   'F2002': demonomerData.f2002
                               }),
-                              'Steam Rasio': demonomerData.multipliers[activeDemonomerGrade] || 0,
-                              'Multiplier': demonomerData.multipliers[activeDemonomerGrade] || 0
+                              'Steam Rasio': demonomerData.multipliers[config.currentGrade] || 0,
+                              'Multiplier': demonomerData.multipliers[config.currentGrade] || 0
                           }))}
                       </div>
                   </div>
@@ -1672,15 +1601,15 @@ const App: React.FC = () => {
 
   const renderCatalystMiniWidget = () => {
       return (
-          <div className="flex flex-col shadow-sm dark:shadow-none rounded-xl border border-slate-200/60 dark:border-slate-700/50 overflow-hidden bg-white dark:bg-slate-800">
-              <div className="bg-indigo-600 dark:bg-indigo-500 text-white font-bold text-[0.8em] px-3 py-2 text-center flex items-center justify-center gap-2 uppercase tracking-tight">
+          <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800">
+              <div className="bg-indigo-600 text-white font-bold text-[0.8em] px-3 py-2 text-center flex items-center justify-center gap-2 uppercase tracking-tight">
                   <Activity className="w-3 h-3" />
                   CATALYST DATA
               </div>
               <div className="p-2">
                   <table className="w-full border-collapse">
                       <thead>
-                          <tr className="text-secondary border-b border-slate-100 dark:border-slate-700">
+                          <tr className="text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
                               <th className="py-1 text-left font-black text-[0.7em] uppercase tracking-wider">CATA</th>
                               <th className="py-1 text-center font-black text-[0.7em] uppercase tracking-wider">NETO</th>
                               <th className="py-1 text-center font-black text-[0.7em] uppercase tracking-wider">BRUTO</th>
@@ -1697,7 +1626,7 @@ const App: React.FC = () => {
                                           type="text" 
                                           value={catalystData[key].netto} 
                                           onChange={(e) => handleCatalystChange(key, 'netto', e.target.value)}
-                                          className="w-full bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-slate-100 text-center font-bold py-1 rounded border border-slate-200/60 dark:border-slate-700/50 outline-none focus:ring-2 focus:ring-indigo-500 text-[1.1em]"
+                                          className="w-full bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-white text-center font-bold py-1 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 text-[1.1em]"
                                       />
                                   </td>
                                   <td className="py-1 px-1">
@@ -1705,44 +1634,13 @@ const App: React.FC = () => {
                                           type="text" 
                                           value={catalystData[key].bruto} 
                                           onChange={(e) => handleCatalystChange(key, 'bruto', e.target.value)}
-                                          className="w-full bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-slate-100 text-center font-bold py-1 rounded border border-slate-200/60 dark:border-slate-700/50 outline-none focus:ring-2 focus:ring-indigo-500 text-[1.1em]"
+                                          className="w-full bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-white text-center font-bold py-1 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 text-[1.1em]"
                                       />
                                   </td>
                               </tr>
                           ))}
                       </tbody>
                   </table>
-              </div>
-          </div>
-      );
-  };
-
-  const renderCatalystNotesWidget = () => {
-      return (
-          <div className="flex flex-col flex-1 shadow-sm dark:shadow-none rounded-xl border border-slate-200/60 dark:border-slate-700/50 overflow-hidden bg-white dark:bg-slate-800 min-h-[150px]">
-              <div className="bg-indigo-600 dark:bg-indigo-500 text-white font-bold text-[0.8em] px-3 py-2 text-center flex items-center justify-center gap-2 uppercase tracking-tight">
-                  <FileText className="w-3 h-3" />
-                  CATATAN PENGINGAT
-              </div>
-              <div className="p-2 flex-1 flex flex-col">
-                  <textarea 
-                      value={catalystNotes}
-                      onFocus={() => { isEditingNotesRef.current = true; }}
-                      onChange={(e) => {
-                          const val = e.target.value;
-                          setCatalystNotes(val);
-                          // Saving on every keystroke might be too much, but it ensures it's saved.
-                          // We can just save it directly here since Supabase handles it well enough for small strings.
-                          supabase.from('app_settings').update({ catalyst_notes: val }).eq('id', 1).then(({ error }) => {
-                              if (error) console.error("Error saving catalyst notes:", error);
-                          });
-                      }}
-                      onBlur={() => {
-                          isEditingNotesRef.current = false;
-                      }}
-                      className="w-full h-full flex-1 bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-slate-100 font-bold p-2 rounded border border-slate-200/60 dark:border-slate-700/50 outline-none focus:ring-2 focus:ring-indigo-500 resize-none text-[0.85em]"
-                      placeholder="Tulis catatan di sini..."
-                  />
               </div>
           </div>
       );
@@ -1763,15 +1661,15 @@ const App: React.FC = () => {
     return (
         <div className="w-full h-full flex flex-row gap-2" style={{ fontSize: `${config.tableFontSize}px` }}>
           {/* LEFT SIDE: 80% Table */}
-          <div className="w-[80%] flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg dark:shadow-none border border-slate-200/60 dark:border-slate-700/50 overflow-hidden transition-colors">
+          <div className="w-[80%] flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
             
              {/* MARQUEE BAR: Placed between header and table rows */}
-             <div className="w-full bg-indigo-100 dark:bg-indigo-900/50 border-b border-indigo-200 dark:border-indigo-800 overflow-hidden h-10 relative flex items-center">
+             <div className="w-full bg-blue-100 dark:bg-blue-900/50 border-b border-blue-200 dark:border-blue-800 overflow-hidden h-10 relative flex items-center">
                   
                   <div className="flex-1 overflow-hidden h-full relative flex items-center">
                        <div className="absolute inset-0 flex items-center w-full">
-                            <div className="absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r from-indigo-100 dark:from-slate-900/50 to-transparent pointer-events-none"></div>
-                            <div className="absolute right-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-l from-indigo-100 dark:from-slate-900/50 to-transparent pointer-events-none"></div>
+                            <div className="absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r from-blue-100 dark:from-slate-900/50 to-transparent pointer-events-none"></div>
+                            <div className="absolute right-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-l from-blue-100 dark:from-slate-900/50 to-transparent pointer-events-none"></div>
                             
                             <div className="flex whitespace-nowrap w-full">
                                  <div 
@@ -1779,7 +1677,7 @@ const App: React.FC = () => {
                                      style={{ animationDuration: `${config.marqueeSpeed}s` }}
                                  >
                                      {Array(5).fill(null).map((_, i) => (
-                                         <span key={i} className="flex items-center gap-2 mx-8 font-black text-indigo-800 dark:text-indigo-100 uppercase tracking-wider text-[0.875em]">
+                                         <span key={i} className="flex items-center gap-2 mx-8 font-black text-blue-800 dark:text-blue-100 uppercase tracking-wider text-[0.875em]">
                                              <AlertTriangle className="w-[1.25em] h-[1.25em]" />
                                              {config.runningText}
                                          </span>
@@ -1791,7 +1689,7 @@ const App: React.FC = () => {
                                      aria-hidden="true"
                                  >
                                      {Array(5).fill(null).map((_, i) => (
-                                         <span key={i + 10} className="flex items-center gap-2 mx-8 font-black text-indigo-800 dark:text-indigo-100 uppercase tracking-wider text-[0.875em]">
+                                         <span key={i + 10} className="flex items-center gap-2 mx-8 font-black text-blue-800 dark:text-blue-100 uppercase tracking-wider text-[0.875em]">
                                              <AlertTriangle className="w-[1.25em] h-[1.25em]" />
                                              {config.runningText}
                                          </span>
@@ -1807,11 +1705,11 @@ const App: React.FC = () => {
                 {/* Removed <thead> to align with image where the first row is just data rows */}
                 <tbody>
                   {REACTORS.map((reactor) => (
-                    <tr key={reactor.id} className="border-b border-slate-200/60 dark:border-slate-700/50 last:border-0" style={{ height: `${config.tableRowHeight}px` }}>
+                    <tr key={reactor.id} className="border-b border-slate-200 dark:border-slate-700 last:border-0" style={{ height: `${config.tableRowHeight}px` }}>
                       
                       <td className={`${reactor.color} ${reactor.textColor} border-r border-slate-900/10 dark:border-slate-900/30 p-2 relative group w-[140px]`}>
                          <div className="flex flex-col items-center justify-center h-full">
-                            <span className="font-black font-serif drop-shadow-md dark:shadow-none leading-none" style={{ fontSize: '2.2em' }}>{reactor.label}</span>
+                            <span className="font-black font-serif drop-shadow-md leading-none" style={{ fontSize: '2.2em' }}>{reactor.label}</span>
                             
                             {/* Reactor Note Display */}
                             <div 
@@ -1820,7 +1718,7 @@ const App: React.FC = () => {
                               title="Click to edit note"
                             >
                                {config.reactorNotes[reactor.id] ? (
-                                   <div className="bg-yellow-400 text-black font-bold text-left rounded px-1 border-2 border-red-600 shadow-sm dark:shadow-none whitespace-pre-wrap break-words leading-tight" style={{ fontSize: '0.6em' }}>
+                                   <div className="bg-yellow-400 text-black font-bold text-left rounded px-1 border-2 border-red-600 shadow-sm whitespace-pre-wrap break-words leading-tight" style={{ fontSize: '0.6em' }}>
                                        {config.reactorNotes[reactor.id]}
                                    </div>
                                ) : (
@@ -1830,33 +1728,33 @@ const App: React.FC = () => {
                          </div>
                       </td>
 
-                      {scheduleData[reactor.id].map((item) => {
+                      {scheduleMatrix[reactor.id].map((item) => {
                         const isSkipped = item.status === 'skipped';
                         const isPast = item.status === 'past';
                         const isActive = item.status === 'active';
                         const mode = item.config?.mode || 'CLOSE';
                         const stageInfo = item.config?.stageInfo;
                         
-                        let cellClasses = "bg-white dark:bg-slate-800 text-slate-800 dark:text-slate-200 shadow-sm dark:shadow-none transition-colors dark:border dark:border-slate-700/50"; 
+                        let cellClasses = "bg-white dark:bg-slate-700 dark:text-white shadow-sm transition-colors dark:border dark:border-slate-600/50"; 
                         if (isSkipped) {
-                            cellClasses = "bg-stone-200 dark:bg-stone-900/50 text-stone-500 dark:text-stone-400 border-stone-300 dark:border-stone-800"; 
+                            cellClasses = "bg-stone-200 dark:bg-stone-950 text-stone-500 dark:text-stone-600 border-stone-300 dark:border-stone-800"; 
                         } else if (isActive) {
                             cellClasses = "bg-red-500 dark:bg-red-600 text-white animate-pulse ring-4 ring-red-300 dark:ring-red-900 z-10 relative"; 
                         } else if (isPast) {
-                            cellClasses = "bg-slate-100 dark:bg-slate-900/50 text-slate-400 dark:text-slate-400 shadow-inner"; 
+                            cellClasses = "bg-slate-800 dark:bg-slate-950 text-slate-500 dark:text-slate-600 shadow-inner"; 
                         } else if (mode === 'CLOSE TO OPEN') {
                             // Cream/Light Yellow for CLOSE TO OPEN that hasn't started
-                            cellClasses = "bg-amber-50 dark:bg-amber-900/30 text-amber-900 dark:text-amber-200 border-amber-200 dark:border-amber-800 shadow-sm dark:shadow-none";
-                        } else if (!isPast) {
-                            // Future reactors (belum start)
-                            cellClasses = "bg-white text-black border-slate-200 shadow-sm";
+                            cellClasses = "bg-amber-50 dark:bg-amber-900/40 text-amber-900 dark:text-amber-100 border-amber-200 dark:border-amber-800 shadow-sm";
+                        } else if (!isPast && config.theme === 'dark') {
+                            // Future reactors in dark theme: Thin Yellow
+                            cellClasses = "bg-yellow-900/20 text-yellow-100 border-yellow-900/30 shadow-sm";
                         }
                         
                         return (
                           <td 
-                              key={item.globalIndex} 
+                              key={item.id} 
                               onClick={() => openRescheduleModal(item)}
-                              className={`p-0 border-r border-slate-200/60 dark:border-slate-700/50 cursor-pointer transition-all duration-300 relative group hover:z-20 ${cellClasses} hover:ring-2 hover:ring-indigo-400 overflow-hidden`}
+                              className={`p-0 border-r border-slate-200 dark:border-slate-700 cursor-pointer transition-all duration-300 relative group hover:z-20 ${cellClasses} hover:ring-2 hover:ring-blue-400 overflow-hidden`}
                           >
                             <div className="h-full flex flex-col justify-between p-1">
                               
@@ -1870,11 +1768,12 @@ const App: React.FC = () => {
                                   ) : (
                                       <span className="text-sm font-bold font-mono text-stone-400 dark:text-stone-600">---</span>
                                   )}
-                                  {item.config?.note && (
-                                      <div className="absolute top-5 left-1 bg-red-600 text-white font-black uppercase text-center rounded-md flex items-center justify-center shadow-sm animate-blink z-20" style={{ width: '42px', padding: '0.7rem 0' }} title={`Operator Note:\n${item.config.note}`}>
-                                          <BookOpen className="w-6 h-6" />
-                                      </div>
-                                  )}
+                                </div>
+                                
+                                <div className="absolute inset-0 flex justify-center pointer-events-none">
+                                    <span className={`font-bold ${isActive ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'}`} style={{ fontSize: '0.85em' }}>
+                                        {formatDate(item.startTime)}
+                                    </span>
                                 </div>
 
                                 <div className="text-right z-10">
@@ -1887,23 +1786,20 @@ const App: React.FC = () => {
                               {/* Middle: Start Time & Badges */}
                               <div className="text-center relative flex flex-col items-center justify-center flex-1 my-1">
                                 {isSkipped ? (
-                                  <div className="flex flex-col items-center gap-1 text-red-600 dark:text-red-500">
+                                  <div className="flex flex-col items-center opacity-60 gap-1">
                                       <Ban className="w-[2.0em] h-[2.0em]" />
-                                      <span className="text-[1.8em] font-black tracking-widest">PASS</span>
+                                      <span className="text-[0.8em] font-bold">SKIPPED</span>
                                   </div>
                                 ) : (
                                   <>
-                                      <div className={`font-bold mb-0.5 ${isActive ? 'text-white/90' : (!isPast ? 'text-black' : 'opacity-80')}`} style={{ fontSize: '0.85em' }}>
-                                          {formatDate(item.startTime)}
-                                      </div>
                                       {/* Unified Time Display - Significantly Larger */}
-                                      <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-105' : (isPast ? 'text-secondary opacity-90 line-through' : 'text-black')} transition-transform`} style={{ fontSize: '2.0em' }}>
+                                      <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-105' : (isPast ? 'text-slate-500 dark:text-slate-400 opacity-90 line-through' : (config.theme === 'dark' ? 'text-emerald-100' : 'text-slate-800 dark:text-slate-100'))} transition-transform`} style={{ fontSize: '2.0em' }}>
                                           {formatTime(item.startTime)}
                                       </div>
                                       
                                       {/* Status / Badges */}
                                       {isPast ? (
-                                          <div className="font-black text-secondary uppercase tracking-widest mt-1 opacity-75" style={{ fontSize: '0.7em' }}>
+                                          <div className="font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1 opacity-75" style={{ fontSize: '0.7em' }}>
                                               SUDAH START
                                           </div>
                                       ) : isActive ? (
@@ -1920,7 +1816,7 @@ const App: React.FC = () => {
                                               </div>
                                           )}
                                           {/* Mode Badge - Visible for Open/Close Status */}
-                                          <div className={`font-bold px-1.5 py-0.5 rounded uppercase border flex items-center gap-1 ${(!isPast && !isActive) ? 'bg-white text-black border-slate-300' : (mode === 'OPEN' ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border-cyan-200 dark:border-cyan-800' : (mode === 'CLOSE TO OPEN' && config.theme === 'dark') ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600')}`} style={{ fontSize: '0.7em' }}>
+                                          <div className={`font-bold px-1.5 py-0.5 rounded uppercase border flex items-center gap-1 ${mode === 'OPEN' ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border-cyan-200 dark:border-cyan-800' : (mode === 'CLOSE TO OPEN' && config.theme === 'dark') ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600'}`} style={{ fontSize: '0.7em' }}>
                                               <span className="text-[0.5em] opacity-70 mr-0.5">MODE</span>
                                               {mode}
                                           </div>
@@ -1936,7 +1832,7 @@ const App: React.FC = () => {
 
                                 {/* Edit Overlay Icon */}
                                 <div className="absolute inset-0 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-30">
-                                    <div className="bg-indigo-600 dark:bg-indigo-500 text-white rounded-full p-2 shadow-lg dark:shadow-none">
+                                    <div className="bg-blue-600 text-white rounded-full p-2 shadow-lg">
                                         <Edit3 className="w-6 h-6" />
                                     </div>
                                 </div>
@@ -1946,12 +1842,12 @@ const App: React.FC = () => {
                               <div className={`mt-auto flex justify-between items-end border-t pt-1 ${isActive ? 'border-white/30' : 'border-black/5 dark:border-white/10'} min-h-[20px]`}>
                                   <div className="flex gap-1 items-center shrink-0">
                                       {item.config?.note && (
-                                          <FileText className={`w-4 h-4 ${isActive ? 'text-yellow-300' : 'text-indigo-500 dark:text-indigo-400'}`} />
+                                          <FileText className={`w-4 h-4 ${isActive ? 'text-yellow-300' : 'text-blue-500 dark:text-blue-400'}`} />
                                       )}
                                   </div>
                                   
                                   {stageInfo && (
-                                      <div className="flex-1 mx-1 self-center bg-yellow-400 text-black font-black text-center animate-pulse rounded px-1 uppercase tracking-tighter border-2 border-red-600 shadow-sm dark:shadow-none overflow-hidden text-ellipsis whitespace-nowrap" style={{ fontSize: '0.7em' }}>
+                                      <div className="flex-1 mx-1 self-center bg-yellow-400 text-black font-black text-center animate-pulse rounded px-1 uppercase tracking-tighter border-2 border-red-600 shadow-sm overflow-hidden text-ellipsis whitespace-nowrap" style={{ fontSize: '0.7em' }}>
                                           {stageInfo}
                                       </div>
                                   )}
@@ -1973,7 +1869,6 @@ const App: React.FC = () => {
               {renderSiloWidget()}
               {renderSteamWidget()}
               {renderCatalystMiniWidget()}
-              {renderCatalystNotesWidget()}
           </div>
         </div>
     );
@@ -1981,34 +1876,24 @@ const App: React.FC = () => {
 
   const renderConflictTimeline = () => {
     // 1. Flatten and filter items (include past items so it matches the main table)
-    const allItems = (Object.values(scheduleData).flat() as ScheduleItem[])
+    const allItems = (Object.values(scheduleMatrix).flat() as ScheduleItem[])
       .filter(item => item.status !== 'skipped');
 
-    // 2. Determine start and end times based on the ACTUAL items in the schedule data
-    let minTime = new Date(config.baseStartTime).getTime();
-    
-    // Default schedule end time
-    const defaultScheduleMinutes = Math.max(0, config.columnsToDisplay - 1) * ((config.intervalHours * 60) + config.intervalMinutes);
-    let maxTime = minTime + (defaultScheduleMinutes + (config.batchDurationMinutes || 240)) * 60000;
+    // 2. Determine start and end times based on the schedule
+    const earliestTime = allItems.length > 0 
+        ? new Date(Math.min(...allItems.map(i => i.startTime.getTime()))) 
+        : new Date(now);
 
-    allItems.forEach(item => {
-        const itemStart = item.startTime.getTime();
-        const itemEnd = itemStart + ((config.batchDurationMinutes || 240) * 60000);
-        if (itemStart < minTime) minTime = itemStart;
-        if (itemEnd > maxTime) maxTime = itemEnd;
-    });
-
-    const startTime = new Date(minTime);
+    const startTime = new Date(earliestTime);
     startTime.setMinutes(startTime.getMinutes() < 30 ? 0 : 30, 0, 0); // Round down to nearest 30
 
-    const latestTime = new Date(maxTime);
-    latestTime.setMinutes(latestTime.getMinutes() > 30 ? 60 : 30, 0, 0); // Round up to nearest 30
+    const latestTime = allItems.length > 0
+        ? new Date(Math.max(...allItems.map(i => i.startTime.getTime() + (config.batchDurationMinutes || 240) * 60000)))
+        : new Date(now.getTime() + 12 * 3600000);
 
     const totalMinutesNeeded = (latestTime.getTime() - startTime.getTime()) / 60000;
-    
-    // Cap slots to prevent browser crash if dates are wildly different (e.g. max 14 days)
-    const MAX_SLOTS = 672; 
-    const slotsCount = Math.min(Math.ceil(totalMinutesNeeded / 30), MAX_SLOTS);
+    // Calculate how many 30-min slots we need. Minimum 24 slots (12 hours).
+    const slotsCount = Math.max(24, Math.ceil(totalMinutesNeeded / 30));
     
     const slots = Array.from({ length: slotsCount }).map((_, i) => addMinutes(startTime, i * 30));
     const totalMinutes = slotsCount * 30;
@@ -2018,25 +1903,26 @@ const App: React.FC = () => {
     const nowPos = (nowMinutes / totalMinutes) * 100;
 
     return (
-      <div className="flex flex-col shadow-xl dark:shadow-none rounded-2xl border border-slate-200/60 dark:border-slate-700/50 bg-white dark:bg-slate-900 overflow-hidden">
+      <div className="flex flex-col shadow-xl rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
         {/* Header */}
-        <div className="bg-slate-50/50 dark:bg-slate-800/50 px-4 py-3 border-b border-slate-200/60 dark:border-slate-700/50 flex items-center justify-between">
+        <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-indigo-500 rounded-xl text-white">
               <Activity className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-black text-slate-900 dark:text-slate-50 uppercase tracking-tight">Reactor Cycle Timeline</h3>
+              <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Reactor Cycle Timeline</h3>
+              <p className="text-[8px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Visual Gantt Chart & Conflict Detection</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
-              <span className="text-[9px] font-bold text-secondary uppercase tracking-widest">Conflict</span>
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Conflict</span>
             </div>
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-indigo-500"></div>
-              <span className="text-[9px] font-bold text-secondary uppercase tracking-widest">Scheduled</span>
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Scheduled</span>
             </div>
           </div>
         </div>
@@ -2052,14 +1938,14 @@ const App: React.FC = () => {
             </div>
           )}
 
-          <table className="w-full border-collapse table-fixed" style={{ minWidth: `${slotsCount * 60 + 80}px` }}>
+          <table className="w-full border-collapse table-fixed" style={{ minWidth: `${Math.max(1200, slotsCount * 60 + 80)}px` }}>
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-900/50">
-                <th className="sticky left-0 z-40 bg-slate-50 dark:bg-slate-900 border-b border-r border-slate-200/60 dark:border-slate-700/50 p-2 text-secondary uppercase tracking-wider text-[0.6em] font-black w-20">
+                <th className="sticky left-0 z-40 bg-slate-50 dark:bg-slate-900 border-b border-r border-slate-200 dark:border-slate-800 p-2 text-slate-500 uppercase tracking-wider text-[0.6em] font-black w-20">
                   REACTOR
                 </th>
                 {slots.map((slot, i) => (
-                  <th key={i} className="border-b border-slate-200/60 dark:border-slate-700/50 p-1 text-secondary uppercase tracking-wider text-[0.7em] font-black w-[60px]">
+                  <th key={i} className="border-b border-slate-200 dark:border-slate-800 p-1 text-slate-500 uppercase tracking-wider text-[0.7em] font-black w-[60px]">
                     {formatTime(slot)}
                   </th>
                 ))}
@@ -2106,8 +1992,8 @@ const App: React.FC = () => {
 
                         return (
                           <div 
-                            key={item.globalIndex}
-                            className={`absolute top-1 bottom-1 rounded-lg flex flex-col items-center justify-center text-[0.65em] font-black text-white shadow-lg dark:shadow-none z-10 transition-all hover:scale-[1.02] hover:z-20 border border-white/20 ${GRADE_COLORS[item.grade] || 'bg-slate-500'}`}
+                            key={item.id}
+                            className={`absolute top-1 bottom-1 rounded-lg flex flex-col items-center justify-center text-[0.65em] font-black text-white shadow-lg z-10 transition-all hover:scale-[1.02] hover:z-20 border border-white/20 ${GRADE_COLORS[item.grade] || 'bg-slate-500'}`}
                             style={{ 
                               left: `${actualLeft}%`, 
                               width: `${actualWidth}%`,
@@ -2135,11 +2021,15 @@ const App: React.FC = () => {
         </div>
 
         {/* Footer */}
-        <div className="px-4 py-3 bg-slate-50/50 dark:bg-slate-800/50 border-t border-slate-200/60 dark:border-slate-700/50 flex items-center justify-between">
+        <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
+            <Info className="w-3.5 h-3.5 text-indigo-500" />
+            <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
+              Gantt chart shows batch duration ({config.batchDurationMinutes}m). Red outlines indicate potential start-time conflicts (within 10m).
+            </p>
           </div>
           <div className="flex items-center gap-2">
-            <div className="text-[9px] font-black text-primary uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 rounded-lg">
+            <div className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 rounded-lg">
               Full Schedule View
             </div>
             <div className="text-[9px] font-black text-red-600 dark:text-red-400 uppercase tracking-widest bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded-lg flex items-center gap-1">
@@ -2159,8 +2049,8 @@ const App: React.FC = () => {
            <div className="flex flex-col gap-4" style={{ fontSize: `${config.tableFontSize}px` }}>
                 
                 {/* 1. CYCLE TIME WIDGET - FULL WIDTH */}
-               <div className="flex flex-col shadow-sm dark:shadow-none rounded-xl border border-slate-200/60 dark:border-slate-700/50 bg-white dark:bg-slate-800">
-                    <div className={`${GRADE_COLORS[config.currentGrade] || 'bg-indigo-600 dark:bg-indigo-500'} text-white font-bold text-[0.7em] px-3 py-1 text-center rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight transition-colors`}>
+               <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                    <div className={`${GRADE_COLORS[config.currentGrade] || 'bg-indigo-600'} text-white font-bold text-[0.7em] px-3 py-1 text-center rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight transition-colors`}>
                         <Calculator className="w-3 h-3" />
                         HITUNG CYCLE TIME
                     </div>
@@ -2168,37 +2058,39 @@ const App: React.FC = () => {
                         <table className="w-full border-collapse text-center font-semibold text-[0.75em]">
                             <thead>
                                 <tr>
-                                    <th className="border-b-2 border-slate-200/60 dark:border-slate-700/50 p-1 bg-slate-50/50 dark:bg-slate-800/50 text-secondary uppercase tracking-wider text-[0.65em]">NS START</th>
-                                    <th className="border-b-2 border-slate-200/60 dark:border-slate-700/50 p-1 bg-slate-50/50 dark:bg-slate-800/50 text-secondary uppercase tracking-wider text-[0.65em]">READY BLOWING</th>
-                                    <th className="border-b-2 border-slate-200/60 dark:border-slate-700/50 p-1 bg-slate-50/50 dark:bg-slate-800/50 text-secondary uppercase tracking-wider text-[0.65em]">BLOWING START</th>
-                                    <th 
-                                        className="border-b-2 border-slate-200/60 dark:border-slate-700/50 p-1 bg-slate-50/50 dark:bg-slate-800/50 text-secondary uppercase tracking-wider text-[0.65em] cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                                        onClick={() => openFormulaModal('hold')}
-                                        title="Click to edit formula"
-                                    >
-                                        BLOWING HOLD ⚙️
-                                    </th>
-                                    <th className="border-b-2 border-slate-200/60 dark:border-slate-700/50 p-1 bg-slate-50/50 dark:bg-slate-800/50 text-secondary uppercase tracking-wider text-[0.65em]">BLOWING COMPLETE</th>
-                                    <th 
-                                        className="border-b-2 border-slate-200/60 dark:border-slate-700/50 p-1 bg-slate-50/50 dark:bg-slate-800/50 text-secondary uppercase tracking-wider text-[0.65em] cursor-pointer hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
-                                        onClick={() => openFormulaModal('cyc')}
-                                        title="Click to edit formula"
-                                    >
-                                        CYCLE TIME ⚙️
-                                    </th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">NS</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">READY</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">BLOW</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">HOLD</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">COMP</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">CYC</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {cycleTimeData.map((row) => {
-                                    const blowingHold = evaluateFormula(formulas.hold, row);
-                                    const cycleTime = evaluateFormula(formulas.cyc, row, blowingHold);
+                                    const blowingHold = calculateBlowingHold(row.readyBlowing, row.blowing);
+                                    
+                                    // Calculate Cycle Time: =SUM(BLOWING COMPLETE - NS - BLOWING HOLD) + 2
+                                    let cycleTime = '';
+                                    if (row.blowingComplete && row.ns && blowingHold) {
+                                        const totalDuration = calculateDuration(row.ns, row.blowingComplete);
+                                        if (totalDuration) {
+                                            const [tdH, tdM] = totalDuration.split(':').map(Number);
+                                            const [bhH, bhM] = blowingHold.split(':').map(Number);
+                                            
+                                            const totalMins = (tdH * 60 + tdM) - (bhH * 60 + bhM) + 2;
+                                            if (totalMins >= 0) {
+                                                cycleTime = `${Math.floor(totalMins / 60).toString().padStart(2, '0')}:${(totalMins % 60).toString().padStart(2, '0')}`;
+                                            }
+                                        }
+                                    }
 
                                     return (
                                         <tr key={row.id} className="border-b border-slate-100 dark:border-slate-700/50 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                             <td className="p-0.5">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-900 dark:text-indigo-100 outline-none w-full text-center font-black text-[0.9em] rounded-md py-0.5 focus:ring-2 focus:ring-indigo-500/30 transition-all" 
+                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-[0.9em] rounded-md py-0.5 focus:ring-2 focus:ring-blue-500/30 transition-all" 
                                                     value={row.ns} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'ns', e.target.value)}
                                                 />
@@ -2206,7 +2098,7 @@ const App: React.FC = () => {
                                             <td className="p-1">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-900 dark:text-indigo-100 outline-none w-full text-center font-black text-[0.9em] rounded-md py-0.5 focus:ring-4 focus:ring-indigo-500/30 transition-all" 
+                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-[0.9em] rounded-md py-0.5 focus:ring-4 focus:ring-blue-500/30 transition-all" 
                                                     value={row.readyBlowing} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'readyBlowing', e.target.value)}
                                                 />
@@ -2227,7 +2119,7 @@ const App: React.FC = () => {
                                             <td className="p-0.5">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-indigo-50 dark:bg-indigo-900/20 text-indigo-900 dark:text-indigo-100 outline-none w-full text-center font-bold text-[0.9em] rounded py-0.5 focus:ring-2 focus:ring-indigo-500/50" 
+                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-bold text-[0.9em] rounded py-0.5 focus:ring-2 focus:ring-blue-500/50" 
                                                     value={row.blowingComplete} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'blowingComplete', e.target.value)}
                                                 />
@@ -2243,16 +2135,8 @@ const App: React.FC = () => {
                             </tbody>
                         </table>
                         <button 
-                            onClick={async () => {
-                                const newData = [...cycleTimeData, { id: Date.now(), ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }];
-                                setCycleTimeData(newData);
-                                try {
-                                    await supabase.from('app_settings').update({ cycle_time_data: newData }).eq('id', 1);
-                                } catch (error) {
-                                    console.error("Error saving cycle time data:", error);
-                                }
-                            }}
-                            className="mt-1 w-full py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-primary font-bold rounded-lg border border-dashed border-indigo-300 dark:border-indigo-700 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-1 text-[7px]"
+                            onClick={() => setCycleTimeData(prev => [...prev, { id: Date.now(), ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }])}
+                            className="mt-1 w-full py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold rounded-lg border border-dashed border-indigo-300 dark:border-indigo-700 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-1 text-[7px]"
                         >
                             <LayoutGrid className="w-3 h-3" />
                             ADD ROW
@@ -2294,7 +2178,6 @@ const App: React.FC = () => {
                 silos={siloState.silos}
                 onDataChange={handleSiloDataChange}
                 onSiloSelect={handleSiloSwitch}
-                currentGrade={config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade}
             />
           ); break;
           default: content = null;
@@ -2304,12 +2187,12 @@ const App: React.FC = () => {
 
       if (isDesignMode) {
           return (
-              <div key={sectionId} className="relative group p-4 border-2 border-dashed border-indigo-400 rounded-xl bg-indigo-50/50 mb-4 transition-all hover:bg-indigo-100/50">
+              <div key={sectionId} className="relative group p-4 border-2 border-dashed border-blue-400 rounded-xl bg-blue-50/50 mb-4 transition-all hover:bg-blue-100/50">
                   <div className="absolute top-2 right-2 flex gap-1 z-30 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button 
                         onClick={() => moveSection(index, 'up')} 
                         disabled={index === 0}
-                        className="p-1 bg-white rounded border border-indigo-300 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed text-indigo-700"
+                        className="p-1 bg-white rounded border border-blue-300 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed text-blue-700"
                         title="Move Up"
                       >
                           <ArrowUp className="w-4 h-4" />
@@ -2317,13 +2200,13 @@ const App: React.FC = () => {
                       <button 
                         onClick={() => moveSection(index, 'down')}
                         disabled={index === config.layoutOrder.length - 1}
-                        className="p-1 bg-white rounded border border-indigo-300 hover:bg-indigo-100 disabled:opacity-50 disabled:cursor-not-allowed text-indigo-700"
+                        className="p-1 bg-white rounded border border-blue-300 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed text-blue-700"
                         title="Move Down"
                       >
                           <ArrowDown className="w-4 h-4" />
                       </button>
                   </div>
-                  <div className="absolute top-2 left-2 px-2 py-1 bg-indigo-600 dark:bg-indigo-500 text-white text-xs font-bold rounded shadow-sm dark:shadow-none z-30 pointer-events-none">
+                  <div className="absolute top-2 left-2 px-2 py-1 bg-blue-600 text-white text-xs font-bold rounded shadow-sm z-30 pointer-events-none">
                       {SECTIONS[sectionId as keyof typeof SECTIONS]}
                   </div>
                   {content}
@@ -2336,7 +2219,7 @@ const App: React.FC = () => {
 
   return (
     <div 
-        className={`min-h-screen bg-white dark:bg-slate-950 flex flex-col font-sans text-sm relative transition-colors duration-300 ${config.theme}`}
+        className={`min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans text-sm relative transition-colors duration-300 ${config.theme}`}
         style={{ zoom: zoomLevel }}
     >
       
@@ -2352,8 +2235,8 @@ const App: React.FC = () => {
               <div className="animate-pulse flex flex-col items-center">
                   <AlertTriangle className={`w-32 h-32 mb-8 ${REACTORS.find(r => r.id === fullScreenAlertItem.reactorId)?.id === 'U' ? 'text-black' : 'text-yellow-300'}`} />
                   <h1 className="text-6xl font-black tracking-tighter mb-4">PREPARE TO START</h1>
-                  <div className="bg-white text-red-600 px-12 py-6 rounded-2xl shadow-xl dark:shadow-none flex flex-col items-center mb-8">
-                      <span className="text-2xl font-bold uppercase tracking-widest text-secondary">REACTOR</span>
+                  <div className="bg-white text-red-600 px-12 py-6 rounded-2xl shadow-xl flex flex-col items-center mb-8">
+                      <span className="text-2xl font-bold uppercase tracking-widest text-slate-500">REACTOR</span>
                       <span className="text-9xl font-black">{fullScreenAlertItem.reactorId}</span>
                   </div>
                   <div className="flex gap-12">
@@ -2371,7 +2254,7 @@ const App: React.FC = () => {
                   </div>
                   <button 
                     onClick={() => setDismissedAlerts(prev => new Set(prev).add(fullScreenAlertItem.id))}
-                    className="px-8 py-3 bg-white text-red-600 rounded-full font-black hover:bg-red-50 transition-colors shadow-lg dark:shadow-none flex items-center gap-2 transform hover:scale-105 active:scale-95 animate-none"
+                    className="px-8 py-3 bg-white text-red-600 rounded-full font-black hover:bg-red-50 transition-colors shadow-lg flex items-center gap-2 transform hover:scale-105 active:scale-95 animate-none"
                   >
                       <X className="w-5 h-5" /> DISMISS ALERT
                   </button>
@@ -2381,7 +2264,7 @@ const App: React.FC = () => {
 
       {/* ... [Cycle Completed Banner] ... */}
        {isScheduleCompleted && !config.isStopped && currentView === 'scheduler' && (
-        <div className="bg-emerald-600 text-white p-3 text-center sticky top-0 z-50 shadow-lg dark:shadow-none animate-in slide-in-from-top flex flex-col md:flex-row items-center justify-center gap-4">
+        <div className="bg-emerald-600 text-white p-3 text-center sticky top-0 z-50 shadow-lg animate-in slide-in-from-top flex flex-col md:flex-row items-center justify-center gap-4">
             <div className="flex items-center gap-2">
                 <FastForward className="w-6 h-6 animate-pulse" />
                 <span className="font-bold text-lg tracking-wide animate-pulse">SEQUENCE COMPLETE</span>
@@ -2405,7 +2288,7 @@ const App: React.FC = () => {
 
       {/* ... [Stopped Banner] ... */}
        {config.isStopped && (
-        <div className="bg-red-600 text-white p-4 text-center sticky top-0 z-50 shadow-2xl dark:shadow-none flex flex-col items-center justify-center">
+        <div className="bg-red-600 text-white p-4 text-center sticky top-0 z-50 shadow-2xl flex flex-col items-center justify-center">
             <div className="flex items-center gap-3 animate-pulse">
                 <Ban className="w-8 h-8" />
                 <span className="font-black text-2xl tracking-widest">SYSTEM STOPPED</span>
@@ -2463,19 +2346,18 @@ const App: React.FC = () => {
                 silos={siloState.silos}
                 onDataChange={handleSiloDataChange}
                 onSiloSelect={handleSiloSwitch}
-                currentGrade={config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade}
             />
           )}
       </div>
 
-      <div className="max-w-7xl mx-auto mt-6 pb-6 text-center text-secondary text-sm font-bold">
+      <div className="max-w-7xl mx-auto mt-6 pb-6 text-center text-slate-400 dark:text-slate-500 text-sm font-bold">
           AILO CORP | SCHEDULE START PVC 5
       </div>
 
       {/* --- START SILO CONFIRMATION MODAL --- */}
       {startSiloData && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
-              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl dark:shadow-none w-full max-w-md overflow-hidden transform transition-all scale-100 ring-4 ring-emerald-500/50">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 ring-4 ring-emerald-500/50">
                   {/* Header */}
                   <div className="bg-emerald-600 text-white p-6 flex items-center justify-between">
                       <div>
@@ -2495,7 +2377,7 @@ const App: React.FC = () => {
                       
                       {/* Lot Number Input */}
                       <div className="space-y-2">
-                          <label className="text-xs font-bold text-secondary uppercase tracking-widest block">Lot Number</label>
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">Lot Number</label>
                           <input 
                               type="text" 
                               autoFocus
@@ -2508,7 +2390,7 @@ const App: React.FC = () => {
 
                       {/* Capacity Input */}
                       <div className="space-y-2">
-                          <label className="text-xs font-bold text-secondary uppercase tracking-widest block">Capacity Set (T)</label>
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">Capacity Set (T)</label>
                           <input 
                               type="number" 
                               value={startSiloData.capacitySet}
@@ -2519,8 +2401,8 @@ const App: React.FC = () => {
                       </div>
 
                       {/* Time Input */}
-                      <div className="space-y-2 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-200/60 dark:border-slate-700/50">
-                          <label className="text-xs font-bold text-secondary uppercase tracking-widest block mb-1">Start Time Confirmation</label>
+                      <div className="space-y-2 bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">Start Time Confirmation</label>
                           <input 
                               type="text" 
                               value={startSiloData.startTime}
@@ -2532,7 +2414,7 @@ const App: React.FC = () => {
                   </div>
 
                   {/* Footer */}
-                  <div className="p-4 bg-slate-50/50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex gap-3">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex gap-3">
                       <button 
                         onClick={() => setStartSiloData(null)}
                         className="flex-1 py-4 font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
@@ -2542,7 +2424,7 @@ const App: React.FC = () => {
                       <button 
                         onClick={handleConfirmSiloStart}
                         disabled={!startSiloData.lotNumber || !startSiloData.capacitySet}
-                        className="flex-[2] bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg py-4 rounded-xl shadow-lg dark:shadow-none disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transform active:scale-95 transition-all"
+                        className="flex-[2] bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg py-4 rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transform active:scale-95 transition-all"
                       >
                           <Check className="w-6 h-6" />
                           CONFIRM & START
@@ -2552,125 +2434,27 @@ const App: React.FC = () => {
           </div>
       )}
 
-      {/* --- Formula Modal --- */}
-      {formulaModalOpen && editingFormula && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-[60] flex items-center justify-center p-4">
-              <div className="bg-slate-800 rounded-2xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200">
-                  <div className="bg-indigo-600 text-white p-4 flex justify-between items-center">
-                      <h3 className="font-black flex items-center gap-2">
-                          <Calculator className="w-5 h-5" />
-                          Edit Formula
-                      </h3>
-                      <button onClick={() => setFormulaModalOpen(null)} className="text-white/70 hover:text-white">
-                          <X className="w-5 h-5" />
-                      </button>
-                  </div>
-                  <div className="p-5 space-y-4">
-                      <div>
-                          <label className="text-xs font-bold text-white uppercase mb-1 block">End Time</label>
-                          <select 
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 font-bold text-sm text-white"
-                              value={editingFormula.end}
-                              onChange={(e) => setEditingFormula({...editingFormula, end: e.target.value})}
-                          >
-                              <option value="ns">NS START</option>
-                              <option value="readyBlowing">READY BLOWING</option>
-                              <option value="blowing">BLOWING START</option>
-                              <option value="blowingComplete">BLOWING COMPLETE</option>
-                          </select>
-                      </div>
-                      
-                      <div className="flex justify-center">
-                          <div className="bg-slate-700 p-1 rounded-full">
-                              <span className="font-black text-white px-2">- (MINUS)</span>
-                          </div>
-                      </div>
-
-                      <div>
-                          <label className="text-xs font-bold text-white uppercase mb-1 block">Start Time</label>
-                          <select 
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 font-bold text-sm text-white"
-                              value={editingFormula.start}
-                              onChange={(e) => setEditingFormula({...editingFormula, start: e.target.value})}
-                          >
-                              <option value="ns">NS START</option>
-                              <option value="readyBlowing">READY BLOWING</option>
-                              <option value="blowing">BLOWING START</option>
-                              <option value="blowingComplete">BLOWING COMPLETE</option>
-                          </select>
-                      </div>
-
-                      {formulaModalOpen === 'cyc' && (
-                          <div className="flex items-center gap-2 pt-2">
-                              <input 
-                                  type="checkbox" 
-                                  id="subtractHold"
-                                  checked={editingFormula.subtractHold}
-                                  onChange={(e) => setEditingFormula({...editingFormula, subtractHold: e.target.checked})}
-                                  className="w-4 h-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
-                              />
-                              <label htmlFor="subtractHold" className="text-sm font-bold text-white">
-                                  Subtract BLOWING HOLD Time
-                              </label>
-                          </div>
-                      )}
-
-                      <div>
-                          <label className="text-xs font-bold text-white uppercase mb-1 block">Add Constant (Minutes)</label>
-                          <input 
-                              type="number" 
-                              className="w-full bg-slate-900 border border-slate-700 rounded-lg p-2 font-bold text-sm text-white"
-                              value={editingFormula.constant}
-                              onChange={(e) => setEditingFormula({...editingFormula, constant: parseInt(e.target.value) || 0})}
-                          />
-                      </div>
-
-                      <div className="pt-4 flex gap-2">
-                          <button 
-                              onClick={() => setFormulaModalOpen(null)}
-                              className="flex-1 py-2 font-bold text-white bg-slate-700 hover:bg-slate-600 rounded-lg transition-colors"
-                          >
-                              CANCEL
-                          </button>
-                          <button 
-                              onClick={saveFormula}
-                              className="flex-1 py-2 font-bold text-white bg-indigo-600 hover:bg-indigo-700 rounded-lg transition-colors"
-                          >
-                              SAVE FORMULA
-                          </button>
-                      </div>
-                  </div>
-              </div>
-          </div>
-      )}
-
       {/* ... [Reschedule Modal] ... */}
       {selectedItem && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl dark:shadow-none w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
                 <div className="bg-slate-800 dark:bg-slate-950 text-white p-6 flex justify-between items-center shrink-0">
                     <div>
                         <h3 className="text-2xl font-black flex items-center gap-2">
-                            <Edit3 className="w-6 h-6 text-indigo-400" />
+                            <Edit3 className="w-6 h-6 text-blue-400" />
                             Adjust Schedule
                         </h3>
-                        <p className="text-sm font-bold text-secondary">
+                        <p className="text-sm font-bold text-slate-400">
                             Reactor {selectedItem.reactorId} &bull; Batch {selectedItem.batchNumber || '---'}
                         </p>
                     </div>
-                    <button onClick={closeRescheduleModal} className="text-secondary hover:text-slate-200 transition-colors">
+                    <button onClick={closeRescheduleModal} className="text-slate-400 hover:text-white transition-colors">
                         <X className="w-6 h-6" />
                     </button>
                 </div>
                 
                 <div className="p-6 space-y-6 overflow-y-auto">
                     
-                    {/* Notes - Moved to Top */}
-                    <div className="bg-slate-50 dark:bg-slate-900/50 p-6 rounded-xl border-2 border-slate-200/60 dark:border-slate-700/50">
-                        <label className="text-sm font-black text-secondary uppercase mb-3 block">Operator Notes</label>
-                        <textarea value={editForm.note} onChange={(e) => setEditForm(prev => ({...prev, note: e.target.value}))} placeholder="Add information for DCS operator..." className="w-full border-2 border-slate-300/50 dark:border-slate-600/50 dark:bg-slate-800 dark:text-white rounded-xl p-4 text-base font-bold focus:ring-2 focus:ring-indigo-500 outline-none min-h-[100px]" />
-                    </div>
-
                     {/* Stage Info (Sort Info) Selector */}
                     <div className="bg-fuchsia-50 dark:bg-fuchsia-900/20 p-6 rounded-xl border border-fuchsia-100 dark:border-fuchsia-800">
                         <label className="text-sm font-black text-fuchsia-700 dark:text-fuchsia-300 uppercase mb-3 flex items-center gap-1">
@@ -2678,11 +2462,11 @@ const App: React.FC = () => {
                         </label>
                         <div className="flex flex-wrap gap-3">
                             {STAGE_OPTIONS.map(opt => (
-                                <button key={opt} onClick={() => setEditForm(prev => ({...prev, stageInfo: opt}))} className={`px-4 py-3 text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === opt ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-sm dark:shadow-none' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:bg-fuchsia-100 dark:hover:bg-slate-600'}`}>
+                                <button key={opt} onClick={() => setEditForm(prev => ({...prev, stageInfo: opt}))} className={`px-4 py-3 text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === opt ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-sm' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:bg-fuchsia-100 dark:hover:bg-slate-600'}`}>
                                     {opt}
                                 </button>
                             ))}
-                            <button onClick={() => setEditForm(prev => ({...prev, stageInfo: ''}))} className={`px-4 py-3 text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === '' ? 'bg-slate-200 text-slate-500 border-slate-300 dark:bg-slate-600 dark:text-slate-300 dark:border-slate-500' : 'bg-white dark:bg-slate-700 text-secondary border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
+                            <button onClick={() => setEditForm(prev => ({...prev, stageInfo: ''}))} className={`px-4 py-3 text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === '' ? 'bg-slate-200 text-slate-500 border-slate-300 dark:bg-slate-600 dark:text-slate-300 dark:border-slate-500' : 'bg-white dark:bg-slate-700 text-slate-400 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
                                 Clear
                             </button>
                         </div>
@@ -2692,7 +2476,7 @@ const App: React.FC = () => {
                                 value={editForm.stageInfo} 
                                 onChange={(e) => setEditForm(prev => ({...prev, stageInfo: e.target.value}))}
                                 placeholder="Or type custom label..."
-                                className="w-full border-2 border-slate-300/50 dark:border-slate-600/50 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-base font-black focus:ring-2 focus:ring-fuchsia-500 outline-none"
+                                className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-base font-black focus:ring-2 focus:ring-fuchsia-500 outline-none"
                             />
                         </div>
                     </div>
@@ -2700,22 +2484,22 @@ const App: React.FC = () => {
                     {/* Mode, Grade & Skip Controls */}
                     <div className="grid grid-cols-2 gap-6">
                          <div className="flex flex-col gap-3">
-                            <label className="text-sm font-black text-secondary uppercase">Status</label>
+                            <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase">Status</label>
                             <button onClick={() => setEditForm(prev => ({ ...prev, isSkipped: !prev.isSkipped }))} className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 font-black transition-colors text-lg ${editForm.isSkipped ? 'bg-stone-200 text-stone-600 border-stone-300' : 'bg-white dark:bg-slate-700 text-gray-600 dark:text-gray-200 border-gray-200 dark:border-slate-600 hover:border-gray-300'}`}>
                                 <Ban className="w-5 h-5" />
                                 {editForm.isSkipped ? 'SKIPPED' : 'Active'}
                             </button>
                          </div>
                          <div className="flex flex-col gap-3">
-                            <label className="text-sm font-black text-secondary uppercase">Mode</label>
+                            <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase">Mode</label>
                             <div className="flex bg-slate-100 dark:bg-slate-700 rounded-xl p-1.5 border-2 border-slate-200 dark:border-slate-600 gap-1.5">
-                                <button onClick={() => handleModeChange('CLOSE')} className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${editForm.mode === 'CLOSE' ? 'bg-white dark:bg-slate-800 text-primary dark:text-indigo-300 shadow-sm dark:shadow-none' : 'text-secondary hover:text-slate-600 dark:hover:text-slate-300'}`}>
+                                <button onClick={() => handleModeChange('CLOSE')} className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${editForm.mode === 'CLOSE' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
                                     CLOSE
                                 </button>
-                                <button onClick={() => handleModeChange('OPEN')} className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${editForm.mode === 'OPEN' ? 'bg-cyan-500 text-white shadow-sm dark:shadow-none' : 'text-secondary hover:text-slate-600 dark:hover:text-slate-300'}`}>
+                                <button onClick={() => handleModeChange('OPEN')} className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${editForm.mode === 'OPEN' ? 'bg-cyan-500 text-white shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
                                     OPEN
                                 </button>
-                                <button onClick={() => handleModeChange('CLOSE TO OPEN')} className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${editForm.mode === 'CLOSE TO OPEN' ? 'bg-amber-500 text-white shadow-sm dark:shadow-none' : 'text-secondary hover:text-slate-600 dark:hover:text-slate-300'}`}>
+                                <button onClick={() => handleModeChange('CLOSE TO OPEN')} className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${editForm.mode === 'CLOSE TO OPEN' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
                                     C TO O
                                 </button>
                             </div>
@@ -2724,10 +2508,10 @@ const App: React.FC = () => {
 
                     {/* Grade Selector (Override) */}
                     <div>
-                        <label className="text-sm font-black text-secondary uppercase mb-3 block">Change Grade (Override)</label>
+                        <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-3 block">Change Grade (Override)</label>
                         <div className="flex gap-3 flex-wrap">
                             {GRADES.map(g => (
-                                <button key={g} onClick={() => setEditForm(prev => ({...prev, grade: g}))} className={`px-5 py-3 text-base font-black rounded-lg border-2 transition-all ${editForm.grade === g ? `${GRADE_COLORS[g]} text-white border-slate-800 shadow-md dark:shadow-none` : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-slate-300'}`}>
+                                <button key={g} onClick={() => setEditForm(prev => ({...prev, grade: g}))} className={`px-5 py-3 text-base font-black rounded-lg border-2 transition-all ${editForm.grade === g ? `${GRADE_COLORS[g]} text-white border-slate-800 shadow-md` : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-slate-300'}`}>
                                     {g}
                                 </button>
                             ))}
@@ -2737,25 +2521,25 @@ const App: React.FC = () => {
                     {!editForm.isSkipped && (
                         <>
                             {/* Time Input */}
-                            <div className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-xl border-2 border-slate-200/60 dark:border-slate-700/50">
-                                <label className="block text-base font-black text-secondary mb-3 flex justify-between">
+                            <div className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700">
+                                <label className="block text-base font-black text-slate-600 dark:text-slate-300 mb-3 flex justify-between">
                                     <span>Start Time</span>
                                     {editForm.mode === 'OPEN' && <span className="text-cyan-600 dark:text-cyan-400 text-sm italic font-bold">-30 mins adjusted</span>}
                                 </label>
-                                <input type="datetime-local" value={editForm.timeValue} onChange={(e) => setEditForm(prev => ({...prev, timeValue: e.target.value}))} className="w-full border-2 border-slate-300/50 dark:border-slate-600/50 rounded-xl p-4 text-2xl font-mono font-black text-slate-800 dark:text-slate-100 focus:border-indigo-500 focus:ring-4 focus:ring-indigo-100 dark:focus:ring-indigo-900 outline-none transition-all bg-white dark:bg-slate-800" />
+                                <input type="datetime-local" value={editForm.timeValue} onChange={(e) => setEditForm(prev => ({...prev, timeValue: e.target.value}))} className="w-full border-2 border-slate-300 dark:border-slate-600 rounded-xl p-4 text-2xl font-mono font-black text-slate-800 dark:text-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900 outline-none transition-all bg-white dark:bg-slate-800" />
                                 
                                 <div className="mt-6 pt-6 border-t-2 border-slate-200 dark:border-slate-600">
-                                    <label className="text-sm font-black text-secondary uppercase mb-3 block">Quick Delay Adjustment</label>
+                                    <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-3 block">Quick Delay Adjustment</label>
                                     <div className="flex items-end gap-3">
                                         <div className="flex-1">
-                                            <span className="text-xs text-secondary font-black block mb-1">HOURS</span>
-                                            <input type="number" min="0" value={editForm.delayHours} onChange={(e) => setEditForm(prev => ({...prev, delayHours: parseInt(e.target.value) || 0}))} className="w-full border-2 border-slate-300/50 dark:border-slate-600/50 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center" />
+                                            <span className="text-xs text-slate-400 font-black block mb-1">HOURS</span>
+                                            <input type="number" min="0" value={editForm.delayHours} onChange={(e) => setEditForm(prev => ({...prev, delayHours: parseInt(e.target.value) || 0}))} className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center" />
                                         </div>
                                         <div className="flex-1">
-                                            <span className="text-xs text-secondary font-black block mb-1">MINUTES</span>
-                                            <input type="number" min="0" value={editForm.delayMinutes} onChange={(e) => setEditForm(prev => ({...prev, delayMinutes: parseInt(e.target.value) || 0}))} className="w-full border-2 border-slate-300/50 dark:border-slate-600/50 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center" />
+                                            <span className="text-xs text-slate-400 font-black block mb-1">MINUTES</span>
+                                            <input type="number" min="0" value={editForm.delayMinutes} onChange={(e) => setEditForm(prev => ({...prev, delayMinutes: parseInt(e.target.value) || 0}))} className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center" />
                                         </div>
-                                        <button onClick={applyManualDelay} className="bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-400 text-white font-black px-6 py-3 rounded-lg h-[60px] text-sm transition-all shadow-md dark:shadow-none active:scale-95">
+                                        <button onClick={applyManualDelay} className="bg-blue-600 hover:bg-blue-700 text-white font-black px-6 py-3 rounded-lg h-[60px] text-sm transition-all shadow-md active:scale-95">
                                             APPLY (+{editForm.manualDelayMinutes}m)
                                         </button>
                                     </div>
@@ -2764,23 +2548,28 @@ const App: React.FC = () => {
 
                             {/* Shift Toggle */}
                             <div className="flex items-center gap-4 bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border-2 border-orange-100 dark:border-orange-900/40 cursor-pointer" onClick={() => setEditForm(prev => ({...prev, shiftSubsequent: !prev.shiftSubsequent}))}>
-                                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${editForm.shiftSubsequent ? 'bg-orange-500 border-orange-600' : 'bg-white dark:bg-slate-800 border-slate-300/50 dark:border-slate-600/50'}`}>
+                                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${editForm.shiftSubsequent ? 'bg-orange-500 border-orange-600' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'}`}>
                                     {editForm.shiftSubsequent && <div className="w-3 h-3 bg-white rounded-sm" />}
                                 </div>
                                 <div className="flex-1">
                                     <span className="block text-base font-black text-slate-700 dark:text-slate-300">
                                         {editForm.shiftSubsequent ? 'Continue Interval (Shift Active)' : 'Stop Running Interval (Shift Schedule)'}
                                     </span>
-                                    <span className="block text-xs font-bold text-secondary">Delay will push all subsequent batches forward</span>
+                                    <span className="block text-xs font-bold text-slate-500 dark:text-slate-500">Delay will push all subsequent batches forward</span>
                                 </div>
                                 <PauseCircle className="w-6 h-6 text-orange-400" />
                             </div>
                         </>
                     )}
 
+                    {/* Notes */}
+                    <div>
+                        <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-3 block">Operator Notes</label>
+                        <textarea value={editForm.note} onChange={(e) => setEditForm(prev => ({...prev, note: e.target.value}))} placeholder="Add information for DCS operator..." className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl p-4 text-base font-bold focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px]" />
+                    </div>
                 </div>
 
-                <div className="bg-slate-50 dark:bg-slate-900 p-6 border-t-2 border-slate-200/60 dark:border-slate-700/50 flex gap-4 justify-end shrink-0">
+                <div className="bg-slate-50 dark:bg-slate-900 p-6 border-t-2 border-slate-200 dark:border-slate-800 flex gap-4 justify-end shrink-0">
                     {config.itemConfigs[selectedItem.id] && (
                         <button onClick={clearOverride} className="px-6 py-3 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl font-black text-base transition-colors mr-auto border-2 border-transparent hover:border-red-200">
                             Reset
@@ -2789,7 +2578,7 @@ const App: React.FC = () => {
                     <button onClick={closeRescheduleModal} className="px-6 py-3 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-black text-base">
                         Cancel
                     </button>
-                    <button onClick={saveReschedule} className="px-8 py-3 bg-indigo-600 dark:bg-indigo-500 hover:bg-indigo-700 dark:hover:bg-indigo-400 text-white rounded-xl font-black text-lg shadow-lg dark:shadow-none hover:shadow-xl dark:shadow-none transition-all transform hover:-translate-y-1 active:scale-95">
+                    <button onClick={saveReschedule} className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 active:scale-95">
                         Save Changes
                     </button>
                 </div>
@@ -2800,23 +2589,23 @@ const App: React.FC = () => {
       {/* --- Edit Reactor Note Modal --- */}
       {editingReactorNote && (
           <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl dark:shadow-none w-full max-w-sm p-6 animate-in zoom-in-95">
-                  <h3 className="text-lg font-bold text-slate-800 dark:text-slate-100 mb-4">Edit Note for Reactor {editingReactorNote}</h3>
+              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-sm p-6 animate-in zoom-in-95">
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Edit Note for Reactor {editingReactorNote}</h3>
                   <div className="flex justify-center mb-4">
                       <textarea
                         value={tempReactorNote}
                         onChange={(e) => setTempReactorNote(e.target.value)}
                         placeholder="Enter note..."
-                        className="w-[220px] border-2 border-red-600 bg-yellow-400 text-black rounded px-2 py-1 focus:ring-2 focus:ring-indigo-500 outline-none font-bold text-left resize-none shadow-sm dark:shadow-none leading-tight text-sm"
+                        className="w-[220px] border-2 border-red-600 bg-yellow-400 text-black rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none font-bold text-left resize-none shadow-sm leading-tight text-sm"
                         rows={3}
                         autoFocus
                       />
                   </div>
                   <div className="flex gap-2 justify-end">
-                      <button onClick={() => setEditingReactorNote(null)} className="px-4 py-2 text-secondary font-bold hover:bg-slate-100 dark:hover:bg-slate-700 rounded">
+                      <button onClick={() => setEditingReactorNote(null)} className="px-4 py-2 text-slate-500 font-bold hover:bg-slate-100 dark:hover:bg-slate-700 rounded">
                           Cancel
                       </button>
-                      <button onClick={saveReactorNote} className="px-4 py-2 bg-indigo-600 dark:bg-indigo-500 text-white font-bold rounded hover:bg-indigo-700 dark:hover:bg-indigo-400">
+                      <button onClick={saveReactorNote} className="px-4 py-2 bg-blue-600 text-white font-bold rounded hover:bg-blue-700">
                           Save
                       </button>
                   </div>
@@ -2827,7 +2616,7 @@ const App: React.FC = () => {
       {/* --- Reset Sequence Modal --- */}
       {isResetModalOpen && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
-              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl dark:shadow-none w-full max-w-md overflow-hidden transform transition-all scale-100 ring-4 ring-red-500/50">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 ring-4 ring-red-500/50">
                   {/* Header */}
                   <div className="bg-red-600 text-white p-6 flex items-center justify-between">
                       <div>
@@ -2847,7 +2636,7 @@ const App: React.FC = () => {
                       
                       {/* Batch Number Input */}
                       <div className="space-y-2">
-                          <label className="text-xs font-bold text-secondary uppercase tracking-widest block">New Start Batch Number</label>
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">New Start Batch Number</label>
                           <input 
                               type="number" 
                               autoFocus
@@ -2858,8 +2647,8 @@ const App: React.FC = () => {
                       </div>
 
                       {/* Time Input */}
-                      <div className="space-y-2 bg-slate-50 dark:bg-slate-800 p-3 rounded-xl border border-slate-200/60 dark:border-slate-700/50">
-                          <label className="text-xs font-bold text-secondary uppercase tracking-widest block mb-1">New Start Time (Reactor S)</label>
+                      <div className="space-y-2 bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">New Start Time (Reactor S)</label>
                           <input 
                               type="datetime-local" 
                               value={resetParams.time}
@@ -2871,7 +2660,7 @@ const App: React.FC = () => {
                   </div>
 
                   {/* Footer */}
-                  <div className="p-4 bg-slate-50/50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex gap-3">
+                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex gap-3">
                       <button 
                         onClick={() => setIsResetModalOpen(false)}
                         className="flex-1 py-4 font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
@@ -2880,7 +2669,7 @@ const App: React.FC = () => {
                       </button>
                       <button 
                         onClick={submitResetSequence}
-                        className="flex-[2] bg-red-600 hover:bg-red-700 text-white font-black text-lg py-4 rounded-xl shadow-lg dark:shadow-none flex items-center justify-center gap-2 transform active:scale-95 transition-all"
+                        className="flex-[2] bg-red-600 hover:bg-red-700 text-white font-black text-lg py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 transform active:scale-95 transition-all"
                       >
                           <Check className="w-6 h-6" />
                           CONFIRM RESET
