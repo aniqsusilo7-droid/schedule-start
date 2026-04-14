@@ -127,7 +127,7 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
       <div className="flex flex-col shadow-xl rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
           <div className="bg-teal-600 text-white font-black text-base px-6 py-4 flex items-center gap-2 uppercase tracking-widest">
               <Calculator className="w-5 h-5" />
-              Operational Calculation Matrix
+              Operational Calculation
           </div>
           <div className="p-6 overflow-x-auto">
               <table className="w-full border-collapse text-center">

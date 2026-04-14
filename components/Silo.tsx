@@ -71,7 +71,7 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
       <div className="flex flex-col shadow-xl rounded-2xl overflow-hidden border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900">
           <div className="bg-cyan-600 text-white font-black text-base px-6 py-4 flex items-center gap-2 uppercase tracking-widest">
               <Database className="w-5 h-5" />
-              Silo Operational Matrix
+              Silo Operational
           </div>
           <div className="p-6 overflow-x-auto">
               <table className="w-full border-collapse text-center">
@@ -193,8 +193,8 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
                   {/* Silo O Col */}
                   <div className="flex flex-col gap-2">
                        <UpdateRow 
-                          val={silos.O.percentage.toString()} 
-                          total={silos.O.totalUpdate.toString()} 
+                          val={String(silos.O.percentage || '')} 
+                          total={String(silos.O.totalUpdate || '')} 
                           onPercentChange={(v) => handleChange('O', 'percentage', v)}
                           onTotalChange={(v) => handleChange('O', 'totalUpdate', v)}
                           getInputClass={getInputClass}
@@ -206,8 +206,8 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
                   <div className="flex flex-col gap-2">
                        <UpdateRow val="" total="" isEmpty getInputClass={getInputClass} />
                        <UpdateRow 
-                          val={silos.P.percentage.toString()} 
-                          total={silos.P.totalUpdate.toString()} 
+                          val={String(silos.P.percentage || '')} 
+                          total={String(silos.P.totalUpdate || '')} 
                           onPercentChange={(v) => handleChange('P', 'percentage', v)}
                           onTotalChange={(v) => handleChange('P', 'totalUpdate', v)}
                           isHash 
@@ -220,8 +220,8 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
                        <UpdateRow val="" total="" isEmpty getInputClass={getInputClass} />
                        <UpdateRow val="" total="" isEmpty getInputClass={getInputClass} />
                        <UpdateRow 
-                          val={silos.Q.percentage.toString()} 
-                          total={silos.Q.totalUpdate.toString()} 
+                          val={String(silos.Q.percentage || '')} 
+                          total={String(silos.Q.totalUpdate || '')} 
                           onPercentChange={(v) => handleChange('Q', 'percentage', v)}
                           onTotalChange={(v) => handleChange('Q', 'totalUpdate', v)}
                           isHash 

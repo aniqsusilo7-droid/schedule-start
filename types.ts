@@ -85,4 +85,5 @@ export interface DemonomerData {
   multipliers: Record<GradeType, number>;
   pvcFormula: string;
   steamFormula: string;
+  cycleTimeFormula: string;
 }

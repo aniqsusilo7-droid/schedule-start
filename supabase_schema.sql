@@ -85,3 +85,4 @@ BEGIN
         CREATE POLICY "Allow all access to reactor_notes" ON reactor_notes FOR ALL USING (true) WITH CHECK (true);
     END IF;
 END $$;
+

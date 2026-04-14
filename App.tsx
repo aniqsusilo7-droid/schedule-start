@@ -104,6 +104,7 @@ const App: React.FC = () => {
 
   // Zoom State (Supabase Persistence)
   const [zoomLevel, setZoomLevel] = useState<number>(1);
+  const [isNoteFocused, setIsNoteFocused] = useState(false);
 
   // Catalyst State (Supabase Persistence)
   const [catalystData, setCatalystData] = useState({
@@ -119,9 +120,13 @@ const App: React.FC = () => {
       pvcPercent: 25,
       multipliers: { SM: 118, SLP: 108, SLK: 128, SE: 140, SR: 100 },
       pvcFormula: "F2002*AI2802/1000*%PVC",
-      steamFormula: "PVC * Steam Rasio"
+      steamFormula: "PVC * Steam Rasio",
+      cycleTimeFormula: "(COMP - HOLD) + 2"
   });
   const [demonomerGrade, setDemonomerGrade] = useState<GradeType>('SM');
+
+  const [isFormulaModalOpen, setIsFormulaModalOpen] = useState(false);
+  const [tempFormula, setTempFormula] = useState("");
 
   // --- Cycle Time State ---
   const [cycleTimeData, setCycleTimeData] = useState([
@@ -196,6 +201,8 @@ const App: React.FC = () => {
   const announcedBatches = useRef<Set<string>>(new Set());
   const [audioAllowed, setAudioAllowed] = useState(false); // Track if audio is allowed
   const [dbSchemaError, setDbSchemaError] = useState<string | null>(null);
+
+  const activeDemonomerGrade = config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade;
 
   // --- Auto-hide Settings Button Logic ---
   const [isSettingsButtonVisible, setIsSettingsButtonVisible] = useState(true);
@@ -1150,8 +1157,8 @@ const App: React.FC = () => {
           {/* Center Section: Title */}
           <div className="flex flex-col items-center justify-center shrink-0 p-1.5 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-sm mx-4">
             <h1 className="text-[2.0em] font-black text-slate-900 dark:text-white tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm">
-               <span className="text-blue-600 dark:text-blue-400">REACTOR</span> 
-               <span className="text-slate-800 dark:text-slate-200">SCHEDULE</span>
+               <span className="text-blue-600 dark:text-blue-400">SCHEDULE</span> 
+               <span className="text-slate-800 dark:text-slate-200">START</span>
             </h1>
             <div className="flex items-center gap-4 mt-1 border-t-2 border-slate-200 dark:border-slate-700 pt-1 w-full justify-center">
                 <span className="text-[0.8em] font-black text-slate-500 dark:text-slate-400 tracking-widest uppercase">
@@ -1257,7 +1264,7 @@ const App: React.FC = () => {
                   {/* RESET SEQUENCE BUTTON (Renamed and Moved) */}
                   <div className="md:col-span-1 flex flex-col justify-end">
                       <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Sequence Control</label>
-                      <button onClick={handleResetSequence} className="flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-black bg-red-600 text-white hover:bg-red-700 border border-red-700 transition-all shadow-lg transform active:scale-95">
+                      <button onClick={handleResetSequence} className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-black bg-red-600 text-white hover:bg-red-700 border border-red-700 transition-all shadow-lg transform active:scale-95`}>
                         <RotateCcw className="w-6 h-6" />
                         INPUT FOR RE-S
                       </button>
@@ -1395,9 +1402,9 @@ const App: React.FC = () => {
                       <Timer className="w-3 h-3" /> Interval (HH:MM)
                     </label>
                     <div className="flex gap-2 items-center">
-                      <input type="number" min="0" max="23" value={config.intervalHours} onChange={(e) => handleConfigChange('intervalHours', parseInt(e.target.value) || 0)} className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" />
+                      <input type="number" min="0" max="23" value={config.intervalHours} onChange={(e) => handleConfigChange('intervalHours', parseInt(e.target.value) || 0)} className={`w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none shadow-sm`} />
                       <span className="font-black text-2xl dark:text-white">:</span>
-                      <input type="number" min="0" max="59" value={config.intervalMinutes} onChange={(e) => handleConfigChange('intervalMinutes', parseInt(e.target.value) || 0)} className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" />
+                      <input type="number" min="0" max="59" value={config.intervalMinutes} onChange={(e) => handleConfigChange('intervalMinutes', parseInt(e.target.value) || 0)} className={`w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none shadow-sm`} />
                     </div>
                   </div>
                   
@@ -1405,14 +1412,14 @@ const App: React.FC = () => {
                     <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
                         <ClockIcon className="w-3 h-3" /> Batch Duration (Min)
                     </label>
-                    <input type="number" min="1" max="600" value={config.batchDurationMinutes} onChange={(e) => handleConfigChange('batchDurationMinutes', parseInt(e.target.value) || 1)} className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" />
+                    <input type="number" min="1" max="600" value={config.batchDurationMinutes} onChange={(e) => handleConfigChange('batchDurationMinutes', parseInt(e.target.value) || 1)} className={`w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-sm`} />
                   </div>
 
                    <div className="space-y-2">
                     <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
                         <LayoutGrid className="w-3 h-3" /> View Cycles
                     </label>
-                    <input type="number" min="1" max="10" value={config.columnsToDisplay} onChange={(e) => handleConfigChange('columnsToDisplay', parseInt(e.target.value) || 1)} className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" />
+                    <input type="number" min="1" max="10" value={config.columnsToDisplay} onChange={(e) => handleConfigChange('columnsToDisplay', parseInt(e.target.value) || 1)} className={`w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-sm`} />
                   </div>
 
                    {/* Full Screen Alert Setting */}
@@ -1421,7 +1428,7 @@ const App: React.FC = () => {
                         <Bell className="w-3 h-3" /> Full Screen Alert
                     </label>
                     <div className="flex items-center gap-3">
-                         <input type="number" min="0" max="300" value={config.alertThresholdSeconds} onChange={(e) => handleConfigChange('alertThresholdSeconds', parseInt(e.target.value) || 0)} className="w-24 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-sm" placeholder="Sec" />
+                         <input type="number" min="0" max="300" value={config.alertThresholdSeconds} onChange={(e) => handleConfigChange('alertThresholdSeconds', parseInt(e.target.value) || 0)} className={`w-24 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-sm`} placeholder="Sec" />
                         <span className="text-[10px] text-slate-500 font-black leading-tight">SECONDS BEFORE START</span>
                     </div>
                    </div>
@@ -1438,7 +1445,7 @@ const App: React.FC = () => {
                                 <button onClick={toggleMarqueePause} className={`px-4 py-2 rounded-lg border-2 font-black transition-all shadow-sm ${config.isMarqueePaused ? 'bg-red-100 text-red-600 border-red-200' : 'bg-green-100 text-green-600 border-green-200'}`} title={config.isMarqueePaused ? "Resume Animation" : "Pause Animation"}>
                                     {config.isMarqueePaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
                                 </button>
-                                <input type="text" value={config.runningText} onChange={(e) => handleConfigChange('runningText', e.target.value)} className="w-full border-2 border-slate-300 dark:border-slate-600 rounded-lg p-3 text-base font-black text-yellow-800 bg-yellow-50 dark:bg-slate-800 dark:text-yellow-400 focus:ring-2 focus:ring-yellow-400 outline-none shadow-inner" placeholder="Enter alert text here..." />
+                                <input type="text" value={config.runningText} onChange={(e) => handleConfigChange('runningText', e.target.value)} className={`w-full border-2 border-slate-300 dark:border-slate-600 rounded-lg p-3 text-base font-black text-yellow-800 bg-yellow-50 dark:bg-slate-800 dark:text-yellow-400 focus:ring-2 focus:ring-yellow-400 outline-none shadow-inner`} placeholder="Enter alert text here..." />
                             </div>
                         </div>
 
@@ -1456,7 +1463,7 @@ const App: React.FC = () => {
                                     step="1"
                                     value={config.marqueeSpeed} 
                                     onChange={(e) => handleConfigChange('marqueeSpeed', parseInt(e.target.value))} 
-                                    className="w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-blue-600 shadow-inner"
+                                    className={`w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-blue-600 shadow-inner`}
                                 />
                                 <span className="text-[10px] font-black text-slate-400">SLOW</span>
                             </div>
@@ -1564,10 +1571,15 @@ const App: React.FC = () => {
           <div className="flex flex-col shadow-sm rounded-xl w-full border border-slate-200 dark:border-slate-700">
               <button 
                   onClick={() => setCurrentView('demonomer')}
-                  className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[0.8em] px-2 py-2 text-center rounded-t-xl flex items-center justify-center gap-1 uppercase tracking-tight cursor-pointer transition-colors w-full"
+                  className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[0.8em] px-2 py-2 text-center rounded-t-xl flex items-center justify-center gap-1 uppercase tracking-tight cursor-pointer transition-colors w-full relative"
               >
                   <Activity className="w-3 h-3" />
                   ADJUST STEAM
+                  {config.gradeMode === 'gradeChange' && (
+                      <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-[10px] px-1.5 py-0.5 rounded font-black ${GRADE_COLORS[activeDemonomerGrade]} border border-white/20 shadow-sm`}>
+                          {activeDemonomerGrade}
+                      </span>
+                  )}
               </button>
               <div className="bg-white dark:bg-slate-800 rounded-b-xl p-1.5 flex flex-col gap-1.5 justify-center">
                   <div className="bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white p-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-inner flex flex-col justify-center">
@@ -1589,8 +1601,8 @@ const App: React.FC = () => {
                                   '%PVC': demonomerData.pvcPercent / 100,
                                   'F2002': demonomerData.f2002
                               }),
-                              'Steam Rasio': demonomerData.multipliers[config.currentGrade] || 0,
-                              'Multiplier': demonomerData.multipliers[config.currentGrade] || 0
+                              'Steam Rasio': demonomerData.multipliers[activeDemonomerGrade] || 0,
+                              'Multiplier': demonomerData.multipliers[activeDemonomerGrade] || 0
                           }))}
                       </div>
                   </div>
@@ -1735,21 +1747,29 @@ const App: React.FC = () => {
                         const mode = item.config?.mode || 'CLOSE';
                         const stageInfo = item.config?.stageInfo;
                         
+                        const isFuture = !isPast && !isActive && !isSkipped;
+                        
                         let cellClasses = "bg-white dark:bg-slate-700 dark:text-white shadow-sm transition-colors dark:border dark:border-slate-600/50"; 
                         if (isSkipped) {
-                            cellClasses = "bg-stone-200 dark:bg-stone-950 text-stone-500 dark:text-stone-600 border-stone-300 dark:border-stone-800"; 
+                            cellClasses = "bg-red-600 dark:bg-red-700 text-black dark:text-black border-red-700 dark:border-red-800 shadow-inner"; 
                         } else if (isActive) {
                             cellClasses = "bg-red-500 dark:bg-red-600 text-white animate-pulse ring-4 ring-red-300 dark:ring-red-900 z-10 relative"; 
                         } else if (isPast) {
                             cellClasses = "bg-slate-800 dark:bg-slate-950 text-slate-500 dark:text-slate-600 shadow-inner"; 
                         } else if (mode === 'CLOSE TO OPEN') {
                             // Cream/Light Yellow for CLOSE TO OPEN that hasn't started
-                            cellClasses = "bg-amber-50 dark:bg-amber-900/40 text-amber-900 dark:text-amber-100 border-amber-200 dark:border-amber-800 shadow-sm";
-                        } else if (!isPast && config.theme === 'dark') {
-                            // Future reactors in dark theme: Thin Yellow
-                            cellClasses = "bg-yellow-900/20 text-yellow-100 border-yellow-900/30 shadow-sm";
+                            cellClasses = "bg-amber-50 dark:bg-white text-amber-900 dark:text-black border-amber-200 dark:border-slate-300 shadow-sm";
+                        } else if (isFuture) {
+                            // Future reactors in dark theme: Pure white background, black text
+                            cellClasses = "bg-white dark:bg-white text-slate-900 dark:text-black border-slate-200 dark:border-slate-300 shadow-sm";
                         }
                         
+                        const modeBadgeClasses = mode === 'OPEN' 
+                            ? `bg-cyan-100 ${isFuture ? 'dark:bg-cyan-100' : 'dark:bg-cyan-900/50'} text-cyan-800 ${isFuture ? 'dark:text-cyan-800' : 'dark:text-cyan-200'} border-cyan-200 ${isFuture ? 'dark:border-cyan-200' : 'dark:border-cyan-800'}`
+                            : mode === 'CLOSE TO OPEN'
+                                ? `bg-amber-100 ${isFuture ? 'dark:bg-amber-100' : 'dark:bg-amber-900/50'} text-amber-800 ${isFuture ? 'dark:text-amber-800' : 'dark:text-amber-200'} border-amber-200 ${isFuture ? 'dark:border-amber-200' : 'dark:border-amber-800'}`
+                                : `bg-slate-100 ${isFuture ? 'dark:bg-slate-100' : 'dark:bg-slate-700'} text-slate-500 ${isFuture ? 'dark:text-slate-500' : 'dark:text-slate-300'} border-slate-200 ${isFuture ? 'dark:border-slate-200' : 'dark:border-slate-600'}`;
+
                         return (
                           <td 
                               key={item.id} 
@@ -1760,21 +1780,25 @@ const App: React.FC = () => {
                               
                               {/* Top Row: Batch, Date, Grade */}
                               <div className="flex justify-between items-start mb-0.5 relative">
-                                <div className="flex flex-col leading-none z-10">
+                                <div className="flex flex-col leading-none z-10 relative">
                                    {!isSkipped ? (
-                                      <span className={`font-bold font-mono ${isActive ? 'text-white' : (reactor.id === 'S' || reactor.id === 'T' ? 'text-red-600 dark:text-red-400' : 'text-red-500 dark:text-red-400')} ${isPast ? '!text-inherit' : ''}`} style={{ fontSize: '1.0em' }}>
-                                          <span className="opacity-50 text-[0.5em] mr-0.5">#</span>{item.batchNumber}
-                                      </span>
+                                         <span className={`font-bold font-mono ${isActive ? 'text-white' : (reactor.id === 'S' || reactor.id === 'T' ? (isFuture ? 'text-red-600 dark:text-red-600' : 'text-red-600 dark:text-red-400') : (isFuture ? 'text-red-500 dark:text-red-500' : 'text-red-500 dark:text-red-400'))} ${isPast ? '!text-inherit' : ''}`} style={{ fontSize: '1.0em' }}>
+                                             <span className="opacity-50 text-[0.5em] mr-0.5">#</span>{item.batchNumber}
+                                         </span>
                                   ) : (
-                                      <span className="text-sm font-bold font-mono text-stone-400 dark:text-stone-600">---</span>
+                                      <span className="font-black font-mono uppercase tracking-wider" style={{ fontSize: '1.1em' }}>PASS</span>
                                   )}
                                 </div>
                                 
-                                <div className="absolute inset-0 flex justify-center pointer-events-none">
-                                    <span className={`font-bold ${isActive ? 'text-white/90' : 'text-slate-500 dark:text-slate-400'}`} style={{ fontSize: '0.85em' }}>
-                                        {formatDate(item.startTime)}
-                                    </span>
-                                </div>
+                                {/* Centered Note Indicator */}
+                                {item.config?.note && (
+                                    <div className="absolute inset-x-0 top-0 flex justify-center pointer-events-none z-20">
+                                        <div className="flex items-center gap-0.5 bg-red-600 animate-blink px-1.5 py-0.5 rounded shadow-md border border-white/50">
+                                            <FileText className="w-3.5 h-3.5 text-white" />
+                                            <span className="text-[0.75em] text-white font-black leading-none uppercase tracking-tighter">NOTE</span>
+                                        </div>
+                                    </div>
+                                )}
 
                                 <div className="text-right z-10">
                                   <div className={`font-black px-1.5 py-0.5 rounded leading-none ${isActive ? 'bg-white text-red-600' : (isSkipped ? 'bg-stone-300 dark:bg-stone-800 text-stone-600 dark:text-stone-400' : `${GRADE_COLORS[item.grade] || 'bg-slate-200'} text-white`)}`} style={{ fontSize: '0.9em' }}>
@@ -1786,14 +1810,22 @@ const App: React.FC = () => {
                               {/* Middle: Start Time & Badges */}
                               <div className="text-center relative flex flex-col items-center justify-center flex-1 my-1">
                                 {isSkipped ? (
-                                  <div className="flex flex-col items-center opacity-60 gap-1">
-                                      <Ban className="w-[2.0em] h-[2.0em]" />
-                                      <span className="text-[0.8em] font-bold">SKIPPED</span>
+                                  <div className="flex flex-col items-center gap-0.5">
+                                      <span className="font-bold text-black/70" style={{ fontSize: '0.85em' }}>
+                                          {formatDate(item.startTime)}
+                                      </span>
+                                      <Ban className="w-[2.2em] h-[2.2em] text-black" />
+                                      <span className="font-black uppercase tracking-wider" style={{ fontSize: '1.8em' }}>PASS</span>
                                   </div>
                                 ) : (
                                   <>
+                                      {/* Date above time */}
+                                      <span className={`font-bold ${isActive ? 'text-white/90' : (isFuture ? 'text-slate-500 dark:text-slate-500' : 'text-slate-500 dark:text-slate-400')}`} style={{ fontSize: '0.85em' }}>
+                                          {formatDate(item.startTime)}
+                                      </span>
+                                      
                                       {/* Unified Time Display - Significantly Larger */}
-                                      <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-105' : (isPast ? 'text-slate-500 dark:text-slate-400 opacity-90 line-through' : (config.theme === 'dark' ? 'text-emerald-100' : 'text-slate-800 dark:text-slate-100'))} transition-transform`} style={{ fontSize: '2.0em' }}>
+                                      <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-105' : (isPast ? 'text-slate-500 dark:text-slate-400 opacity-90 line-through' : 'text-slate-800 dark:text-black')} transition-transform`} style={{ fontSize: '2.0em' }}>
                                           {formatTime(item.startTime)}
                                       </div>
                                       
@@ -1816,7 +1848,7 @@ const App: React.FC = () => {
                                               </div>
                                           )}
                                           {/* Mode Badge - Visible for Open/Close Status */}
-                                          <div className={`font-bold px-1.5 py-0.5 rounded uppercase border flex items-center gap-1 ${mode === 'OPEN' ? 'bg-cyan-100 dark:bg-cyan-900/50 text-cyan-800 dark:text-cyan-200 border-cyan-200 dark:border-cyan-800' : (mode === 'CLOSE TO OPEN' && config.theme === 'dark') ? 'bg-amber-100 dark:bg-amber-900/50 text-amber-800 dark:text-amber-200 border-amber-200 dark:border-amber-800' : 'bg-slate-100 dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600'}`} style={{ fontSize: '0.7em' }}>
+                                          <div className={`font-bold px-1.5 py-0.5 rounded uppercase border flex items-center gap-1 ${modeBadgeClasses}`} style={{ fontSize: '0.7em' }}>
                                               <span className="text-[0.5em] opacity-70 mr-0.5">MODE</span>
                                               {mode}
                                           </div>
@@ -1839,11 +1871,8 @@ const App: React.FC = () => {
                               </div>
 
                               {/* Bottom: Notes & Stage Info */}
-                              <div className={`mt-auto flex justify-between items-end border-t pt-1 ${isActive ? 'border-white/30' : 'border-black/5 dark:border-white/10'} min-h-[20px]`}>
+                              <div className={`mt-auto flex justify-between items-end border-t pt-1 ${isActive ? 'border-white/30' : (isFuture ? 'border-black/5 dark:border-black/5' : 'border-black/5 dark:border-white/10')} min-h-[20px]`}>
                                   <div className="flex gap-1 items-center shrink-0">
-                                      {item.config?.note && (
-                                          <FileText className={`w-4 h-4 ${isActive ? 'text-yellow-300' : 'text-blue-500 dark:text-blue-400'}`} />
-                                      )}
                                   </div>
                                   
                                   {stageInfo && (
@@ -1879,17 +1908,22 @@ const App: React.FC = () => {
     const allItems = (Object.values(scheduleMatrix).flat() as ScheduleItem[])
       .filter(item => item.status !== 'skipped');
 
-    // 2. Determine start and end times based on the schedule
-    const earliestTime = allItems.length > 0 
-        ? new Date(Math.min(...allItems.map(i => i.startTime.getTime()))) 
-        : new Date(now);
+    // 2. Determine start and end times based on the schedule and current time
+    const timelineTimes = [now.getTime()];
+    if (allItems.length > 0) {
+        allItems.forEach(item => {
+            timelineTimes.push(item.startTime.getTime());
+            timelineTimes.push(item.startTime.getTime() + (config.batchDurationMinutes || 240) * 60000);
+        });
+    } else {
+        timelineTimes.push(now.getTime() + 12 * 3600000);
+    }
 
+    const earliestTime = new Date(Math.min(...timelineTimes));
     const startTime = new Date(earliestTime);
     startTime.setMinutes(startTime.getMinutes() < 30 ? 0 : 30, 0, 0); // Round down to nearest 30
 
-    const latestTime = allItems.length > 0
-        ? new Date(Math.max(...allItems.map(i => i.startTime.getTime() + (config.batchDurationMinutes || 240) * 60000)))
-        : new Date(now.getTime() + 12 * 3600000);
+    const latestTime = new Date(Math.max(...timelineTimes));
 
     const totalMinutesNeeded = (latestTime.getTime() - startTime.getTime()) / 60000;
     // Calculate how many 30-min slots we need. Minimum 24 slots (12 hours).
@@ -1912,7 +1946,6 @@ const App: React.FC = () => {
             </div>
             <div>
               <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Reactor Cycle Timeline</h3>
-              <p className="text-[8px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Visual Gantt Chart & Conflict Detection</p>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -1927,18 +1960,19 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-0 overflow-x-auto relative">
-          {/* Current Time Indicator Line */}
-          {nowPos >= 0 && nowPos <= 100 && (
-            <div 
-              className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-30 pointer-events-none"
-              style={{ left: `calc(80px + ${nowPos * (100 - 80/100)}%)` }} // Adjust for sticky column width
-            >
-              <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[8px] font-black px-1 rounded">NOW</div>
-            </div>
-          )}
+        <div className="p-0 overflow-x-auto">
+          <div className="relative inline-block min-w-full">
+            {/* Current Time Indicator Line */}
+            {nowPos >= 0 && nowPos <= 100 && (
+              <div 
+                className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-30 pointer-events-none transition-all duration-1000 ease-linear"
+                style={{ left: `calc(80px + (100% - 80px) * ${nowPos / 100})` }}
+              >
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[8px] font-black px-1 rounded shadow-sm">NOW</div>
+              </div>
+            )}
 
-          <table className="w-full border-collapse table-fixed" style={{ minWidth: `${Math.max(1200, slotsCount * 60 + 80)}px` }}>
+            <table className="w-full border-collapse table-fixed" style={{ minWidth: `${Math.max(1200, slotsCount * 60 + 80)}px` }}>
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-900/50">
                 <th className="sticky left-0 z-40 bg-slate-50 dark:bg-slate-900 border-b border-r border-slate-200 dark:border-slate-800 p-2 text-slate-500 uppercase tracking-wider text-[0.6em] font-black w-20">
@@ -2018,15 +2052,12 @@ const App: React.FC = () => {
               ))}
             </tbody>
           </table>
+          </div>
         </div>
 
         {/* Footer */}
         <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <Info className="w-3.5 h-3.5 text-indigo-500" />
-            <p className="text-[9px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-              Gantt chart shows batch duration ({config.batchDurationMinutes}m). Red outlines indicate potential start-time conflicts (within 10m).
-            </p>
           </div>
           <div className="flex items-center gap-2">
             <div className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 rounded-lg">
@@ -2058,19 +2089,28 @@ const App: React.FC = () => {
                         <table className="w-full border-collapse text-center font-semibold text-[0.75em]">
                             <thead>
                                 <tr>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">NS</th>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">READY</th>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">BLOW</th>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">HOLD</th>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">COMP</th>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">CYC</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">NS START</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">READY BLOWING</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">BLOWING START</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">BLOWING HOLD</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">BLOWING COMPLETE</th>
+                                    <th 
+                                        className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em] cursor-pointer hover:text-blue-500 transition-colors"
+                                        onClick={() => {
+                                            setTempFormula(demonomerData.cycleTimeFormula);
+                                            setIsFormulaModalOpen(true);
+                                        }}
+                                        title="Click to edit formula"
+                                    >
+                                        CYCLE TIME
+                                    </th>
                                 </tr>
                             </thead>
                             <tbody>
                                 {cycleTimeData.map((row) => {
                                     const blowingHold = calculateBlowingHold(row.readyBlowing, row.blowing);
                                     
-                                    // Calculate Cycle Time: =SUM(BLOWING COMPLETE - NS - BLOWING HOLD) + 2
+                                    // Calculate Cycle Time using dynamic formula
                                     let cycleTime = '';
                                     if (row.blowingComplete && row.ns && blowingHold) {
                                         const totalDuration = calculateDuration(row.ns, row.blowingComplete);
@@ -2078,9 +2118,16 @@ const App: React.FC = () => {
                                             const [tdH, tdM] = totalDuration.split(':').map(Number);
                                             const [bhH, bhM] = blowingHold.split(':').map(Number);
                                             
-                                            const totalMins = (tdH * 60 + tdM) - (bhH * 60 + bhM) + 2;
-                                            if (totalMins >= 0) {
-                                                cycleTime = `${Math.floor(totalMins / 60).toString().padStart(2, '0')}:${(totalMins % 60).toString().padStart(2, '0')}`;
+                                            const totalMins = (tdH * 60 + tdM);
+                                            const holdMins = (bhH * 60 + bhM);
+                                            
+                                            const resultMins = evaluateMath(demonomerData.cycleTimeFormula, {
+                                                COMP: totalMins,
+                                                HOLD: holdMins
+                                            });
+
+                                            if (resultMins >= 0) {
+                                                cycleTime = `${Math.floor(resultMins / 60).toString().padStart(2, '0')}:${(Math.round(resultMins % 60)).toString().padStart(2, '0')}`;
                                             }
                                         }
                                     }
@@ -2355,6 +2402,59 @@ const App: React.FC = () => {
       </div>
 
       {/* --- START SILO CONFIRMATION MODAL --- */}
+      {isFormulaModalOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 ring-4 ring-blue-500/50">
+                  <div className="bg-blue-600 text-white p-6 flex items-center justify-between">
+                      <h3 className="text-2xl font-black flex items-center gap-2">
+                          <Calculator className="w-8 h-8 text-yellow-300" />
+                          EDIT RUMUS
+                      </h3>
+                      <button onClick={() => setIsFormulaModalOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                          <X className="w-6 h-6" />
+                      </button>
+                  </div>
+                  <div className="p-6 space-y-4">
+                      <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">RUMUS CYCLE TIME</label>
+                          <input 
+                              type="text"
+                              value={tempFormula}
+                              onChange={(e) => setTempFormula(e.target.value)}
+                              className="w-full font-mono text-lg font-bold text-blue-600 dark:text-blue-400 bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl p-4 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all"
+                              placeholder="(COMP - HOLD) + 2"
+                          />
+                      </div>
+                      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/50">
+                          <h4 className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase mb-2">Variabel yang tersedia:</h4>
+                          <ul className="text-[11px] text-slate-600 dark:text-slate-400 space-y-1 font-bold">
+                              <li><span className="text-blue-600 dark:text-blue-400">COMP</span> : Total durasi dari NS START ke BLOWING COMPLETE (menit)</li>
+                              <li><span className="text-blue-600 dark:text-blue-400">HOLD</span> : Durasi BLOWING HOLD (menit)</li>
+                          </ul>
+                      </div>
+                      <div className="flex gap-3 pt-2">
+                          <button 
+                              onClick={() => setIsFormulaModalOpen(false)}
+                              className="flex-1 px-6 py-3 rounded-xl font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all uppercase tracking-widest"
+                          >
+                              BATAL
+                          </button>
+                          <button 
+                              onClick={() => {
+                                  handleDemonomerChange('cycleTimeFormula', tempFormula);
+                                  setIsFormulaModalOpen(false);
+                              }}
+                              className="flex-1 px-6 py-3 rounded-xl font-black text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all uppercase tracking-widest"
+                          >
+                              SIMPAN
+                          </button>
+                      </div>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* --- START SILO CONFIRMATION MODAL --- */}
       {startSiloData && (
           <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
               <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 ring-4 ring-emerald-500/50">
@@ -2455,30 +2555,17 @@ const App: React.FC = () => {
                 
                 <div className="p-6 space-y-6 overflow-y-auto">
                     
-                    {/* Stage Info (Sort Info) Selector */}
-                    <div className="bg-fuchsia-50 dark:bg-fuchsia-900/20 p-6 rounded-xl border border-fuchsia-100 dark:border-fuchsia-800">
-                        <label className="text-sm font-black text-fuchsia-700 dark:text-fuchsia-300 uppercase mb-3 flex items-center gap-1">
-                            <Tag className="w-4 h-4" /> Stage Info (Label)
-                        </label>
-                        <div className="flex flex-wrap gap-3">
-                            {STAGE_OPTIONS.map(opt => (
-                                <button key={opt} onClick={() => setEditForm(prev => ({...prev, stageInfo: opt}))} className={`px-4 py-3 text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === opt ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-sm' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:bg-fuchsia-100 dark:hover:bg-slate-600'}`}>
-                                    {opt}
-                                </button>
-                            ))}
-                            <button onClick={() => setEditForm(prev => ({...prev, stageInfo: ''}))} className={`px-4 py-3 text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === '' ? 'bg-slate-200 text-slate-500 border-slate-300 dark:bg-slate-600 dark:text-slate-300 dark:border-slate-500' : 'bg-white dark:bg-slate-700 text-slate-400 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
-                                Clear
-                            </button>
-                        </div>
-                        <div className="mt-4">
-                            <input 
-                                type="text" 
-                                value={editForm.stageInfo} 
-                                onChange={(e) => setEditForm(prev => ({...prev, stageInfo: e.target.value}))}
-                                placeholder="Or type custom label..."
-                                className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-base font-black focus:ring-2 focus:ring-fuchsia-500 outline-none"
-                            />
-                        </div>
+                    {/* Notes */}
+                    <div className="mb-6">
+                        <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-3 block">Operator Notes</label>
+                        <textarea 
+                            value={editForm.note} 
+                            onChange={(e) => setEditForm(prev => ({...prev, note: e.target.value}))} 
+                            onFocus={() => setIsNoteFocused(true)}
+                            onBlur={() => setIsNoteFocused(false)}
+                            placeholder="Add information for DCS operator..." 
+                            className={`w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl p-4 text-base font-bold focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px] ${editForm.note && !isNoteFocused ? 'animate-blink border-red-500 ring-2 ring-red-500/20' : ''}`} 
+                        />
                     </div>
 
                     {/* Mode, Grade & Skip Controls */}
@@ -2487,7 +2574,7 @@ const App: React.FC = () => {
                             <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase">Status</label>
                             <button onClick={() => setEditForm(prev => ({ ...prev, isSkipped: !prev.isSkipped }))} className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 font-black transition-colors text-lg ${editForm.isSkipped ? 'bg-stone-200 text-stone-600 border-stone-300' : 'bg-white dark:bg-slate-700 text-gray-600 dark:text-gray-200 border-gray-200 dark:border-slate-600 hover:border-gray-300'}`}>
                                 <Ban className="w-5 h-5" />
-                                {editForm.isSkipped ? 'SKIPPED' : 'Active'}
+                                {editForm.isSkipped ? 'PASS' : 'Active'}
                             </button>
                          </div>
                          <div className="flex flex-col gap-3">
@@ -2562,10 +2649,30 @@ const App: React.FC = () => {
                         </>
                     )}
 
-                    {/* Notes */}
-                    <div>
-                        <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-3 block">Operator Notes</label>
-                        <textarea value={editForm.note} onChange={(e) => setEditForm(prev => ({...prev, note: e.target.value}))} placeholder="Add information for DCS operator..." className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl p-4 text-base font-bold focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px]" />
+                    {/* Stage Info (Sort Info) Selector */}
+                    <div className="bg-fuchsia-50 dark:bg-fuchsia-900/20 p-6 rounded-xl border border-fuchsia-100 dark:border-fuchsia-800">
+                        <label className="text-sm font-black text-fuchsia-700 dark:text-fuchsia-300 uppercase mb-3 flex items-center gap-1">
+                            <Tag className="w-4 h-4" /> Stage Info (Label)
+                        </label>
+                        <div className="flex flex-wrap gap-3">
+                            {STAGE_OPTIONS.map(opt => (
+                                <button key={opt} onClick={() => setEditForm(prev => ({...prev, stageInfo: opt}))} className={`px-4 py-3 text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === opt ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-sm' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:bg-fuchsia-100 dark:hover:bg-slate-600'}`}>
+                                    {opt}
+                                </button>
+                            ))}
+                            <button onClick={() => setEditForm(prev => ({...prev, stageInfo: ''}))} className={`px-4 py-3 text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === '' ? 'bg-slate-200 text-slate-500 border-slate-300 dark:bg-slate-600 dark:text-slate-300 dark:border-slate-500' : 'bg-white dark:bg-slate-700 text-slate-400 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
+                                Clear
+                            </button>
+                        </div>
+                        <div className="mt-4">
+                            <input 
+                                type="text" 
+                                value={editForm.stageInfo} 
+                                onChange={(e) => setEditForm(prev => ({...prev, stageInfo: e.target.value}))}
+                                placeholder="Or type custom label..."
+                                className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-base font-black focus:ring-2 focus:ring-fuchsia-500 outline-none"
+                            />
+                        </div>
                     </div>
                 </div>
 
