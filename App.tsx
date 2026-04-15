@@ -2217,7 +2217,7 @@ const App: React.FC = () => {
                         </table>
                         <button 
                             onClick={() => setCycleTimeData(prev => [...prev, { id: Date.now(), ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }])}
-                            className="mt-1 w-full py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold rounded-lg border border-dashed border-indigo-300 dark:border-indigo-700 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-1 text-[7px]"
+                            className="mt-1 w-full py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold rounded-lg border border-dashed border-indigo-300 dark:border-indigo-700 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-1 text-[0.7em]"
                         >
                             <LayoutGrid className="w-3 h-3" />
                             ADD ROW
