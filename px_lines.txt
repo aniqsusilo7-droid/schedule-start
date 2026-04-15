@@ -1,0 +1,81 @@
+      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-1 shadow-sm z-30 relative transition-colors duration-300" style={{ fontSize: `${config.tableFontSize}px` }}>
+        <div className="flex flex-row items-center justify-between gap-2 w-full max-w-[1920px] mx-auto relative overflow-x-auto pb-0.5">
+                     <div className="px-4 py-1.5 flex flex-col items-center justify-center border-r border-slate-700/50 min-w-[120px]">
+                     <div className="px-4 py-1.5 flex flex-col items-center justify-center min-w-[200px]">
+                        <div className="bg-white w-full mx-2 text-slate-900 px-2 py-1 rounded shadow-sm font-mono font-black text-[1.5em] tracking-widest leading-none flex items-center justify-center">
+                <div className="h-3 w-px bg-slate-300 dark:bg-slate-600"></div>
+                    <button onClick={() => setCurrentView('scheduler')} className={`px-3 lg:px-5 py-2 lg:py-2.5 text-sm lg:text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'scheduler' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+                    <button onClick={() => setCurrentView('demonomer')} className={`px-3 lg:px-5 py-2 lg:py-2.5 text-sm lg:text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'demonomer' ? 'bg-white dark:bg-slate-600 text-teal-700 dark:text-teal-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+                     <button onClick={() => setCurrentView('silo')} className={`px-3 lg:px-5 py-2 lg:py-2.5 text-sm lg:text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'silo' ? 'bg-white dark:bg-slate-600 text-cyan-700 dark:text-cyan-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
+                    <div className={`w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1 transition-opacity duration-500 ${isSettingsButtonVisible || isSettingsOpen ? 'opacity-100' : 'opacity-0'}`}></div>
+                <div className="w-full px-6 mx-auto">
+                                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-black text-xs transition-colors shadow-lg uppercase"
+                                      className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg font-bold text-xs transition-colors uppercase"
+                      <button onClick={handleResetSequence} className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-black bg-red-600 text-white hover:bg-red-700 border border-red-700 transition-all shadow-lg transform active:scale-95`}>
+                                className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-all text-xs"
+                                className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold bg-yellow-500 text-black hover:bg-yellow-600 transition-all text-xs"
+                              <span className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400">Next Batch</span>
+                          <div className="h-8 w-px bg-emerald-200 dark:bg-emerald-700"></div>
+                              <span className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400">Est. Start Time</span>
+                        <span className="text-[10px] text-slate-500 font-black leading-tight">SECONDS BEFORE START</span>
+                                <button onClick={toggleMarqueePause} className={`px-4 py-2 rounded-lg border-2 font-black transition-all shadow-sm ${config.isMarqueePaused ? 'bg-red-100 text-red-600 border-red-200' : 'bg-green-100 text-green-600 border-green-200'}`} title={config.isMarqueePaused ? "Resume Animation" : "Pause Animation"}>
+                                <span className="text-[10px] font-black text-slate-400">FAST</span>
+                                <span className="text-[10px] font-black text-slate-400">SLOW</span>
+                         <button onClick={toggleStop} className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black border-2 transition-all shadow-lg transform active:scale-95 ${config.isStopped ? 'bg-green-600 text-white border-green-700 hover:bg-green-700' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30'}`}>
+              <div className="bg-slate-800 text-white font-bold text-[0.7em] px-3 py-2 text-center uppercase tracking-tight">
+                  className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-[0.7em] px-3 py-2 text-center rounded-t-xl flex items-center justify-center gap-2 transition-colors cursor-pointer w-full uppercase tracking-tight"
+                  className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[0.8em] px-2 py-2 text-center rounded-t-xl flex items-center justify-center gap-1 uppercase tracking-tight cursor-pointer transition-colors w-full relative"
+                      <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-[10px] px-1.5 py-0.5 rounded font-black ${GRADE_COLORS[activeDemonomerGrade]} border border-white/20 shadow-sm`}>
+              <div className="bg-indigo-600 text-white font-bold text-[0.8em] px-3 py-2 text-center flex items-center justify-center gap-2 uppercase tracking-tight">
+                                  <td className={`py-2 font-black uppercase text-center rounded-l-md ${key === 'f' ? 'bg-slate-800 text-white' : key === 'h' ? 'bg-yellow-400 text-slate-900' : 'bg-purple-600 text-white'}`} style={{ width: '30px', fontSize: '1.1em' }}>
+                                  <td className="py-1 px-1">
+                                  <td className="py-1 px-1">
+        <div className="w-full h-full flex flex-row gap-2" style={{ fontSize: `${config.tableFontSize}px` }}>
+                    <tr key={reactor.id} className="border-b border-slate-200 dark:border-slate-700 last:border-0" style={{ height: `${config.tableRowHeight}px` }}>
+                      <td className={`${reactor.color} ${reactor.textColor} border-r border-slate-900/10 dark:border-slate-900/30 p-2 relative group w-[112px]`}>
+                                   <div className="bg-yellow-400 text-black font-bold text-left rounded px-1 border-2 border-red-600 shadow-sm whitespace-pre-wrap break-words leading-tight" style={{ fontSize: '0.6em' }}>
+                                        <div className="flex items-center gap-0.5 bg-red-600 animate-blink px-1.5 py-0.5 rounded shadow-md border border-white/50">
+                                  <div className={`font-black px-1.5 py-0.5 rounded leading-none ${isActive ? 'bg-white text-red-600' : (isSkipped ? 'bg-stone-300 dark:bg-stone-800 text-stone-600 dark:text-stone-400' : `${GRADE_COLORS[item.grade] || 'bg-slate-200'} text-white`)}`} style={{ fontSize: '0.9em' }}>
+                                              <div className={`font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-0.5 ${item.deltaMinutes > 0 ? 'bg-yellow-400 text-yellow-900' : 'bg-cyan-100 text-cyan-800'}`} style={{ fontSize: '0.7em' }}>
+                                          <div className={`font-bold px-1.5 py-0.5 rounded uppercase border flex items-center gap-1 ${modeBadgeClasses}`} style={{ fontSize: '0.7em' }}>
+                                              <div className="font-bold bg-orange-100 text-orange-700 px-1 py-0.5 rounded uppercase border border-orange-200 flex items-center" style={{ fontSize: '0.5em' }}>
+                              <div className={`mt-auto flex justify-between items-end border-t pt-1 ${isActive ? 'border-white/30' : (isFuture ? 'border-black/5 dark:border-black/5' : 'border-black/5 dark:border-white/10')} min-h-[20px]`}>
+                                      <div className="flex-1 mx-1 self-center bg-yellow-400 text-black font-black text-center animate-pulse rounded px-1 uppercase tracking-tighter border-2 border-red-600 shadow-sm overflow-hidden text-ellipsis whitespace-nowrap" style={{ fontSize: '0.7em' }}>
+        <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Conflict</span>
+              <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Scheduled</span>
+                style={{ left: `calc(80px + (100% - 80px) * ${nowPos / 100})` }}
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[8px] font-black px-1 rounded shadow-sm">NOW</div>
+            <table className="w-full border-collapse table-fixed" style={{ minWidth: `${Math.max(1200, slotsCount * 60 + 80)}px` }}>
+                  <th key={i} className="border-b border-slate-200 dark:border-slate-800 p-1 text-slate-500 uppercase tracking-wider text-[0.7em] font-black w-[60px]">
+                  <td className="sticky left-0 z-40 bg-white dark:bg-slate-900 border-r border-b border-slate-100 dark:border-slate-800 p-2 font-black text-[0.75em] text-slate-700 dark:text-slate-300 shadow-[2px_0_5px_rgba(0,0,0,0.05)]">
+                                backgroundImage: 'repeating-linear-gradient(45deg, rgba(255,255,255,0.1), rgba(255,255,255,0.1) 10px, transparent 10px, transparent 20px)',
+                                boxShadow: '0 0 0 2px #ef4444, 0 10px 15px -3px rgba(0, 0, 0, 0.1)'
+                              <span className="bg-black/20 px-1 rounded">#{item.batchNumber}</span>
+        <div className="px-4 py-3 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 flex items-center justify-between">
+            <div className="text-[9px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest bg-indigo-50 dark:bg-indigo-900/30 px-2 py-1 rounded-lg">
+            <div className="text-[9px] font-black text-red-600 dark:text-red-400 uppercase tracking-widest bg-red-50 dark:bg-red-900/30 px-2 py-1 rounded-lg flex items-center gap-1">
+           <div className="flex flex-col gap-4" style={{ fontSize: `${config.tableFontSize}px` }}>
+                    <div className={`${GRADE_COLORS[config.currentGrade] || 'bg-indigo-600'} text-white font-bold text-[0.7em] px-3 py-1 text-center rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight transition-colors`}>
+                            className="mt-1 w-full py-0.5 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold rounded-lg border border-dashed border-indigo-300 dark:border-indigo-700 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-1 text-[7px]"
+                  <div className="bg-white text-red-600 px-12 py-6 rounded-2xl shadow-xl flex flex-col items-center mb-8">
+                  <div className={`mt-12 text-2xl font-bold animate-bounce px-6 py-2 rounded-full mb-8 ${REACTORS.find(r => r.id === fullScreenAlertItem.reactorId)?.id === 'U' ? 'bg-black/20 text-black' : 'text-yellow-300 bg-red-800/50'}`}>
+                    className="px-8 py-3 bg-white text-red-600 rounded-full font-black hover:bg-red-50 transition-colors shadow-lg flex items-center gap-2 transform hover:scale-105 active:scale-95 animate-none"
+            <div className="bg-emerald-700/50 px-4 py-1 rounded-lg flex items-center gap-4 border border-emerald-500">
+                        <span className="text-[10px] opacity-70">BATCH</span>
+                        <span className="text-[10px] opacity-70">TIME</span>
+                          <h4 className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase mb-2">Variabel yang tersedia:</h4>
+                          <ul className="text-[11px] text-slate-600 dark:text-slate-400 space-y-1 font-bold">
+                              className="flex-1 px-6 py-3 rounded-xl font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all uppercase tracking-widest"
+                              className="flex-1 px-6 py-3 rounded-xl font-black text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all uppercase tracking-widest"
+                            className={`w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl p-4 text-base font-bold focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px] ${editForm.note && !isNoteFocused ? 'animate-blink border-red-500 ring-2 ring-red-500/20' : ''}`} 
+                                <button key={g} onClick={() => setEditForm(prev => ({...prev, grade: g}))} className={`px-5 py-3 text-base font-black rounded-lg border-2 transition-all ${editForm.grade === g ? `${GRADE_COLORS[g]} text-white border-slate-800 shadow-md` : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-slate-300'}`}>
+                                        <button onClick={applyManualDelay} className="bg-blue-600 hover:bg-blue-700 text-white font-black px-6 py-3 rounded-lg h-[60px] text-sm transition-all shadow-md active:scale-95">
+                                <button key={opt} onClick={() => setEditForm(prev => ({...prev, stageInfo: opt}))} className={`px-4 py-3 text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === opt ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-sm' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:bg-fuchsia-100 dark:hover:bg-slate-600'}`}>
+                            <button onClick={() => setEditForm(prev => ({...prev, stageInfo: ''}))} className={`px-4 py-3 text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === '' ? 'bg-slate-200 text-slate-500 border-slate-300 dark:bg-slate-600 dark:text-slate-300 dark:border-slate-500' : 'bg-white dark:bg-slate-700 text-slate-400 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
+                        <button onClick={clearOverride} className="px-6 py-3 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl font-black text-base transition-colors mr-auto border-2 border-transparent hover:border-red-200">
+                    <button onClick={closeRescheduleModal} className="px-6 py-3 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-black text-base">
+                    <button onClick={saveReschedule} className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 active:scale-95">
+                        className="w-[220px] border-2 border-red-600 bg-yellow-400 text-black rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none font-bold text-left resize-none shadow-sm leading-tight text-sm"
+                      <button onClick={() => setEditingReactorNote(null)} className="px-4 py-2 text-slate-500 font-bold hover:bg-slate-100 dark:hover:bg-slate-700 rounded">
+                      <button onClick={saveReactorNote} className="px-4 py-2 bg-blue-600 text-white font-bold rounded hover:bg-blue-700">

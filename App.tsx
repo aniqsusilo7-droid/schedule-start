@@ -1,7 +1,7 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { REACTORS, GRADE_COLORS } from './constants';
-import { AppState, ScheduleItem, ItemConfig, GradeType, SiloState, SiloData, DemonomerData } from './types';
+import { AppState, ScheduleItem, ItemConfig, GradeType, SiloState, SiloData, DemonomerData, AlarmSoundType } from './types';
 import { addMinutes, formatDate, formatTime } from './utils/dateUtils';
 import { Clock } from './components/Clock';
 import { Demonomer } from './components/Demonomer';
@@ -29,38 +29,150 @@ const initAudioContext = () => {
     return globalAudioCtx;
 };
 
-// Web Audio API Sound Effect (Siren)
-const playSirenSound = () => {
+// Web Audio API Sound Effects
+const playAlarmSound = (type: AlarmSoundType) => {
     try {
+        if (type === 'fajar_sadboy') {
+            const utterance = new SpeechSynthesisUtterance("cook cook cook cook cook");
+            utterance.rate = 1.5;
+            utterance.pitch = 1.2;
+            window.speechSynthesis.speak(utterance);
+            return;
+        }
+
         const ctx = initAudioContext();
         if (!ctx) return;
 
         const t = ctx.currentTime;
-        const duration = 12.0; // 12 seconds siren
+        const duration = 12.0; 
 
-        const osc = ctx.createOscillator();
-        const gainNode = ctx.createGain();
+        if (type === 'siren') {
+            const osc = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(600, t);
+            for (let i = 0; i < duration * 2; i++) {
+                osc.frequency.linearRampToValueAtTime(1200, t + i * 0.5 + 0.25);
+                osc.frequency.linearRampToValueAtTime(600, t + i * 0.5 + 0.5);
+            }
+            gainNode.gain.setValueAtTime(0, t);
+            gainNode.gain.linearRampToValueAtTime(0.1, t + 0.1);
+            gainNode.gain.setValueAtTime(0.1, t + duration - 0.5);
+            gainNode.gain.linearRampToValueAtTime(0, t + duration);
+            osc.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            osc.start(t);
+            osc.stop(t + duration);
+        } else if (type === 'rocket') {
+            // Rocket sound: low frequency noise sweeping up
+            const bufferSize = ctx.sampleRate * duration;
+            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            const noise = ctx.createBufferSource();
+            noise.buffer = buffer;
+            
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(100, t);
+            filter.frequency.exponentialRampToValueAtTime(1000, t + duration);
+            
+            const gainNode = ctx.createGain();
+            gainNode.gain.setValueAtTime(0, t);
+            gainNode.gain.linearRampToValueAtTime(0.5, t + 1);
+            gainNode.gain.linearRampToValueAtTime(0, t + duration);
+            
+            noise.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            noise.start(t);
+        } else if (type === 'jet') {
+            // Jet sound: white noise with bandpass filter sweeping
+            const bufferSize = ctx.sampleRate * duration;
+            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            const noise = ctx.createBufferSource();
+            noise.buffer = buffer;
+            
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'bandpass';
+            filter.frequency.setValueAtTime(5000, t);
+            filter.frequency.exponentialRampToValueAtTime(200, t + duration);
+            
+            const gainNode = ctx.createGain();
+            gainNode.gain.setValueAtTime(0, t);
+            gainNode.gain.linearRampToValueAtTime(0.3, t + 2);
+            gainNode.gain.setValueAtTime(0.3, t + duration - 2);
+            gainNode.gain.linearRampToValueAtTime(0, t + duration);
+            
+            noise.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            noise.start(t);
+        } else if (type === 'powerpoint') {
+            // PowerPoint animation chime
+            const osc = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(880, t); // A5
+            osc.frequency.setValueAtTime(1108.73, t + 0.1); // C#6
+            osc.frequency.setValueAtTime(1318.51, t + 0.2); // E6
+            
+            gainNode.gain.setValueAtTime(0, t);
+            gainNode.gain.linearRampToValueAtTime(0.2, t + 0.05);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, t + 1);
+            
+            osc.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            osc.start(t);
+            osc.stop(t + 1);
+        } else if (type === 'bomb') {
+            // Bomb sound: low frequency drop followed by noise burst
+            const osc = ctx.createOscillator();
+            const oscGain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.setValueAtTime(150, t);
+            osc.frequency.exponentialRampToValueAtTime(0.01, t + 1);
+            oscGain.gain.setValueAtTime(0.5, t);
+            oscGain.gain.exponentialRampToValueAtTime(0.01, t + 1);
+            osc.connect(oscGain);
+            oscGain.connect(ctx.destination);
+            osc.start(t);
+            osc.stop(t + 1);
 
-        osc.type = 'square'; // Square wave for harsh siren sound
-        
-        // Modulate frequency up and down
-        osc.frequency.setValueAtTime(600, t);
-        for (let i = 0; i < duration * 2; i++) {
-            osc.frequency.linearRampToValueAtTime(1200, t + i * 0.5 + 0.25);
-            osc.frequency.linearRampToValueAtTime(600, t + i * 0.5 + 0.5);
+            setTimeout(() => {
+                const noiseCtx = initAudioContext();
+                if (!noiseCtx) return;
+                const nt = noiseCtx.currentTime;
+                const bufferSize = noiseCtx.sampleRate * 2;
+                const buffer = noiseCtx.createBuffer(1, bufferSize, noiseCtx.sampleRate);
+                const data = buffer.getChannelData(0);
+                for (let i = 0; i < bufferSize; i++) {
+                    data[i] = Math.random() * 2 - 1;
+                }
+                const noise = noiseCtx.createBufferSource();
+                noise.buffer = buffer;
+                
+                const filter = noiseCtx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(1000, nt);
+                filter.frequency.exponentialRampToValueAtTime(100, nt + 2);
+                
+                const gainNode = noiseCtx.createGain();
+                gainNode.gain.setValueAtTime(1, nt);
+                gainNode.gain.exponentialRampToValueAtTime(0.01, nt + 2);
+                
+                noise.connect(filter);
+                filter.connect(gainNode);
+                gainNode.connect(noiseCtx.destination);
+                noise.start(nt);
+            }, 1000);
         }
-
-        // Fade in and out
-        gainNode.gain.setValueAtTime(0, t);
-        gainNode.gain.linearRampToValueAtTime(0.1, t + 0.1);
-        gainNode.gain.setValueAtTime(0.1, t + duration - 0.5);
-        gainNode.gain.linearRampToValueAtTime(0, t + duration);
-
-        osc.connect(gainNode);
-        gainNode.connect(ctx.destination);
-
-        osc.start(t);
-        osc.stop(t + duration);
 
     } catch (e) {
         console.error("Web Audio API Error:", e);
@@ -99,9 +211,6 @@ const App: React.FC = () => {
       startTime: string;
   } | null>(null);
   
-  // Design Mode State
-  const [isDesignMode, setIsDesignMode] = useState(false);
-
   // Zoom State (Supabase Persistence)
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [isNoteFocused, setIsNoteFocused] = useState(false);
@@ -188,7 +297,7 @@ const App: React.FC = () => {
     isMarqueePaused: false,
     marqueeSpeed: 30, // Default 30s
     theme: 'light',
-    layoutOrder: ['header', 'scheduler', 'catalyst'], // Updated: Header first to match request "move to top"
+    alarmSound: 'siren',
     tableRowHeight: 40, 
     tableFontSize: 14,
     batchDurationMinutes: 120,
@@ -328,11 +437,6 @@ const App: React.FC = () => {
 
       // Apply to State
       if (settingsData) {
-          const loadedLayoutOrder = settingsData.layout_order || ['header', 'scheduler', 'catalyst'];
-          if (!loadedLayoutOrder.includes('timeline')) {
-              loadedLayoutOrder.push('timeline');
-          }
-
           setConfig({
               baseBatchNumber: settingsData.base_batch_number,
               baseStartTime: settingsData.base_start_time,
@@ -347,12 +451,15 @@ const App: React.FC = () => {
               isMarqueePaused: settingsData.is_marquee_paused,
               marqueeSpeed: settingsData.marquee_speed || 30,
               theme: (settingsData.theme as 'light' | 'dark') || 'light',
+              alarmSound: (settingsData.alarm_sound as AlarmSoundType) || 'siren',
               reactorNotes: notesMap,
               itemConfigs: itemConfigsMap,
-              layoutOrder: loadedLayoutOrder,
               tableRowHeight: settingsData.table_row_height || 76,
               tableFontSize: settingsData.table_font_size || 22,
               batchDurationMinutes: settingsData.batch_duration_minutes || 120,
+              hiddenReactors: settingsData.hidden_reactors || [],
+              hiddenFields: settingsData.hidden_fields || [],
+              gradeMode: settingsData.grade_mode || 'normal'
           });
 
           // Load Zoom Level
@@ -415,9 +522,14 @@ const App: React.FC = () => {
           
           if (error) {
               // Specifically handle missing column error (PGRST204)
-              if (error.code === 'PGRST204' && error.message.includes('grade_mode')) {
-                  setDbSchemaError("Missing 'grade_mode' column in app_settings table.");
-                  console.warn("Database column 'grade_mode' is missing. Please run the SQL in supabase_schema.sql to update your database.");
+              if (error.code === 'PGRST204') {
+                  if (error.message.includes('grade_mode')) {
+                      setDbSchemaError("Missing 'grade_mode' column in app_settings table.");
+                      console.warn("Database column 'grade_mode' is missing. Please run the SQL in supabase_schema.sql to update your database.");
+                  } else if (error.message.includes('alarm_sound')) {
+                      setDbSchemaError("Missing 'alarm_sound' column in app_settings table.");
+                      console.warn("Database column 'alarm_sound' is missing. Please run the SQL in supabase_schema.sql to update your database.");
+                  }
                   return;
               }
               console.error("Failed to update settings:", error);
@@ -467,7 +579,7 @@ const App: React.FC = () => {
         isMarqueePaused: 'is_marquee_paused',
         marqueeSpeed: 'marquee_speed',
         theme: 'theme',
-        layoutOrder: 'layout_order',
+        alarmSound: 'alarm_sound',
         tableRowHeight: 'table_row_height',
         tableFontSize: 'table_font_size',
         batchDurationMinutes: 'batch_duration_minutes',
@@ -493,19 +605,6 @@ const App: React.FC = () => {
   const handleZoomReset = () => {
       setZoomLevel(1);
       updateGlobalSetting({ zoom_level: 1 });
-  };
-
-  // --- Layout Reordering Handlers ---
-  const moveSection = (index: number, direction: 'up' | 'down') => {
-      const newOrder = [...config.layoutOrder];
-      if (direction === 'up') {
-          if (index === 0) return;
-          [newOrder[index - 1], newOrder[index]] = [newOrder[index], newOrder[index - 1]];
-      } else {
-          if (index === newOrder.length - 1) return;
-          [newOrder[index + 1], newOrder[index]] = [newOrder[index], newOrder[index + 1]];
-      }
-      handleConfigChange('layoutOrder', newOrder);
   };
 
   // Update "now" every second using Web Worker to prevent background throttling
@@ -1059,7 +1158,7 @@ const App: React.FC = () => {
 
     (Object.values(scheduleMatrix).flat() as ScheduleItem[]).forEach(item => {
         if (item.status === 'active' && !announcedBatches.current.has(item.id)) {
-            playSirenSound();
+            playAlarmSound(config.alarmSound);
             announcedBatches.current.add(item.id);
             
             // Check if audio context is allowed
@@ -1081,7 +1180,7 @@ const App: React.FC = () => {
 
   // Handler to enable audio manually
   const enableAudio = () => {
-      playSirenSound();
+      playAlarmSound(config.alarmSound);
       setAudioAllowed(true);
   };
 
@@ -1108,7 +1207,7 @@ const App: React.FC = () => {
           
           // Play Siren Sound
           if (config.audioEnabled) {
-              playSirenSound();
+              playAlarmSound(config.alarmSound);
           }
       } else if (!fullScreenAlertItem) {
           setLastAlertedId(null);
@@ -1270,104 +1369,39 @@ const App: React.FC = () => {
                       </button>
                   </div>
 
-                  {/* DESIGN MODE TOGGLE */}
-                  <div className="md:col-span-2 flex items-center justify-between bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm">
-                      <div className="flex items-center gap-3 text-blue-800 dark:text-blue-300">
-                          <Palette className="w-6 h-6" />
-                          <span className="font-black text-xl uppercase">Layout Design Mode</span>
-                      </div>
-                      <button 
-                        onClick={() => setIsDesignMode(!isDesignMode)}
-                        className={`px-6 py-2 rounded-full font-black text-sm transition-all shadow-sm ${isDesignMode ? 'bg-blue-600 text-white' : 'bg-slate-200 text-slate-600 hover:bg-slate-300'}`}
-                      >
-                          {isDesignMode ? 'ACTIVE' : 'DISABLED'}
-                      </button>
-                  </div>
-
                   {/* ALERT SYSTEM CONTROLS */}
-                  <div className="md:col-span-1 flex flex-col gap-2">
-                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Alert System</label>
+                  <div className="md:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-4">
                       <div className="flex flex-col gap-2">
-                          <button 
-                            onClick={() => {
-                                if ('Notification' in window) {
-                                    Notification.requestPermission().then(permission => {
-                                        if (permission === 'granted') {
-                                            new Notification("Notifications Enabled", { body: "You will now receive reactor start alerts." });
-                                        }
-                                    });
-                                }
-                            }}
-                            className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-all text-xs"
-                          >
-                              <Bell className="w-4 h-4" /> ENABLE NOTIFICATIONS
-                          </button>
-                          <button 
-                            onClick={() => {
-                                // Just log for testing now that popups are disabled
-                                console.log("Test alert triggered (popups disabled)");
-                            }}
-                            className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold bg-yellow-500 text-black hover:bg-yellow-600 transition-all text-xs"
-                          >
-                              <AlertTriangle className="w-4 h-4" /> TEST PRIORITY ALERT
-                          </button>
-                      </div>
-                  </div>
-
-                  {/* LAYOUT REORDERING */}
-                  <div className="md:col-span-1 flex flex-col gap-2">
-                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block flex items-center gap-1">
-                          <Move className="w-3 h-3" /> Dashboard Layout
-                      </label>
-                      <Reorder.Group 
-                        axis="y" 
-                        values={config.layoutOrder} 
-                        onReorder={(newOrder) => handleConfigChange('layoutOrder', newOrder)}
-                        className="space-y-1"
-                      >
-                        {config.layoutOrder.map((sectionId) => (
-                          <Reorder.Item 
-                            key={sectionId} 
-                            value={sectionId}
-                            className="flex items-center gap-2 p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg shadow-sm cursor-grab active:cursor-grabbing hover:border-blue-400 transition-colors"
-                          >
-                            <div className="p-1 text-slate-400">
-                                <Move className="w-3 h-3" />
-                            </div>
-                            <span className="text-[10px] font-black uppercase text-slate-700 dark:text-slate-300">
-                                {SECTIONS[sectionId as keyof typeof SECTIONS]}
-                            </span>
-                          </Reorder.Item>
-                        ))}
-                      </Reorder.Group>
-                  </div>
-
-                  {isDesignMode && (
-                      <div className="md:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-4 bg-white dark:bg-slate-800 p-4 rounded-lg border border-slate-200 dark:border-slate-700">
-                          <div>
-                              <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Table Row Height ({config.tableRowHeight}px)</label>
-                              <input 
-                                type="range" 
-                                min="60" 
-                                max="200" 
-                                value={config.tableRowHeight} 
-                                onChange={(e) => handleConfigChange('tableRowHeight', parseInt(e.target.value))}
-                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-blue-600"
-                              />
-                          </div>
-                          <div>
-                              <label className="text-xs font-bold text-slate-500 uppercase mb-2 block">Table Font Size ({config.tableFontSize}px)</label>
-                              <input 
-                                type="range" 
-                                min="10" 
-                                max="24" 
-                                value={config.tableFontSize} 
-                                onChange={(e) => handleConfigChange('tableFontSize', parseInt(e.target.value))}
-                                className="w-full h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-blue-600"
-                              />
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Alert System</label>
+                          <div className="flex flex-col gap-2">
+                              <button 
+                                onClick={() => {
+                                    if ('Notification' in window) {
+                                        Notification.requestPermission().then(permission => {
+                                            if (permission === 'granted') {
+                                                new Notification("Notifications Enabled", { body: "You will now receive reactor start alerts." });
+                                            }
+                                        });
+                                    }
+                                }}
+                                className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-all text-xs"
+                              >
+                                  <Bell className="w-4 h-4" /> ENABLE NOTIFICATIONS
+                              </button>
+                              <button 
+                                onClick={() => {
+                                    // Just log for testing now that popups are disabled
+                                    console.log("Test alert triggered (popups disabled)");
+                                }}
+                                className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold bg-yellow-500 text-black hover:bg-yellow-600 transition-all text-xs"
+                              >
+                                  <AlertTriangle className="w-4 h-4" /> TEST PRIORITY ALERT
+                              </button>
                           </div>
                       </div>
-                  )}
+
+
+                  </div>
 
                   {/* NEXT PREDICTION START INFO */}
                   <div className="md:col-span-4 bg-emerald-50 dark:bg-emerald-900/20 p-6 rounded-xl border border-emerald-200 dark:border-emerald-800 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
@@ -1672,8 +1706,8 @@ const App: React.FC = () => {
 
     return (
         <div className="w-full h-full flex flex-row gap-2" style={{ fontSize: `${config.tableFontSize}px` }}>
-          {/* LEFT SIDE: 80% Table */}
-          <div className="w-[80%] flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
+          {/* LEFT SIDE: 85% Table */}
+          <div className="w-[85%] flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
             
              {/* MARQUEE BAR: Placed between header and table rows */}
              <div className="w-full bg-blue-100 dark:bg-blue-900/50 border-b border-blue-200 dark:border-blue-800 overflow-hidden h-10 relative flex items-center">
@@ -1892,8 +1926,8 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* RIGHT SIDE: 20% Widgets */}
-          <div className="w-[20%] flex flex-col gap-2 overflow-y-auto">
+          {/* RIGHT SIDE: 15% Widgets */}
+          <div className="w-[15%] flex flex-col gap-2 overflow-y-auto">
               {renderGradeSelectionWidget()}
               {renderSiloWidget()}
               {renderSteamWidget()}
@@ -1979,7 +2013,7 @@ const App: React.FC = () => {
                   REACTOR
                 </th>
                 {slots.map((slot, i) => (
-                  <th key={i} className="border-b border-slate-200 dark:border-slate-800 p-1 text-slate-500 uppercase tracking-wider text-[0.7em] font-black w-[60px]">
+                  <th key={i} className="border-b border-slate-200 dark:border-slate-800 p-1 text-slate-500 uppercase tracking-wider text-[0.7em] font-black w-[48px]">
                     {formatTime(slot)}
                   </th>
                 ))}
@@ -2232,35 +2266,6 @@ const App: React.FC = () => {
 
       if (!content) return null;
 
-      if (isDesignMode) {
-          return (
-              <div key={sectionId} className="relative group p-4 border-2 border-dashed border-blue-400 rounded-xl bg-blue-50/50 mb-4 transition-all hover:bg-blue-100/50">
-                  <div className="absolute top-2 right-2 flex gap-1 z-30 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button 
-                        onClick={() => moveSection(index, 'up')} 
-                        disabled={index === 0}
-                        className="p-1 bg-white rounded border border-blue-300 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed text-blue-700"
-                        title="Move Up"
-                      >
-                          <ArrowUp className="w-4 h-4" />
-                      </button>
-                      <button 
-                        onClick={() => moveSection(index, 'down')}
-                        disabled={index === config.layoutOrder.length - 1}
-                        className="p-1 bg-white rounded border border-blue-300 hover:bg-blue-100 disabled:opacity-50 disabled:cursor-not-allowed text-blue-700"
-                        title="Move Down"
-                      >
-                          <ArrowDown className="w-4 h-4" />
-                      </button>
-                  </div>
-                  <div className="absolute top-2 left-2 px-2 py-1 bg-blue-600 text-white text-xs font-bold rounded shadow-sm z-30 pointer-events-none">
-                      {SECTIONS[sectionId as keyof typeof SECTIONS]}
-                  </div>
-                  {content}
-              </div>
-          );
-      }
-
       return <div key={sectionId} className={sectionId === 'scheduler' && currentView === 'scheduler' ? 'h-full' : ''}>{content}</div>;
   };
 
@@ -2346,55 +2351,43 @@ const App: React.FC = () => {
 
       {/* Dynamic Layout Rendering */}
       <div className={`flex-1 flex flex-col ${currentView === 'scheduler' ? 'overflow-hidden p-1 gap-1' : 'overflow-auto p-2 gap-4'}`}>
-          {config.layoutOrder.map((sectionId, index) => {
-              // Logic to group Header, Scheduler, and Catalyst as the "Main Page"
-              const isMainSection = ['header', 'scheduler', 'catalyst'].includes(sectionId);
-              
-              if (currentView === 'scheduler') {
-                  // In scheduler view, only show the main sections
-                  if (!isMainSection) return null;
-              } else {
-                  // In other views, show the header and the specific section
-                  if (sectionId !== 'header' && sectionId !== currentView) return null;
-              }
-              
-              const content = renderSection(sectionId, index);
-              if (!content) return null;
+          {/* Header is always shown */}
+          {renderSection('header', 0)}
 
-              // If it's the scheduler in the main view, make it flexible to fill space
-              if (currentView === 'scheduler' && sectionId === 'scheduler') {
-                  return <div key={sectionId} className="flex-1 min-h-0">{content}</div>;
-              }
+          <div className="flex-1 flex flex-col min-h-0" style={{ zoom: 0.8 }}>
+              {currentView === 'scheduler' && (
+                  <>
+                      <div className="flex-1 min-h-0">{renderSection('scheduler', 1)}</div>
+                      {renderSection('catalyst', 2)}
+                  </>
+              )}
 
-              return content;
-          })}
-          
-          {/* Fallback for views not in layoutOrder */}
-          {currentView === 'demonomer' && !config.layoutOrder.includes('demonomer') && (
-            <Demonomer 
-                currentGrade={config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade} 
-                onGradeChange={(g) => {
-                    if (config.gradeMode === 'normal') {
-                        handleConfigChange('currentGrade', g);
-                    } else {
-                        setDemonomerGrade(g);
-                    }
-                }}
-                data={demonomerData}
-                onDataChange={handleDemonomerChange}
-                gradeMode={config.gradeMode}
-                onGradeModeChange={(m) => handleConfigChange('gradeMode', m)}
-            />
-          )}
+              {currentView === 'demonomer' && (
+                <Demonomer 
+                    currentGrade={config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade} 
+                    onGradeChange={(g) => {
+                        if (config.gradeMode === 'normal') {
+                            handleConfigChange('currentGrade', g);
+                        } else {
+                            setDemonomerGrade(g);
+                        }
+                    }}
+                    data={demonomerData}
+                    onDataChange={handleDemonomerChange}
+                    gradeMode={config.gradeMode}
+                    onGradeModeChange={(m) => handleConfigChange('gradeMode', m)}
+                />
+              )}
 
-          {currentView === 'silo' && !config.layoutOrder.includes('silo') && (
-            <Silo 
-                activeSilo={siloState.activeSilo}
-                silos={siloState.silos}
-                onDataChange={handleSiloDataChange}
-                onSiloSelect={handleSiloSwitch}
-            />
-          )}
+              {currentView === 'silo' && (
+                <Silo 
+                    activeSilo={siloState.activeSilo}
+                    silos={siloState.silos}
+                    onDataChange={handleSiloDataChange}
+                    onSiloSelect={handleSiloSwitch}
+                />
+              )}
+          </div>
       </div>
 
       <div className="max-w-7xl mx-auto mt-6 pb-6 text-center text-slate-400 dark:text-slate-500 text-sm font-bold">

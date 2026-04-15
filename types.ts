@@ -1,5 +1,6 @@
 
 export type GradeType = 'SM' | 'SLK' | 'SLP' | 'SE' | 'SR';
+export type AlarmSoundType = 'siren' | 'rocket' | 'jet' | 'powerpoint' | 'bomb' | 'fajar_sadboy';
 
 export interface ReactorConfig {
   id: string;
@@ -51,9 +52,9 @@ export interface AppState {
   isMarqueePaused: boolean; // Control running text animation
   marqueeSpeed: number; // Duration in seconds for marquee animation
   theme: 'light' | 'dark'; // UI Theme
+  alarmSound: AlarmSoundType; // Selected alarm sound
   
   // Design / Layout Props
-  layoutOrder: string[]; // Array of section IDs e.g. ['header', 'scheduler', 'catalyst']
   tableRowHeight: number; // pixel height
   tableFontSize: number; // pixel font size base
   batchDurationMinutes: number; // estimated duration of a batch in minutes

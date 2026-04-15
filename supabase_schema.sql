@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS app_settings (
     is_marquee_paused BOOLEAN DEFAULT FALSE,
     marquee_speed BIGINT DEFAULT 30,
     theme TEXT DEFAULT 'light',
-    layout_order TEXT[] DEFAULT ARRAY['header', 'scheduler', 'catalyst'],
+    alarm_sound TEXT DEFAULT 'siren',
     table_row_height BIGINT DEFAULT 95,
     table_font_size BIGINT DEFAULT 24,
     batch_duration_minutes BIGINT DEFAULT 120,
