@@ -14,6 +14,7 @@ export interface ReactorConfig {
 export interface ItemConfig {
   overrideTime?: string; // ISO String
   isSkipped?: boolean;
+  skipReason?: 'PASS' | 'CLEANING_ROBOT' | 'ABNORMAL_REAKSI' | 'MAINTENANCE' | 'POISON_CHARGE';
   mode?: 'OPEN' | 'CLOSE' | 'CLOSE TO OPEN';
   grade?: GradeType; // Specific grade for this batch
   note?: string;

@@ -264,6 +264,7 @@ const App: React.FC = () => {
     timeValue: string;
     note: string;
     isSkipped: boolean;
+    skipReason: 'PASS' | 'CLEANING_ROBOT' | 'ABNORMAL_REAKSI' | 'MAINTENANCE';
     mode: 'OPEN' | 'CLOSE' | 'CLOSE TO OPEN';
     grade: GradeType;
     shiftSubsequent: boolean;
@@ -428,12 +429,13 @@ const App: React.FC = () => {
               itemConfigsMap[row.id] = {
                   overrideTime: row.override_time,
                   isSkipped: row.is_skipped,
+                  skipReason: row.skip_reason || 'PASS',
                   mode: row.mode,
                   grade: row.grade,
                   note: row.note,
                   shiftSubsequent: row.shift_subsequent,
                   manualDelayMinutes: row.manual_delay_minutes,
-                  stageInfo: row.stage_info
+                  stageInfo: row.stage_info || ''
               };
           });
       }
@@ -908,6 +910,7 @@ const App: React.FC = () => {
       timeValue: localIso,
       note: itemConfig.note || '',
       isSkipped: itemConfig.isSkipped || false,
+      skipReason: itemConfig.skipReason || 'PASS',
       mode: itemConfig.mode || 'CLOSE',
       grade: itemConfig.grade || item.grade, 
       shiftSubsequent: itemConfig.shiftSubsequent || false,
@@ -973,6 +976,7 @@ const App: React.FC = () => {
         overrideTime: newDate.toISOString(),
         note: editForm.note,
         isSkipped: editForm.isSkipped,
+        skipReason: editForm.skipReason,
         mode: editForm.mode,
         grade: editForm.grade !== config.currentGrade ? editForm.grade : undefined,
         shiftSubsequent: editForm.shiftSubsequent,
@@ -996,6 +1000,7 @@ const App: React.FC = () => {
               id: selectedItem.id,
               override_time: newConfig.overrideTime,
               is_skipped: newConfig.isSkipped,
+              skip_reason: newConfig.skipReason,
               mode: newConfig.mode,
               grade: newConfig.grade,
               note: newConfig.note,
@@ -1797,20 +1802,36 @@ const App: React.FC = () => {
                         
                         const isFuture = !isPast && !isActive && !isSkipped;
                         
-                        let cellClasses = "bg-white dark:bg-slate-700 dark:text-white shadow-sm transition-colors dark:border dark:border-slate-600/50"; 
-                        if (isSkipped) {
-                            cellClasses = "bg-black dark:bg-black text-red-500 dark:text-red-500 border-black dark:border-black shadow-inner"; 
-                        } else if (isActive) {
-                            cellClasses = "bg-red-500 dark:bg-red-600 text-white animate-pulse ring-4 ring-red-300 dark:ring-red-900 z-10 relative"; 
-                        } else if (isPast) {
-                            cellClasses = "bg-blue-950 dark:bg-blue-950 text-slate-400 dark:text-slate-500 shadow-inner"; 
-                        } else if (mode === 'CLOSE TO OPEN') {
-                            // Cream/Light Yellow for CLOSE TO OPEN that hasn't started
-                            cellClasses = "bg-amber-50 dark:bg-white text-amber-900 dark:text-black border-amber-200 dark:border-slate-300 shadow-sm";
-                        } else if (isFuture) {
-                            // Future reactors in dark theme: Pure white background, black text
-                            cellClasses = "bg-white dark:bg-white text-slate-900 dark:text-black border-slate-200 dark:border-slate-300 shadow-sm";
-                        }
+                        // Base table cell styles
+                        const baseClasses = "p-0 border-r cursor-pointer transition-all duration-300 relative group hover:z-20 hover:ring-2 hover:ring-blue-400 overflow-hidden shadow-sm";
+                        
+                        // Robust conditional status styling array
+                        const statusClasses = [
+                            // 1. SKIPPED STATUS
+                            isSkipped && "bg-black dark:bg-black text-red-500 dark:text-red-500 border-black dark:border-black shadow-inner opacity-95",
+                            
+                            // 2. ACTIVE STATUS
+                            isActive && "bg-red-500 dark:bg-red-600 text-white animate-[pulse_2s_ease-in-out_infinite] ring-4 ring-red-400 dark:ring-red-900 z-10 scale-[1.02] shadow-xl border-red-500 dark:border-red-600",
+                            
+                            // 3. PAST STATUS
+                            isPast && !isSkipped && "bg-blue-950 dark:bg-slate-900 text-slate-400 dark:text-slate-500 shadow-inner border-slate-200 dark:border-slate-800 opacity-80",
+                            
+                            // 4. FUTURE STATUSES
+                            isFuture && mode === 'CLOSE TO OPEN' && "bg-amber-50 dark:bg-amber-900/30 text-amber-900 dark:text-amber-100 border-amber-200 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-800/40",
+                            isFuture && mode !== 'CLOSE TO OPEN' && "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
+                        ].filter(Boolean).join(" ");
+                        
+                        const cellClasses = `${baseClasses} ${statusClasses}`;
+                        
+                        const skipReason = item.config?.skipReason || 'PASS';
+                        const skipTextMap: Record<string, string> = {
+                            'PASS': 'PASS',
+                            'CLEANING_ROBOT': 'CLEANING ROBOT',
+                            'ABNORMAL_REAKSI': 'ABNORMAL REAKSI',
+                            'MAINTENANCE': 'MAINTENANCE',
+                            'POISON_CHARGE': 'POISON CHARGE'
+                        };
+                        const displaySkipText = skipTextMap[skipReason] || 'PASS';
                         
                         const modeBadgeClasses = mode === 'OPEN' 
                             ? `bg-cyan-100 ${isFuture ? 'dark:bg-cyan-100' : 'dark:bg-cyan-900/50'} text-cyan-800 ${isFuture ? 'dark:text-cyan-800' : 'dark:text-cyan-200'} border-cyan-200 ${isFuture ? 'dark:border-cyan-200' : 'dark:border-cyan-800'}`
@@ -1822,20 +1843,22 @@ const App: React.FC = () => {
                           <td 
                               key={item.id} 
                               onClick={() => openRescheduleModal(item)}
-                              className={`p-0 border-r border-slate-200 dark:border-slate-700 cursor-pointer transition-all duration-300 relative group hover:z-20 ${cellClasses} hover:ring-2 hover:ring-blue-400 overflow-hidden`}
+                              className={cellClasses}
                           >
                             <div className="h-full flex flex-col justify-between p-1">
                               
                               {/* Top Row: Batch, Date, Grade */}
                               <div className="flex justify-between items-start mb-0.5 relative">
                                 <div className="flex flex-col leading-none z-10 relative">
-                                   {!isSkipped ? (
+                                   {isSkipped ? (
+                                         <div className={`font-black px-1 py-0.5 rounded leading-none ${reactor.color} ${reactor.textColor} border border-white/20 shadow-sm`} style={{ fontSize: '0.85em' }}>
+                                             RE-{reactor.id}
+                                         </div>
+                                   ) : (
                                          <span className={`font-bold font-mono ${isActive ? 'text-white' : (reactor.id === 'S' || reactor.id === 'T' ? (isFuture ? 'text-red-600 dark:text-red-600' : 'text-red-600 dark:text-red-400') : (isFuture ? 'text-red-500 dark:text-red-500' : 'text-red-500 dark:text-red-400'))} ${isPast ? '!text-inherit' : ''}`} style={{ fontSize: '1.0em' }}>
                                              <span className="opacity-50 text-[0.5em] mr-0.5">#</span>{item.batchNumber}
                                          </span>
-                                  ) : (
-                                      <span className="font-black font-mono uppercase tracking-wider text-red-500" style={{ fontSize: '1.58em' }}>PASS</span>
-                                  )}
+                                   )}
                                 </div>
                                 
                                 {/* Centered Note Indicator */}
@@ -1843,7 +1866,7 @@ const App: React.FC = () => {
                                     <div className="absolute inset-x-0 top-0 flex justify-center pointer-events-none z-20">
                                         <div className="flex items-center gap-0.5 bg-red-600 animate-blink px-1.5 py-0.5 rounded shadow-md border border-white/50">
                                             <FileText className="w-3.5 h-3.5 text-white" />
-                                            <span className="text-[0.75em] text-white font-black leading-none uppercase tracking-tighter">NOTE</span>
+                                            <span className="text-[0.75em] text-white font-black leading-none uppercase tracking-tighter whitespace-nowrap">CEK NOTE</span>
                                         </div>
                                     </div>
                                 )}
@@ -1858,8 +1881,17 @@ const App: React.FC = () => {
                               {/* Middle: Start Time & Badges */}
                               <div className="text-center relative flex flex-col items-center justify-center flex-1 my-1">
                                 {isSkipped ? (
-                                  <div className="flex flex-col items-center justify-center h-full">
-                                      <span className="font-black uppercase tracking-wider leading-none text-red-500" style={{ fontSize: '2.59em' }}>PASS</span>
+                                  <div className="flex flex-col items-center justify-center w-full h-full p-0">
+                                      <span 
+                                        className={`font-black uppercase text-center leading-none text-red-500 max-w-full px-1 ${skipReason === 'MAINTENANCE' ? 'whitespace-nowrap tracking-tighter' : 'whitespace-normal break-words tracking-wider'}`} 
+                                        style={{ 
+                                          fontSize: skipReason === 'MAINTENANCE' ? '2.07em' : (skipReason === 'ABNORMAL_REAKSI' ? '2.33em' : '2.59em'), 
+                                          wordBreak: skipReason === 'MAINTENANCE' ? 'normal' : 'break-word', 
+                                          hyphens: skipReason === 'MAINTENANCE' ? 'none' : 'auto' 
+                                        }}
+                                      >
+                                          {displaySkipText}
+                                      </span>
                                   </div>
                                 ) : (
                                   <>
@@ -2616,10 +2648,25 @@ const App: React.FC = () => {
                     <div className="grid grid-cols-2 gap-6">
                          <div className="flex flex-col gap-3">
                             <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase">Status</label>
-                            <button onClick={() => setEditForm(prev => ({ ...prev, isSkipped: !prev.isSkipped }))} className={`flex items-center justify-center gap-2 p-4 rounded-xl border-2 font-black transition-colors text-lg ${editForm.isSkipped ? 'bg-stone-200 text-stone-600 border-stone-300' : 'bg-white dark:bg-slate-700 text-gray-600 dark:text-gray-200 border-gray-200 dark:border-slate-600 hover:border-gray-300'}`}>
-                                <Ban className="w-5 h-5" />
-                                {editForm.isSkipped ? 'PASS' : 'Active'}
-                            </button>
+                            <select 
+                                value={editForm.isSkipped ? editForm.skipReason : 'ACTIVE'} 
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    if (val === 'ACTIVE') {
+                                        setEditForm(prev => ({ ...prev, isSkipped: false, skipReason: 'PASS' }));
+                                    } else {
+                                        setEditForm(prev => ({ ...prev, isSkipped: true, skipReason: val as any }));
+                                    }
+                                }} 
+                                className={`w-full p-4 rounded-xl border-2 font-black transition-colors text-lg appearance-none outline-none ${editForm.isSkipped ? 'bg-stone-200 text-stone-700 border-stone-300' : 'bg-white dark:bg-slate-700 text-gray-600 dark:text-gray-200 border-gray-200 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'}`}
+                            >
+                                <option value="ACTIVE">ACTIVE</option>
+                                <option value="PASS">PASS</option>
+                                <option value="CLEANING_ROBOT">CLEANING ROBOT</option>
+                                <option value="ABNORMAL_REAKSI">ABNORMAL REAKSI</option>
+                                <option value="MAINTENANCE">MAINTENANCE</option>
+                                <option value="POISON_CHARGE">POISON CHARGE</option>
+                            </select>
                          </div>
                          <div className="flex flex-col gap-3">
                             <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase">Mode</label>

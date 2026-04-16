@@ -32,6 +32,7 @@ CREATE TABLE IF NOT EXISTS schedule_overrides (
     id TEXT PRIMARY KEY,
     override_time TIMESTAMPTZ,
     is_skipped BOOLEAN DEFAULT FALSE,
+    skip_reason TEXT DEFAULT 'PASS',
     mode TEXT DEFAULT 'CLOSE',
     grade TEXT,
     note TEXT,
