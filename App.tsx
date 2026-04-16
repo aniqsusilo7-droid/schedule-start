@@ -6,7 +6,9 @@ import { addMinutes, formatDate, formatTime } from './utils/dateUtils';
 import { Clock } from './components/Clock';
 import { Demonomer } from './components/Demonomer';
 import { Silo } from './components/Silo';
-import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator } from 'lucide-react';
+import { Catatan } from './components/Catatan';
+import { Kesepakatan } from './components/Kesepakatan';
+import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { Reorder } from 'framer-motion';
 
@@ -190,7 +192,8 @@ const SECTIONS = {
 
 const App: React.FC = () => {
   // --- State ---
-  const [currentView, setCurrentView] = useState<'scheduler' | 'demonomer' | 'silo'>('scheduler');
+  const [currentView, setCurrentView] = useState<'scheduler' | 'demonomer' | 'silo' | 'catatan' | 'kesepakatan'>('scheduler');
+  const [isDemonomerPopupOpen, setIsDemonomerPopupOpen] = useState(false);
   const [now, setNow] = useState(new Date());
   
   // State for dismissed alerts (to allow closing the full screen overlay)
@@ -1274,25 +1277,36 @@ const App: React.FC = () => {
           {/* Right Section: Navigation & Settings */}
           <div className="flex shrink-0">
               
-              {/* Navigation Pill */}
-              <div className="flex items-center bg-slate-100 dark:bg-slate-800 p-1 rounded-xl border border-slate-200 dark:border-slate-700 shadow-inner">
-                    <button onClick={() => setCurrentView('scheduler')} className={`px-3 lg:px-5 py-2 lg:py-2.5 text-sm lg:text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'scheduler' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
-                        <LayoutGrid className="w-4 lg:w-5 h-4 lg:h-5" /> <span>POLYMER</span>
-                    </button>
-                    <button onClick={() => setCurrentView('demonomer')} className={`px-3 lg:px-5 py-2 lg:py-2.5 text-sm lg:text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'demonomer' ? 'bg-white dark:bg-slate-600 text-teal-700 dark:text-teal-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
-                        <Activity className="w-4 lg:w-5 h-4 lg:h-5" /> <span>DEMONOMER</span>
-                    </button>
-                     <button onClick={() => setCurrentView('silo')} className={`px-3 lg:px-5 py-2 lg:py-2.5 text-sm lg:text-base font-black uppercase rounded-lg transition-all flex items-center gap-2 ${currentView === 'silo' ? 'bg-white dark:bg-slate-600 text-cyan-700 dark:text-cyan-300 shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`}>
-                        <Database className="w-4 lg:w-5 h-4 lg:h-5" /> <span>SILO</span>
-                    </button>
-                    <div className={`w-px h-8 bg-slate-200 dark:bg-slate-700 mx-1 transition-opacity duration-500 ${isSettingsButtonVisible || isSettingsOpen ? 'opacity-100' : 'opacity-0'}`}></div>
-                    <button 
-                        onClick={() => setIsSettingsOpen(!isSettingsOpen)} 
-                        className={`p-2 lg:p-2.5 rounded-lg transition-all duration-500 ${isSettingsButtonVisible || isSettingsOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 pointer-events-none'} ${isSettingsOpen ? 'bg-blue-600 text-white shadow-md' : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-200'}`} 
-                        title="Settings"
-                    >
-                        <Settings className="w-5 lg:w-6 h-5 lg:h-6" />
-                    </button>
+              {/* Navigation Pill - Premium Style */}
+              <div className="flex flex-wrap items-center gap-1 bg-slate-200/50 dark:bg-slate-800/50 p-1.5 rounded-full border border-slate-300/50 dark:border-slate-700/50 shadow-sm backdrop-blur-md">
+                  <button onClick={() => setCurrentView('scheduler')} className={`relative px-5 py-2 text-sm font-bold uppercase rounded-full transition-all duration-300 flex items-center gap-2 ${currentView === 'scheduler' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-md ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-300/30 dark:hover:bg-slate-700/30'}`}>
+                      <LayoutGrid className={`w-4 h-4 transition-colors ${currentView === 'scheduler' ? 'text-blue-600 dark:text-blue-400' : ''}`} /> <span>POLYMER</span>
+                  </button>
+                  <button onClick={() => setCurrentView('demonomer')} className={`relative px-5 py-2 text-sm font-bold uppercase rounded-full transition-all duration-300 flex items-center gap-2 ${currentView === 'demonomer' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-md ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-300/30 dark:hover:bg-slate-700/30'}`}>
+                      <Activity className={`w-4 h-4 transition-colors ${currentView === 'demonomer' ? 'text-teal-600 dark:text-teal-400' : ''}`} /> <span>DEMONOMER</span>
+                  </button>
+                  <button onClick={() => setCurrentView('silo')} className={`relative px-5 py-2 text-sm font-bold uppercase rounded-full transition-all duration-300 flex items-center gap-2 ${currentView === 'silo' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-md ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-300/30 dark:hover:bg-slate-700/30'}`}>
+                      <Database className={`w-4 h-4 transition-colors ${currentView === 'silo' ? 'text-cyan-600 dark:text-cyan-400' : ''}`} /> <span>SILO</span>
+                  </button>
+                  
+                  <div className="w-px h-5 bg-slate-300 dark:bg-slate-600 mx-1"></div>
+                  
+                  <button onClick={() => setCurrentView('catatan')} className={`relative px-5 py-2 text-sm font-bold uppercase rounded-full transition-all duration-300 flex items-center gap-2 ${currentView === 'catatan' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-md ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-300/30 dark:hover:bg-slate-700/30'}`}>
+                      <FileText className={`w-4 h-4 transition-colors ${currentView === 'catatan' ? 'text-emerald-600 dark:text-emerald-400' : ''}`} /> <span>CATATAN</span>
+                  </button>
+                  <button onClick={() => setCurrentView('kesepakatan')} className={`relative px-5 py-2 text-sm font-bold uppercase rounded-full transition-all duration-300 flex items-center gap-2 ${currentView === 'kesepakatan' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-md ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-300/30 dark:hover:bg-slate-700/30'}`}>
+                      <Handshake className={`w-4 h-4 transition-colors ${currentView === 'kesepakatan' ? 'text-emerald-600 dark:text-emerald-400' : ''}`} /> <span>KESEPAKATAN</span>
+                  </button>
+                  
+                  <div className={`w-px h-5 bg-slate-300 dark:bg-slate-600 mx-1 transition-opacity duration-500 ${isSettingsButtonVisible || isSettingsOpen ? 'opacity-100' : 'opacity-0'}`}></div>
+                  
+                  <button 
+                      onClick={() => setIsSettingsOpen(!isSettingsOpen)} 
+                      className={`p-2 rounded-full transition-all duration-500 ${isSettingsButtonVisible || isSettingsOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 pointer-events-none'} ${isSettingsOpen ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-300/30 dark:hover:bg-slate-700/30'}`} 
+                      title="Settings"
+                  >
+                      <Settings className="w-5 h-5" />
+                  </button>
               </div>
           </div>
         </div>
@@ -1562,7 +1576,7 @@ const App: React.FC = () => {
           <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700">
               <button 
                   onClick={() => setCurrentView('silo')}
-                  className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-[0.7em] px-3 py-2 text-center rounded-t-xl flex items-center justify-center gap-2 transition-colors cursor-pointer w-full uppercase tracking-tight"
+                  className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-[0.85em] px-3 py-2 text-center rounded-t-xl flex items-center justify-center gap-2 transition-colors cursor-pointer w-full uppercase tracking-tight"
               >
                   <Maximize2 className="w-3 h-3" />
                   SILO SETTING
@@ -1573,21 +1587,21 @@ const App: React.FC = () => {
                        <div className="flex flex-col leading-tight text-left border-l-2 border-slate-200 dark:border-slate-700 pl-2 gap-1 w-full">
                            <div className="flex flex-col gap-0.5 text-center">
                                <div>
-                                   <span className="text-[0.5em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">START</span>
-                                   <span className="text-[0.9em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.startTime || '--:--'}</span>
+                                   <span className="text-[0.85em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">START</span>
+                                   <span className="text-[1.3em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.startTime || '--:--'}</span>
                                </div>
                                <div>
-                                   <span className="text-[0.5em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">SET</span>
-                                   <span className="text-[0.9em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.capacitySet || '0'} T</span>
+                                   <span className="text-[0.85em] text-slate-400 dark:text-slate-500 block font-black uppercase tracking-wider">SET</span>
+                                   <span className="text-[1.3em] block text-slate-800 dark:text-white leading-none">{activeSiloData?.capacitySet || '0'} T</span>
                                </div>
                            </div>
                            <div className="mt-1 pr-2">
                                <div className="w-full border border-slate-200 dark:border-slate-700 rounded-lg overflow-hidden shadow-sm">
-                                   <div className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-[0.5em] font-bold uppercase tracking-wider py-1 border-b border-slate-200 dark:border-slate-700 text-center">
+                                   <div className="bg-slate-50 dark:bg-slate-800/50 text-slate-500 dark:text-slate-400 text-[0.85em] font-bold uppercase tracking-wider py-1 border-b border-slate-200 dark:border-slate-700 text-center">
                                        LOT NUMBER
                                    </div>
                                    <div className="bg-white dark:bg-slate-800 text-center py-1.5">
-                                       <span className="text-[1.2em] font-mono font-bold text-slate-800 dark:text-white">
+                                       <span className="text-[1.45em] font-mono font-bold text-slate-800 dark:text-white">
                                            {activeSiloData?.lotNumber || '---'}
                                        </span>
                                    </div>
@@ -1604,8 +1618,8 @@ const App: React.FC = () => {
       return (
           <div className="flex flex-col shadow-sm rounded-xl w-full border border-slate-200 dark:border-slate-700">
               <button 
-                  onClick={() => setCurrentView('demonomer')}
-                  className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[0.8em] px-2 py-2 text-center rounded-t-xl flex items-center justify-center gap-1 uppercase tracking-tight cursor-pointer transition-colors w-full relative"
+                  onClick={() => setIsDemonomerPopupOpen(true)}
+                  className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[0.85em] px-2 py-2 text-center rounded-t-xl flex items-center justify-center gap-1 uppercase tracking-tight cursor-pointer transition-colors w-full relative"
               >
                   <Activity className="w-3 h-3" />
                   ADJUST STEAM
@@ -1617,18 +1631,18 @@ const App: React.FC = () => {
               </button>
               <div className="bg-white dark:bg-slate-800 rounded-b-xl p-1.5 flex flex-col gap-1.5 justify-center">
                   <div className="bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white p-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-inner flex flex-col justify-center">
-                      <label className="text-[0.5em] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block text-center mb-0.5">FIE2002</label>
+                      <label className="text-[0.85em] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block text-center mb-0.5">FIE2002</label>
                       <input 
                           type="number"
                           step="0.1"
                           value={demonomerData.f2002}
                           onChange={(e) => handleDemonomerChange('f2002', parseFloat(e.target.value) || 0)}
-                          className="w-full bg-transparent text-2xl font-black text-center outline-none drop-shadow-sm appearance-none"
+                          className="w-full bg-transparent text-3xl font-black text-center outline-none drop-shadow-sm appearance-none"
                       />
                   </div>
                   <div className="bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white p-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-inner flex flex-col justify-center">
-                      <span className="text-[0.5em] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block text-center mb-0.5">RESULT</span>
-                      <div className="text-2xl font-black text-center drop-shadow-sm">
+                      <span className="text-[0.85em] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block text-center mb-0.5">RESULT</span>
+                      <div className="text-3xl font-black text-center drop-shadow-sm">
                           {Math.round(evaluateMath(demonomerData.steamFormula, {
                               'PVC': evaluateMath(demonomerData.pvcFormula, {
                                   'AI2802': demonomerData.aie2802,
@@ -1706,8 +1720,8 @@ const App: React.FC = () => {
 
     return (
         <div className="w-full h-full flex flex-row gap-2" style={{ fontSize: `${config.tableFontSize}px` }}>
-          {/* LEFT SIDE: 85% Table */}
-          <div className="w-[85%] flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
+          {/* LEFT SIDE: 80% Table */}
+          <div className="w-[80%] flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
             
              {/* MARQUEE BAR: Placed between header and table rows */}
              <div className="w-full bg-blue-100 dark:bg-blue-900/50 border-b border-blue-200 dark:border-blue-800 overflow-hidden h-10 relative flex items-center">
@@ -1785,11 +1799,11 @@ const App: React.FC = () => {
                         
                         let cellClasses = "bg-white dark:bg-slate-700 dark:text-white shadow-sm transition-colors dark:border dark:border-slate-600/50"; 
                         if (isSkipped) {
-                            cellClasses = "bg-red-600 dark:bg-red-700 text-black dark:text-black border-red-700 dark:border-red-800 shadow-inner"; 
+                            cellClasses = "bg-black dark:bg-black text-red-500 dark:text-red-500 border-black dark:border-black shadow-inner"; 
                         } else if (isActive) {
                             cellClasses = "bg-red-500 dark:bg-red-600 text-white animate-pulse ring-4 ring-red-300 dark:ring-red-900 z-10 relative"; 
                         } else if (isPast) {
-                            cellClasses = "bg-slate-800 dark:bg-slate-950 text-slate-500 dark:text-slate-600 shadow-inner"; 
+                            cellClasses = "bg-blue-950 dark:bg-blue-950 text-slate-400 dark:text-slate-500 shadow-inner"; 
                         } else if (mode === 'CLOSE TO OPEN') {
                             // Cream/Light Yellow for CLOSE TO OPEN that hasn't started
                             cellClasses = "bg-amber-50 dark:bg-white text-amber-900 dark:text-black border-amber-200 dark:border-slate-300 shadow-sm";
@@ -1820,7 +1834,7 @@ const App: React.FC = () => {
                                              <span className="opacity-50 text-[0.5em] mr-0.5">#</span>{item.batchNumber}
                                          </span>
                                   ) : (
-                                      <span className="font-black font-mono uppercase tracking-wider" style={{ fontSize: '1.1em' }}>PASS</span>
+                                      <span className="font-black font-mono uppercase tracking-wider text-red-500" style={{ fontSize: '1.58em' }}>PASS</span>
                                   )}
                                 </div>
                                 
@@ -1844,12 +1858,8 @@ const App: React.FC = () => {
                               {/* Middle: Start Time & Badges */}
                               <div className="text-center relative flex flex-col items-center justify-center flex-1 my-1">
                                 {isSkipped ? (
-                                  <div className="flex flex-col items-center gap-0.5">
-                                      <span className="font-bold text-black/70" style={{ fontSize: '0.85em' }}>
-                                          {formatDate(item.startTime)}
-                                      </span>
-                                      <Ban className="w-[2.2em] h-[2.2em] text-black" />
-                                      <span className="font-black uppercase tracking-wider" style={{ fontSize: '1.8em' }}>PASS</span>
+                                  <div className="flex flex-col items-center justify-center h-full">
+                                      <span className="font-black uppercase tracking-wider leading-none text-red-500" style={{ fontSize: '2.59em' }}>PASS</span>
                                   </div>
                                 ) : (
                                   <>
@@ -1926,8 +1936,8 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* RIGHT SIDE: 15% Widgets */}
-          <div className="w-[15%] flex flex-col gap-2 overflow-y-auto">
+          {/* RIGHT SIDE: 20% Widgets */}
+          <div className="w-[20%] flex flex-col gap-2 overflow-y-auto">
               {renderGradeSelectionWidget()}
               {renderSiloWidget()}
               {renderSteamWidget()}
@@ -2387,12 +2397,53 @@ const App: React.FC = () => {
                     onSiloSelect={handleSiloSwitch}
                 />
               )}
+
+              {currentView === 'catatan' && (
+                <Catatan onBack={() => setCurrentView('scheduler')} />
+              )}
+
+              {currentView === 'kesepakatan' && (
+                <Kesepakatan onBack={() => setCurrentView('scheduler')} />
+              )}
           </div>
       </div>
 
       <div className="max-w-7xl mx-auto mt-6 pb-6 text-center text-slate-400 dark:text-slate-500 text-sm font-bold">
           AILO CORP | SCHEDULE START PVC 5
       </div>
+
+      {/* --- DEMONOMER POPUP --- */}
+      {isDemonomerPopupOpen && (
+          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-7xl h-[90vh] overflow-hidden flex flex-col ring-4 ring-teal-500/50">
+                  <div className="bg-teal-600 text-white p-4 flex items-center justify-between shrink-0">
+                      <h3 className="text-2xl font-black flex items-center gap-2">
+                          <Activity className="w-6 h-6" />
+                          ADJUST STEAM (DEMONOMER)
+                      </h3>
+                      <button onClick={() => setIsDemonomerPopupOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                          <X className="w-6 h-6" />
+                      </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto p-4">
+                      <Demonomer 
+                          currentGrade={config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade} 
+                          onGradeChange={(g) => {
+                              if (config.gradeMode === 'normal') {
+                                  handleConfigChange('currentGrade', g);
+                              } else {
+                                  setDemonomerGrade(g);
+                              }
+                          }}
+                          data={demonomerData}
+                          onDataChange={handleDemonomerChange}
+                          gradeMode={config.gradeMode}
+                          onGradeModeChange={(m) => handleConfigChange('gradeMode', m)}
+                      />
+                  </div>
+              </div>
+          </div>
+      )}
 
       {/* --- START SILO CONFIRMATION MODAL --- */}
       {isFormulaModalOpen && (
