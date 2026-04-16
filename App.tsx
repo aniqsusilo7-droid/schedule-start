@@ -302,7 +302,7 @@ const App: React.FC = () => {
     theme: 'light',
     alarmSound: 'siren',
     tableRowHeight: 40, 
-    tableFontSize: 14,
+    tableFontSize: 16,
     batchDurationMinutes: 120,
     hiddenReactors: [],
     hiddenFields: [],
@@ -458,7 +458,7 @@ const App: React.FC = () => {
               reactorNotes: notesMap,
               itemConfigs: itemConfigsMap,
               tableRowHeight: settingsData.table_row_height || 76,
-              tableFontSize: settingsData.table_font_size || 22,
+              tableFontSize: settingsData.table_font_size || 24,
               batchDurationMinutes: settingsData.batch_duration_minutes || 120,
               hiddenReactors: settingsData.hidden_reactors || [],
               hiddenFields: settingsData.hidden_fields || [],
@@ -1278,27 +1278,27 @@ const App: React.FC = () => {
           <div className="flex shrink-0">
               
               {/* Navigation Pill - Premium Style */}
-              <div className="flex flex-wrap items-center gap-1 bg-slate-200/50 dark:bg-slate-800/50 p-1.5 rounded-full border border-slate-300/50 dark:border-slate-700/50 shadow-sm backdrop-blur-md">
-                  <button onClick={() => setCurrentView('scheduler')} className={`relative px-5 py-2 text-sm font-bold uppercase rounded-full transition-all duration-300 flex items-center gap-2 ${currentView === 'scheduler' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-md ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-300/30 dark:hover:bg-slate-700/30'}`}>
-                      <LayoutGrid className={`w-4 h-4 transition-colors ${currentView === 'scheduler' ? 'text-blue-600 dark:text-blue-400' : ''}`} /> <span>POLYMER</span>
+              <div className="flex flex-wrap items-center gap-0.5 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-full border border-slate-200/60 dark:border-slate-700/60 shadow-inner backdrop-blur-xl">
+                  <button onClick={() => setCurrentView('scheduler')} className={`relative px-3.5 py-1.5 text-[0.75rem] font-bold uppercase tracking-wider rounded-full transition-all duration-300 flex items-center gap-1.5 ${currentView === 'scheduler' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600 scale-105' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}>
+                      <LayoutGrid className={`w-3.5 h-3.5 transition-colors ${currentView === 'scheduler' ? 'text-blue-600 dark:text-blue-400' : ''}`} /> <span>POLYMER</span>
                   </button>
-                  <button onClick={() => setCurrentView('demonomer')} className={`relative px-5 py-2 text-sm font-bold uppercase rounded-full transition-all duration-300 flex items-center gap-2 ${currentView === 'demonomer' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-md ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-300/30 dark:hover:bg-slate-700/30'}`}>
-                      <Activity className={`w-4 h-4 transition-colors ${currentView === 'demonomer' ? 'text-teal-600 dark:text-teal-400' : ''}`} /> <span>DEMONOMER</span>
+                  <button onClick={() => setCurrentView('demonomer')} className={`relative px-3.5 py-1.5 text-[0.75rem] font-bold uppercase tracking-wider rounded-full transition-all duration-300 flex items-center gap-1.5 ${currentView === 'demonomer' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600 scale-105' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}>
+                      <Activity className={`w-3.5 h-3.5 transition-colors ${currentView === 'demonomer' ? 'text-teal-600 dark:text-teal-400' : ''}`} /> <span>DEMONOMER</span>
                   </button>
-                  <button onClick={() => setCurrentView('silo')} className={`relative px-5 py-2 text-sm font-bold uppercase rounded-full transition-all duration-300 flex items-center gap-2 ${currentView === 'silo' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-md ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-300/30 dark:hover:bg-slate-700/30'}`}>
-                      <Database className={`w-4 h-4 transition-colors ${currentView === 'silo' ? 'text-cyan-600 dark:text-cyan-400' : ''}`} /> <span>SILO</span>
-                  </button>
-                  
-                  <div className="w-px h-5 bg-slate-300 dark:bg-slate-600 mx-1"></div>
-                  
-                  <button onClick={() => setCurrentView('catatan')} className={`relative px-5 py-2 text-sm font-bold uppercase rounded-full transition-all duration-300 flex items-center gap-2 ${currentView === 'catatan' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-md ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-300/30 dark:hover:bg-slate-700/30'}`}>
-                      <FileText className={`w-4 h-4 transition-colors ${currentView === 'catatan' ? 'text-emerald-600 dark:text-emerald-400' : ''}`} /> <span>CATATAN</span>
-                  </button>
-                  <button onClick={() => setCurrentView('kesepakatan')} className={`relative px-5 py-2 text-sm font-bold uppercase rounded-full transition-all duration-300 flex items-center gap-2 ${currentView === 'kesepakatan' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-md ring-1 ring-black/5 dark:ring-white/10' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-300/30 dark:hover:bg-slate-700/30'}`}>
-                      <Handshake className={`w-4 h-4 transition-colors ${currentView === 'kesepakatan' ? 'text-emerald-600 dark:text-emerald-400' : ''}`} /> <span>KESEPAKATAN</span>
+                  <button onClick={() => setCurrentView('silo')} className={`relative px-3.5 py-1.5 text-[0.75rem] font-bold uppercase tracking-wider rounded-full transition-all duration-300 flex items-center gap-1.5 ${currentView === 'silo' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600 scale-105' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}>
+                      <Database className={`w-3.5 h-3.5 transition-colors ${currentView === 'silo' ? 'text-cyan-600 dark:text-cyan-400' : ''}`} /> <span>SILO</span>
                   </button>
                   
-                  <div className={`w-px h-5 bg-slate-300 dark:bg-slate-600 mx-1 transition-opacity duration-500 ${isSettingsButtonVisible || isSettingsOpen ? 'opacity-100' : 'opacity-0'}`}></div>
+                  <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
+                  
+                  <button onClick={() => setCurrentView('catatan')} className={`relative px-3.5 py-1.5 text-[0.75rem] font-bold uppercase tracking-wider rounded-full transition-all duration-300 flex items-center gap-1.5 ${currentView === 'catatan' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600 scale-105' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}>
+                      <FileText className={`w-3.5 h-3.5 transition-colors ${currentView === 'catatan' ? 'text-emerald-600 dark:text-emerald-400' : ''}`} /> <span>CATATAN</span>
+                  </button>
+                  <button onClick={() => setCurrentView('kesepakatan')} className={`relative px-3.5 py-1.5 text-[0.75rem] font-bold uppercase tracking-wider rounded-full transition-all duration-300 flex items-center gap-1.5 ${currentView === 'kesepakatan' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600 scale-105' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}>
+                      <Handshake className={`w-3.5 h-3.5 transition-colors ${currentView === 'kesepakatan' ? 'text-emerald-600 dark:text-emerald-400' : ''}`} /> <span>KESEPAKATAN</span>
+                  </button>
+                  
+                  <div className={`w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1 transition-opacity duration-500 ${isSettingsButtonVisible || isSettingsOpen ? 'opacity-100' : 'opacity-0'}`}></div>
                   
                   <button 
                       onClick={() => setIsSettingsOpen(!isSettingsOpen)} 
@@ -1583,7 +1583,7 @@ const App: React.FC = () => {
               </button>
               <div className="flex min-h-0">
                   <div className="bg-white dark:bg-slate-800 text-slate-800 dark:text-white font-black p-2 flex items-center justify-center w-full rounded-b-xl relative overflow-hidden group">
-                       <span className="text-[3.5rem] mr-2 drop-shadow-sm text-cyan-600 dark:text-cyan-400 animate-pulse leading-none">{siloState.activeSilo || '-'}</span>
+                       <span className="text-[5.46rem] mr-2 drop-shadow-sm text-cyan-600 dark:text-cyan-400 animate-pulse leading-none">{siloState.activeSilo || '-'}</span>
                        <div className="flex flex-col leading-tight text-left border-l-2 border-slate-200 dark:border-slate-700 pl-2 gap-1 w-full">
                            <div className="flex flex-col gap-0.5 text-center">
                                <div>

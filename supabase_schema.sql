@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS app_settings (
     theme TEXT DEFAULT 'light',
     alarm_sound TEXT DEFAULT 'siren',
     table_row_height BIGINT DEFAULT 95,
-    table_font_size BIGINT DEFAULT 24,
+    table_font_size BIGINT DEFAULT 26,
     batch_duration_minutes BIGINT DEFAULT 120,
     hidden_reactors TEXT[] DEFAULT ARRAY[]::TEXT[],
     hidden_fields TEXT[] DEFAULT ARRAY[]::TEXT[],
