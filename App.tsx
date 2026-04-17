@@ -1817,8 +1817,8 @@ const App: React.FC = () => {
                             isPast && !isSkipped && "bg-blue-950 dark:bg-slate-900 text-slate-400 dark:text-slate-500 shadow-inner border-slate-200 dark:border-slate-800 opacity-80",
                             
                             // 4. FUTURE STATUSES
-                            isFuture && mode === 'CLOSE TO OPEN' && "bg-amber-50 dark:bg-amber-900/30 text-amber-900 dark:text-amber-100 border-amber-200 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-800/40",
-                            isFuture && mode !== 'CLOSE TO OPEN' && "bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-700"
+                            isFuture && mode === 'CLOSE TO OPEN' && "bg-white dark:bg-white text-slate-900 dark:text-slate-900 border-slate-200 dark:border-slate-200 hover:bg-slate-50 dark:hover:bg-slate-50",
+                            isFuture && mode !== 'CLOSE TO OPEN' && "bg-white dark:bg-white text-slate-900 dark:text-slate-900 border-slate-200 dark:border-slate-200 hover:bg-slate-50 dark:hover:bg-slate-50"
                         ].filter(Boolean).join(" ");
                         
                         const cellClasses = `${baseClasses} ${statusClasses}`;
@@ -1901,7 +1901,7 @@ const App: React.FC = () => {
                                       </span>
                                       
                                       {/* Unified Time Display - Significantly Larger */}
-                                      <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-105' : (isPast ? 'text-slate-500 dark:text-slate-400 opacity-90 line-through' : 'text-slate-800 dark:text-black')} transition-transform`} style={{ fontSize: '2.0em' }}>
+                                      <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-105' : (isPast ? 'text-slate-500 dark:text-slate-400 opacity-90 line-through' : 'text-slate-900 dark:text-black')} transition-transform`} style={{ fontSize: '2.0em' }}>
                                           {formatTime(item.startTime)}
                                       </div>
                                       
