@@ -217,6 +217,7 @@ const App: React.FC = () => {
   // Zoom State (Supabase Persistence)
   const [zoomLevel, setZoomLevel] = useState<number>(1);
   const [isNoteFocused, setIsNoteFocused] = useState(false);
+  const [shouldBlinkNote, setShouldBlinkNote] = useState(false);
 
   // Catalyst State (Supabase Persistence)
   const [catalystData, setCatalystData] = useState({
@@ -899,6 +900,8 @@ const App: React.FC = () => {
   // --- Modal Handlers ---
   const openRescheduleModal = (item: ScheduleItem) => {
     setSelectedItem(item);
+    setShouldBlinkNote(true);
+    setTimeout(() => setShouldBlinkNote(false), 5000);
     
     // Determine current config or defaults
     const itemConfig = config.itemConfigs[item.id] || {};
@@ -1814,7 +1817,7 @@ const App: React.FC = () => {
                             isActive && "bg-red-500 dark:bg-red-600 text-white animate-[pulse_2s_ease-in-out_infinite] ring-4 ring-red-400 dark:ring-red-900 z-10 scale-[1.02] shadow-xl border-red-500 dark:border-red-600",
                             
                             // 3. PAST STATUS
-                            isPast && !isSkipped && "bg-blue-950 dark:bg-slate-900 text-slate-400 dark:text-slate-500 shadow-inner border-slate-200 dark:border-slate-800 opacity-80",
+                            isPast && !isSkipped && "bg-blue-950 dark:bg-slate-900 text-white shadow-inner border-slate-200 dark:border-slate-800",
                             
                             // 4. FUTURE STATUSES
                             isFuture && mode === 'CLOSE TO OPEN' && "bg-white dark:bg-white text-slate-900 dark:text-slate-900 border-slate-200 dark:border-slate-200 hover:bg-slate-50 dark:hover:bg-slate-50",
@@ -1834,10 +1837,10 @@ const App: React.FC = () => {
                         const displaySkipText = skipTextMap[skipReason] || 'PASS';
                         
                         const modeBadgeClasses = mode === 'OPEN' 
-                            ? `bg-cyan-100 ${isFuture ? 'dark:bg-cyan-100' : 'dark:bg-cyan-900/50'} text-cyan-800 ${isFuture ? 'dark:text-cyan-800' : 'dark:text-cyan-200'} border-cyan-200 ${isFuture ? 'dark:border-cyan-200' : 'dark:border-cyan-800'}`
+                            ? `bg-blue-50 ${isFuture ? 'dark:bg-blue-50' : 'dark:bg-blue-900/30'} text-blue-600 ${isFuture ? 'dark:text-blue-600' : 'dark:text-blue-400'} border-blue-200 ${isFuture ? 'dark:border-blue-200' : 'dark:border-blue-800'} font-black`
                             : mode === 'CLOSE TO OPEN'
                                 ? `bg-amber-100 ${isFuture ? 'dark:bg-amber-100' : 'dark:bg-amber-900/50'} text-amber-800 ${isFuture ? 'dark:text-amber-800' : 'dark:text-amber-200'} border-amber-200 ${isFuture ? 'dark:border-amber-200' : 'dark:border-amber-800'}`
-                                : `bg-slate-100 ${isFuture ? 'dark:bg-slate-100' : 'dark:bg-slate-700'} text-slate-500 ${isFuture ? 'dark:text-slate-500' : 'dark:text-slate-300'} border-slate-200 ${isFuture ? 'dark:border-slate-200' : 'dark:border-slate-600'}`;
+                                : `bg-emerald-50 ${isFuture ? 'dark:bg-emerald-50' : 'dark:bg-emerald-900/30'} text-emerald-600 ${isFuture ? 'dark:text-emerald-600' : 'dark:text-emerald-400'} border-emerald-200 ${isFuture ? 'dark:border-emerald-200' : 'dark:border-emerald-800'} font-black`;
 
                         return (
                           <td 
@@ -1864,7 +1867,7 @@ const App: React.FC = () => {
                                 {/* Centered Note Indicator */}
                                 {item.config?.note && (
                                     <div className="absolute inset-x-0 top-0 flex justify-center pointer-events-none z-20">
-                                        <div className="flex items-center gap-0.5 bg-red-600 animate-blink px-1.5 py-0.5 rounded shadow-md border border-white/50">
+                                        <div className="flex items-center gap-0.5 bg-red-600 animate-pulse px-1.5 py-0.5 rounded shadow-md border border-white/50">
                                             <FileText className="w-3.5 h-3.5 text-white" />
                                             <span className="text-[0.75em] text-white font-black leading-none uppercase tracking-tighter whitespace-nowrap">CEK NOTE</span>
                                         </div>
@@ -1885,7 +1888,9 @@ const App: React.FC = () => {
                                       <span 
                                         className={`font-black uppercase text-center leading-none text-red-500 max-w-full px-1 ${skipReason === 'MAINTENANCE' ? 'whitespace-nowrap tracking-tighter' : 'whitespace-normal break-words tracking-wider'}`} 
                                         style={{ 
-                                          fontSize: skipReason === 'MAINTENANCE' ? '2.07em' : (skipReason === 'ABNORMAL_REAKSI' ? '2.33em' : '2.59em'), 
+                                          fontSize: skipReason === 'MAINTENANCE' ? '1.97em' : 
+                                                    skipReason === 'ABNORMAL_REAKSI' ? '2.10em' : 
+                                                    skipReason === 'CLEANING_ROBOT' ? '2.33em' : '2.59em', 
                                           wordBreak: skipReason === 'MAINTENANCE' ? 'normal' : 'break-word', 
                                           hyphens: skipReason === 'MAINTENANCE' ? 'none' : 'auto' 
                                         }}
@@ -1896,18 +1901,18 @@ const App: React.FC = () => {
                                 ) : (
                                   <>
                                       {/* Date above time */}
-                                      <span className={`font-bold ${isActive ? 'text-white/90' : (isFuture ? 'text-slate-500 dark:text-slate-500' : 'text-slate-500 dark:text-slate-400')}`} style={{ fontSize: '0.85em' }}>
+                                      <span className={`font-bold ${isActive || isPast ? 'text-white/90' : (isFuture ? 'text-slate-500 dark:text-slate-500' : 'text-slate-500 dark:text-slate-400')}`} style={{ fontSize: '0.85em' }}>
                                           {formatDate(item.startTime)}
                                       </span>
                                       
                                       {/* Unified Time Display - Significantly Larger */}
-                                      <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-105' : (isPast ? 'text-slate-500 dark:text-slate-400 opacity-90 line-through' : 'text-slate-900 dark:text-black')} transition-transform`} style={{ fontSize: '2.0em' }}>
+                                      <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-105' : (isPast ? 'text-white line-through' : 'text-slate-900 dark:text-black')} transition-transform`} style={{ fontSize: '2.0em' }}>
                                           {formatTime(item.startTime)}
                                       </div>
                                       
                                       {/* Status / Badges */}
                                       {isPast ? (
-                                          <div className="font-black text-slate-500 dark:text-slate-400 uppercase tracking-widest mt-1 opacity-75" style={{ fontSize: '0.7em' }}>
+                                          <div className="font-black text-white uppercase tracking-widest mt-1" style={{ fontSize: '0.7em' }}>
                                               SUDAH START
                                           </div>
                                       ) : isActive ? (
@@ -1920,7 +1925,7 @@ const App: React.FC = () => {
                                           {/* Adjusted Time Delta Badge (HH:MM) */}
                                           {item.deltaMinutes !== 0 && (
                                               <div className={`font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-0.5 ${item.deltaMinutes > 0 ? 'bg-yellow-400 text-yellow-900' : 'bg-cyan-100 text-cyan-800'}`} style={{ fontSize: '0.7em' }}>
-                                                  <Timer className="w-[1em] h-[1em]" /> {formatDelay(item.deltaMinutes)}
+                                                  {formatDelay(item.deltaMinutes)}
                                               </div>
                                           )}
                                           {/* Mode Badge - Visible for Open/Close Status */}
@@ -2162,16 +2167,16 @@ const App: React.FC = () => {
                         HITUNG CYCLE TIME
                     </div>
                     <div className={`${GRADE_COLORS[config.currentGrade] ? GRADE_COLORS[config.currentGrade].replace('bg-', 'bg-').concat('/10') : 'bg-white dark:bg-slate-800'} rounded-b-xl p-1.5 flex flex-col gap-1.5 transition-colors`}>
-                        <table className="w-full border-collapse text-center font-semibold text-[0.75em]">
+                        <table className="w-full border-collapse text-center font-bold text-[1.1em]">
                             <thead>
                                 <tr>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">NS START</th>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">READY BLOWING</th>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">BLOWING START</th>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">BLOWING HOLD</th>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em]">BLOWING COMPLETE</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">NS START</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">READY BLOWING</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">BLOWING START</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">BLOWING HOLD</th>
+                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">BLOWING COMPLETE</th>
                                     <th 
-                                        className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.65em] cursor-pointer hover:text-blue-500 transition-colors"
+                                        className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em] cursor-pointer hover:text-blue-500 transition-colors"
                                         onClick={() => {
                                             setTempFormula(demonomerData.cycleTimeFormula);
                                             setIsFormulaModalOpen(true);
@@ -2213,7 +2218,7 @@ const App: React.FC = () => {
                                             <td className="p-0.5">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-[0.9em] rounded-md py-0.5 focus:ring-2 focus:ring-blue-500/30 transition-all" 
+                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-[1.15em] rounded-md py-1 focus:ring-2 focus:ring-blue-500/30 transition-all shadow-sm flex justify-center" 
                                                     value={row.ns} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'ns', e.target.value)}
                                                 />
@@ -2221,7 +2226,7 @@ const App: React.FC = () => {
                                             <td className="p-1">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-[0.9em] rounded-md py-0.5 focus:ring-4 focus:ring-blue-500/30 transition-all" 
+                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-[1.15em] rounded-md py-1 focus:ring-4 focus:ring-blue-500/30 transition-all shadow-sm flex justify-center" 
                                                     value={row.readyBlowing} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'readyBlowing', e.target.value)}
                                                 />
@@ -2229,26 +2234,26 @@ const App: React.FC = () => {
                                             <td className="p-0.5">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-green-50 dark:bg-green-900/20 text-green-900 dark:text-green-100 outline-none w-full text-center font-bold text-[0.9em] rounded py-0.5 focus:ring-2 focus:ring-green-500/50" 
+                                                    className="bg-green-50 dark:bg-green-900/20 text-green-900 dark:text-green-100 outline-none w-full text-center font-bold text-[1.15em] rounded py-1 focus:ring-2 focus:ring-green-500/50 flex justify-center" 
                                                     value={row.blowing} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'blowing', e.target.value)}
                                                 />
                                             </td>
                                             <td className="p-0.5">
-                                                <div className="bg-orange-50 dark:bg-orange-900/20 text-orange-900 dark:text-orange-100 w-full text-center font-bold text-[0.9em] rounded py-0.5">
+                                                <div className="bg-orange-50 dark:bg-orange-900/20 text-orange-900 dark:text-orange-100 w-full text-center font-bold text-[1.15em] rounded py-1 flex items-center justify-center">
                                                     {blowingHold || '-'}
                                                 </div>
                                             </td>
                                             <td className="p-0.5">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-bold text-[0.9em] rounded py-0.5 focus:ring-2 focus:ring-blue-500/50" 
+                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-bold text-[1.15em] rounded py-1 focus:ring-2 focus:ring-blue-500/50 flex justify-center" 
                                                     value={row.blowingComplete} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'blowingComplete', e.target.value)}
                                                 />
                                             </td>
                                             <td className="p-0.5">
-                                                <div className="bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-100 w-full text-center font-bold text-[0.9em] rounded py-0.5">
+                                                <div className="bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-100 w-full text-center font-black text-[1.25em] rounded py-1 border-2 border-red-500/20 flex items-center justify-center">
                                                     {cycleTime || '-'}
                                                 </div>
                                             </td>
@@ -2636,11 +2641,17 @@ const App: React.FC = () => {
                         <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-3 block">Operator Notes</label>
                         <textarea 
                             value={editForm.note} 
-                            onChange={(e) => setEditForm(prev => ({...prev, note: e.target.value}))} 
+                            onChange={(e) => {
+                                setEditForm(prev => ({...prev, note: e.target.value}));
+                                if (!shouldBlinkNote) {
+                                    setShouldBlinkNote(true);
+                                    setTimeout(() => setShouldBlinkNote(false), 5000);
+                                }
+                            }} 
                             onFocus={() => setIsNoteFocused(true)}
                             onBlur={() => setIsNoteFocused(false)}
                             placeholder="Add information for DCS operator..." 
-                            className={`w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl p-4 text-base font-bold focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px] ${editForm.note && !isNoteFocused ? 'animate-blink border-red-500 ring-2 ring-red-500/20' : ''}`} 
+                            className={`w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl p-4 text-base font-bold focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px] ${editForm.note && !isNoteFocused && shouldBlinkNote ? 'animate-blink border-red-500 ring-2 ring-red-500/20' : ''}`} 
                         />
                     </div>
 
