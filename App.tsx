@@ -1796,7 +1796,7 @@ const App: React.FC = () => {
                          </div>
                       </td>
 
-                      {scheduleMatrix[reactor.id].map((item) => {
+                      {scheduleMatrix[reactor.id].map((item, colIdx, rowArr) => {
                         const isSkipped = item.status === 'skipped';
                         const isPast = item.status === 'past';
                         const isActive = item.status === 'active';
@@ -1804,6 +1804,10 @@ const App: React.FC = () => {
                         const stageInfo = item.config?.stageInfo;
                         
                         const isFuture = !isPast && !isActive && !isSkipped;
+                        
+                        // Responsive scale for status text based on number of columns
+                        // Start shrinking when column count > 4 as requested by user.
+                        const responsiveScale = Math.min(1.2, 4.8 / rowArr.length);
                         
                         // Base table cell styles
                         const baseClasses = "p-0 border-r cursor-pointer transition-all duration-300 relative group hover:z-20 hover:ring-2 hover:ring-blue-400 overflow-hidden shadow-sm";
@@ -1854,11 +1858,11 @@ const App: React.FC = () => {
                               <div className="flex justify-between items-start mb-0.5 relative">
                                 <div className="flex flex-col leading-none z-10 relative">
                                    {isSkipped ? (
-                                         <div className={`font-black px-1 py-0.5 rounded leading-none ${reactor.color} ${reactor.textColor} border border-white/20 shadow-sm`} style={{ fontSize: '0.85em' }}>
+                                         <div className={`font-black px-1 py-0.5 rounded leading-none ${reactor.color} ${reactor.textColor} border border-white/20 shadow-sm`} style={{ fontSize: `${0.85 * responsiveScale}em` }}>
                                              RE-{reactor.id}
                                          </div>
                                    ) : (
-                                         <span className={`font-bold font-mono ${isActive ? 'text-white' : (reactor.id === 'S' || reactor.id === 'T' ? (isFuture ? 'text-red-600 dark:text-red-600' : 'text-red-600 dark:text-red-400') : (isFuture ? 'text-red-500 dark:text-red-500' : 'text-red-500 dark:text-red-400'))} ${isPast ? '!text-inherit' : ''}`} style={{ fontSize: '1.0em' }}>
+                                         <span className={`font-bold font-mono ${isActive ? 'text-white' : (reactor.id === 'S' || reactor.id === 'T' ? (isFuture ? 'text-red-600 dark:text-red-600' : 'text-red-600 dark:text-red-400') : (isFuture ? 'text-red-500 dark:text-red-500' : 'text-red-500 dark:text-red-400'))} ${isPast ? '!text-inherit' : ''}`} style={{ fontSize: `${1.0 * responsiveScale}em` }}>
                                              <span className="opacity-50 text-[0.5em] mr-0.5">#</span>{item.batchNumber}
                                          </span>
                                    )}
@@ -1875,7 +1879,7 @@ const App: React.FC = () => {
                                 )}
 
                                 <div className="text-right z-10">
-                                  <div className={`font-black px-1.5 py-0.5 rounded leading-none ${isActive ? 'bg-white text-red-600' : (isSkipped ? 'bg-stone-300 dark:bg-stone-800 text-stone-600 dark:text-stone-400' : `${GRADE_COLORS[item.grade] || 'bg-slate-200'} text-white`)}`} style={{ fontSize: '0.9em' }}>
+                                  <div className={`font-black px-1.5 py-0.5 rounded leading-none ${isActive ? 'bg-white text-red-600' : (isSkipped ? 'bg-stone-300 dark:bg-stone-800 text-stone-600 dark:text-stone-400' : `${GRADE_COLORS[item.grade] || 'bg-slate-200'} text-white`)}`} style={{ fontSize: `${0.9 * responsiveScale}em` }}>
                                       {item.grade}
                                   </div>
                                 </div>
@@ -1888,11 +1892,12 @@ const App: React.FC = () => {
                                       <span 
                                         className={`font-black uppercase text-center leading-none text-red-500 max-w-full px-1 ${skipReason === 'MAINTENANCE' ? 'whitespace-nowrap tracking-tighter' : 'whitespace-normal break-words tracking-wider'}`} 
                                         style={{ 
-                                          fontSize: skipReason === 'MAINTENANCE' ? '1.97em' : 
-                                                    skipReason === 'ABNORMAL_REAKSI' ? '2.10em' : 
-                                                    skipReason === 'CLEANING_ROBOT' ? '2.33em' : '2.59em', 
-                                          wordBreak: skipReason === 'MAINTENANCE' ? 'normal' : 'break-word', 
-                                          hyphens: skipReason === 'MAINTENANCE' ? 'none' : 'auto' 
+                                          fontSize: `${(skipReason === 'MAINTENANCE' ? 1.97 : 
+                                                    skipReason === 'ABNORMAL_REAKSI' ? 2.10 : 
+                                                    skipReason === 'CLEANING_ROBOT' ? 2.33 : 
+                                                    skipReason === 'POISON_CHARGE' ? 2.05 : 2.59) * responsiveScale}em`, 
+                                          wordBreak: skipReason === 'MAINTENANCE' || skipReason === 'PASS' ? 'normal' : 'break-word', 
+                                          hyphens: skipReason === 'MAINTENANCE' || skipReason === 'PASS' ? 'none' : 'auto' 
                                         }}
                                       >
                                           {displaySkipText}
@@ -1901,22 +1906,22 @@ const App: React.FC = () => {
                                 ) : (
                                   <>
                                       {/* Date above time */}
-                                      <span className={`font-bold ${isActive || isPast ? 'text-white/90' : (isFuture ? 'text-slate-500 dark:text-slate-500' : 'text-slate-500 dark:text-slate-400')}`} style={{ fontSize: '0.85em' }}>
+                                      <span className={`font-bold ${isActive || isPast ? 'text-white/90' : (isFuture ? 'text-slate-500 dark:text-slate-500' : 'text-slate-500 dark:text-slate-400')}`} style={{ fontSize: `${0.85 * responsiveScale}em` }}>
                                           {formatDate(item.startTime)}
                                       </span>
                                       
                                       {/* Unified Time Display - Significantly Larger */}
-                                      <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-105' : (isPast ? 'text-white line-through' : 'text-slate-900 dark:text-black')} transition-transform`} style={{ fontSize: '2.0em' }}>
+                                      <div className={`font-black tracking-tighter leading-none ${isActive ? 'text-white scale-105' : (isPast ? 'text-white line-through' : 'text-slate-900 dark:text-black')} transition-transform`} style={{ fontSize: `${2.0 * responsiveScale}em` }}>
                                           {formatTime(item.startTime)}
                                       </div>
                                       
                                       {/* Status / Badges */}
                                       {isPast ? (
-                                          <div className="font-black text-white uppercase tracking-widest mt-1" style={{ fontSize: '0.7em' }}>
+                                          <div className="font-black text-white uppercase tracking-widest mt-1" style={{ fontSize: `${0.7 * responsiveScale}em` }}>
                                               SUDAH START
                                           </div>
                                       ) : isActive ? (
-                                          <div className="font-black text-yellow-300 uppercase tracking-widest animate-bounce mt-1" style={{ fontSize: '0.8em' }}>
+                                          <div className="font-black text-yellow-300 uppercase tracking-widest animate-bounce mt-1" style={{ fontSize: `${0.8 * responsiveScale}em` }}>
                                               START NOW
                                           </div>
                                       ) : null}
@@ -1924,12 +1929,12 @@ const App: React.FC = () => {
                                       <div className="flex justify-center gap-1 mt-1 flex-wrap w-full items-center">
                                           {/* Adjusted Time Delta Badge (HH:MM) */}
                                           {item.deltaMinutes !== 0 && (
-                                              <div className={`font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-0.5 ${item.deltaMinutes > 0 ? 'bg-yellow-400 text-yellow-900' : 'bg-cyan-100 text-cyan-800'}`} style={{ fontSize: '0.7em' }}>
+                                              <div className={`font-black px-1.5 py-0.5 rounded uppercase flex items-center gap-0.5 ${item.deltaMinutes > 0 ? 'bg-yellow-400 text-yellow-900' : 'bg-cyan-100 text-cyan-800'}`} style={{ fontSize: `${0.7 * responsiveScale}em` }}>
                                                   {formatDelay(item.deltaMinutes)}
                                               </div>
                                           )}
                                           {/* Mode Badge - Visible for Open/Close Status */}
-                                          <div className={`font-bold px-1.5 py-0.5 rounded uppercase border flex items-center gap-1 ${modeBadgeClasses}`} style={{ fontSize: '0.7em' }}>
+                                          <div className={`font-bold px-1.5 py-0.5 rounded uppercase border flex items-center gap-1 ${modeBadgeClasses}`} style={{ fontSize: `${0.7 * responsiveScale}em` }}>
                                               <span className="text-[0.5em] opacity-70 mr-0.5">MODE</span>
                                               {mode}
                                           </div>
