@@ -22,7 +22,7 @@ export const Clock: React.FC<ClockProps> = ({ isCompact = false }) => {
   }
 
   return (
-    <div className="text-5xl md:text-6xl font-mono font-black text-gray-800 bg-blue-100 px-8 py-4 rounded-lg shadow-inner border-2 border-blue-300 tracking-wider">
+    <div className="text-5xl md:text-6xl font-mono font-black text-gray-800 dark:text-white bg-blue-100 dark:bg-slate-800 px-8 py-4 rounded-lg shadow-inner border-2 border-blue-300 dark:border-slate-700 tracking-wider">
       {time.toLocaleTimeString('en-GB', { hour12: false })}
     </div>
   );

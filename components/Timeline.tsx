@@ -239,7 +239,7 @@ export const Timeline: React.FC<TimelineProps> = ({
             <Clock className="w-5 h-5" />
           </div>
           <div>
-            <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">Reactor Timeline</h3>
+            <h3 className="text-lg font-black text-slate-900 dark:text-white uppercase tracking-tight">Reaktor Timeline</h3>
             <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">Visual Schedule & Conflict Detection</p>
           </div>
         </div>
@@ -264,7 +264,7 @@ export const Timeline: React.FC<TimelineProps> = ({
       <div className="px-6 py-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 flex items-center gap-3">
         <Info className="w-4 h-4 text-indigo-500" />
         <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest">
-          Timeline shows batch start times and estimated durations. Red hatched areas indicate potential reactor overlaps.
+          Timeline shows batch start times and estimated durations. Red hatched areas indicate potential reaktor overlaps.
         </p>
       </div>
     </motion.div>

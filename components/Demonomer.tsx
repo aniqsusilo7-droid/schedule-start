@@ -22,10 +22,8 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
   
   // --- Handlers ---
   const handleResetFormulas = () => {
-    if (window.confirm("Reset formulas to default factory settings?")) {
-        onDataChange('pvcFormula', DEFAULT_PVC_FORMULA);
-        onDataChange('steamFormula', DEFAULT_STEAM_FORMULA);
-    }
+    onDataChange('pvcFormula', DEFAULT_PVC_FORMULA);
+    onDataChange('steamFormula', DEFAULT_STEAM_FORMULA);
   };
 
   const handleMultiplierChange = (grade: GradeKey, val: string) => {

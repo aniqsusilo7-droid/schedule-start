@@ -2,13 +2,13 @@
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { REACTORS, GRADE_COLORS } from './constants';
 import { AppState, ScheduleItem, ItemConfig, GradeType, SiloState, SiloData, DemonomerData, AlarmSoundType } from './types';
-import { addMinutes, formatDate, formatTime } from './utils/dateUtils';
+import { addMinutes, formatDate, formatTime, getBatchDate } from './utils/dateUtils';
 import { Clock } from './components/Clock';
 import { Demonomer } from './components/Demonomer';
 import { Silo } from './components/Silo';
 import { Catatan } from './components/Catatan';
 import { Kesepakatan } from './components/Kesepakatan';
-import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake } from 'lucide-react';
+import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2 } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { Reorder } from 'framer-motion';
 
@@ -515,6 +515,14 @@ const App: React.FC = () => {
     return () => clearInterval(interval);
   }, [loadData]);
 
+  useEffect(() => {
+    if (config.theme === 'dark') {
+      document.documentElement.classList.add('dark');
+    } else {
+      document.documentElement.classList.remove('dark');
+    }
+  }, [config.theme]);
+
   // --- Real-time / Periodic Saver Helpers ---
   
   // Save specific global setting to DB
@@ -649,33 +657,31 @@ const App: React.FC = () => {
   }, [config.isStopped]);
 
   const handleApply = async () => {
-      if (window.confirm('Are you sure you want to apply these settings? This will reset the sequence.')) {
-          try {
-              const newStartTime = new Date(tempBaseStartTime).toISOString();
-              
-              // Update Supabase
-              await supabase.from('app_settings').update({
-                  base_batch_number: tempBaseBatchNumber,
-                  base_start_time: newStartTime,
-              }).eq('id', 1);
+      try {
+          const newStartTime = new Date(tempBaseStartTime).toISOString();
+          
+          // Update Supabase
+          await supabase.from('app_settings').update({
+              base_batch_number: tempBaseBatchNumber,
+              base_start_time: newStartTime,
+          }).eq('id', 1);
 
-              // Clear overrides to ensure a fresh cycle
-              await supabase.from('schedule_overrides').delete().neq('id', 'placeholder');
+          // Clear overrides to ensure a fresh cycle
+          await supabase.from('schedule_overrides').delete().neq('id', 'placeholder');
 
-              // Update Local State
-              setConfig(prev => ({
-                  ...prev,
-                  baseBatchNumber: tempBaseBatchNumber,
-                  baseStartTime: newStartTime,
-                  itemConfigs: {} // Clear overrides
-              }));
-              
-              setDismissedAlerts(new Set());
-              alert("Settings Applied and Sequence Reset!");
-          } catch (error) {
-              console.error("Error applying settings:", error);
-              alert("Failed to apply settings. Check console.");
-          }
+          // Update Local State
+          setConfig(prev => ({
+              ...prev,
+              baseBatchNumber: tempBaseBatchNumber,
+              baseStartTime: newStartTime,
+              itemConfigs: {} // Clear overrides
+          }));
+          
+          setDismissedAlerts(new Set());
+          console.log("Settings Applied and Sequence Reset successfully");
+      } catch (error) {
+          console.error("Error applying settings:", error);
+          setDbSchemaError("Failed to apply settings. Check console.");
       }
   };
 
@@ -699,31 +705,61 @@ const App: React.FC = () => {
       handleConfigChange('isMarqueePaused', !config.isMarqueePaused);
   };
 
-  const handleResetSequence = () => {
-      if (window.confirm('Are you sure you want to reset the entire sequence? This will clear all progress and adjustments.')) {
-          const n = new Date();
-          const coeff = 1000 * 60 * 5;
-          const rounded = new Date(Math.round(n.getTime() / coeff) * coeff);
-          // Local ISO string for input
-          const localIso = new Date(rounded.getTime() - (rounded.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
-          
-          setResetParams({
-              batch: config.baseBatchNumber,
-              time: localIso
-          });
-          setIsResetModalOpen(true);
+  const getLocalIsoString = (date: Date) => {
+      const tzOffset = date.getTimezoneOffset() * 60000;
+      const localTime = new Date(date.getTime() - tzOffset);
+      return localTime.toISOString().slice(0, 16);
+  };
+
+  const adjustResetParamsTime = (minutes: number) => {
+      try {
+          const currentDate = resetParams.time ? new Date(resetParams.time) : new Date();
+          if (isNaN(currentDate.getTime())) {
+              const now = new Date();
+              const adjusted = new Date(now.getTime() + minutes * 60000);
+              setResetParams(prev => ({ ...prev, time: getLocalIsoString(adjusted) }));
+          } else {
+              const adjusted = new Date(currentDate.getTime() + minutes * 60000);
+              setResetParams(prev => ({ ...prev, time: getLocalIsoString(adjusted) }));
+          }
+      } catch (e) {
+          console.error(e);
       }
+  };
+
+  const handleResetSequence = () => {
+      const n = new Date();
+      const coeff = 1000 * 60 * 5;
+      const rounded = new Date(Math.round(n.getTime() / coeff) * coeff);
+      const localIso = getLocalIsoString(rounded);
+      
+      setResetParams({
+          batch: config.baseBatchNumber,
+          time: localIso
+      });
+      setIsResetModalOpen(true);
   };
 
   const submitResetSequence = async () => {
       try {
-          const newStartTime = new Date(resetParams.time).toISOString();
+          if (!resetParams.time) {
+              setDbSchemaError("Silakan isi Waktu Mulai (New Start Time) yang valid.");
+              return;
+          }
+          const parsedDate = new Date(resetParams.time);
+          if (isNaN(parsedDate.getTime())) {
+              setDbSchemaError("Format Waktu Mulai tidak valid.");
+              return;
+          }
+          const newStartTime = parsedDate.toISOString();
           
           // Update Supabase
-          await supabase.from('app_settings').update({
+          const { error } = await supabase.from('app_settings').update({
               base_batch_number: resetParams.batch,
               base_start_time: newStartTime,
           }).eq('id', 1);
+
+          if (error) throw error;
 
           // Clear overrides to ensure a fresh cycle
           await supabase.from('schedule_overrides').delete().neq('id', 'placeholder');
@@ -740,7 +776,7 @@ const App: React.FC = () => {
           setIsResetModalOpen(false);
       } catch (error) {
           console.error("Error resetting sequence:", error);
-          alert("Failed to reset sequence. Check console.");
+          setDbSchemaError("Gagal mereset sequence. Silakan periksa koneksi atau console.");
       }
   };
 
@@ -1121,6 +1157,131 @@ const App: React.FC = () => {
     return allItems.every(item => item.status === 'past' || item.status === 'skipped');
   }, [scheduleMatrix]);
 
+  // --- Auto-calculated Running Text for Polymer ---
+  const autoRunningText = useMemo(() => {
+    try {
+      const baseDate = new Date(config.baseStartTime);
+      const totalIntervalMinutes = (config.intervalHours * 60) + config.intervalMinutes;
+
+      interface Theoretical {
+        startTime: Date;
+        isSkipped: boolean;
+      }
+      const list: Theoretical[] = [];
+
+      // 1. Forward list
+      let currentBatch = config.baseBatchNumber;
+      let sequenceCursor = baseDate.getTime();
+      
+      for (let col = 0; col < Math.max(24, config.columnsToDisplay); col++) {
+        for (let rIndex = 0; rIndex < REACTORS.length; rIndex++) {
+          const reactor = REACTORS[rIndex];
+          const uniqueId = `${reactor.id}-${currentBatch}`;
+          const itemConfig = config.itemConfigs[uniqueId];
+
+          let originalTime = new Date(sequenceCursor);
+          let effectiveTime = originalTime;
+
+          if (itemConfig?.overrideTime) {
+              const overrideDate = new Date(itemConfig.overrideTime);
+              if (itemConfig.shiftSubsequent) {
+                  const diff = overrideDate.getTime() - effectiveTime.getTime();
+                  sequenceCursor += diff; 
+              }
+              effectiveTime = overrideDate;
+          }
+
+          const isSkipped = itemConfig?.isSkipped || false;
+
+          list.push({
+            startTime: effectiveTime,
+            isSkipped
+          });
+
+          if (!isSkipped) {
+              sequenceCursor += (totalIntervalMinutes * 60000);
+              currentBatch++;
+          }
+        }
+      }
+
+      // 2. Backward list
+      let prevBatch = config.baseBatchNumber - 1;
+      let prevCursor = baseDate.getTime();
+      let reactorIndex = REACTORS.length - 1; // start with W
+      
+      for (let i = 0; i < 100; i++) {
+        const reactor = REACTORS[reactorIndex];
+        const uniqueId = `${reactor.id}-${prevBatch}`;
+        const itemConfig = config.itemConfigs[uniqueId];
+        
+        const isSkipped = itemConfig?.isSkipped || false;
+        
+        if (!isSkipped) {
+          prevCursor -= (totalIntervalMinutes * 60000);
+        }
+        
+        let effectiveTime = new Date(prevCursor);
+        if (itemConfig?.overrideTime) {
+          effectiveTime = new Date(itemConfig.overrideTime);
+        }
+
+        list.push({
+          startTime: effectiveTime,
+          isSkipped
+        });
+
+        prevBatch--;
+        reactorIndex = (reactorIndex - 1 + REACTORS.length) % REACTORS.length;
+      }
+
+      // Sort chronological
+      list.sort((a, b) => a.startTime.getTime() - b.startTime.getTime());
+
+      // Determine batch days for today and yesterday
+      const todayBatchDate = getBatchDate(now);
+      const prevBatchDate = new Date(todayBatchDate.getTime() - 24 * 60 * 60 * 1000);
+
+      const todayBatchStr = formatDate(todayBatchDate);
+      const prevBatchStr = formatDate(prevBatchDate);
+
+      // Filter and count active (non-skipped) batches for both days
+      const countToday = list.filter(b => !b.isSkipped && formatDate(getBatchDate(b.startTime)) === todayBatchStr).length;
+      const countPrev = list.filter(b => !b.isSkipped && formatDate(getBatchDate(b.startTime)) === prevBatchStr).length;
+
+      return (
+        <span className="flex items-center gap-1">
+          <span>total batch pada tanggal {prevBatchStr} adalah </span>
+          <span className="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-300 font-extrabold px-1.5 py-0.5 rounded border border-emerald-200/50 dark:border-emerald-800/50 mx-1 text-[1.1em]">
+            {countPrev} batch
+          </span>
+          <span> dan estimasi batch pada hari ini adalah </span>
+          <span className="bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-300 font-extrabold px-1.5 py-0.5 rounded border border-amber-200/50 dark:border-amber-800/50 mx-1 text-[1.1em]">
+            {countToday} batch
+          </span>
+          {config.runningText && (
+            <>
+              <span className="mx-3 text-slate-400 font-normal">|</span>
+              <span className="text-rose-600 dark:text-rose-400 font-extrabold">
+                {config.runningText}
+              </span>
+            </>
+          )}
+        </span>
+      );
+    } catch (error) {
+      console.error("Error in autoRunningText useMemo:", error);
+      return (
+        <span className="flex items-center gap-1">
+          <span>total batch pada tanggal -- adalah </span>
+          <span className="text-emerald-600 dark:text-emerald-400 font-extrabold px-1 text-[1.1em]">0 batch</span>
+          <span> dan estimasi batch pada hari ini adalah </span>
+          <span className="text-amber-600 dark:text-amber-400 font-extrabold px-1 text-[1.1em]">0 batch</span>
+        </span>
+      );
+    }
+  }, [config, now]);
+
   // --- Auto Reset / Advance Logic ---
   useEffect(() => {
      if (isScheduleCompleted && !config.isStopped && !isLoading) {
@@ -1256,7 +1417,7 @@ const App: React.FC = () => {
                      {/* Time */}
                      <div className="px-4 py-1.5 flex flex-col items-center justify-center min-w-[200px]">
                         <span className="text-[0.5em] text-slate-400 font-bold uppercase tracking-wider mb-1">CURRENT TIME</span>
-                        <div className="bg-white w-full mx-2 text-slate-900 px-2 py-1 rounded shadow-sm font-mono font-black text-[1.5em] tracking-widest leading-none flex items-center justify-center">
+                        <div className="bg-white dark:bg-slate-700 w-full mx-2 text-slate-900 dark:text-white px-2 py-1 rounded shadow-sm font-mono font-black text-[1.5em] tracking-widest leading-none flex items-center justify-center transition-colors">
                             {now.toLocaleTimeString('en-GB', { hour12: false })}
                             <span className="text-[0.4em] ml-1 text-slate-500 font-bold self-end mb-1">s</span>
                         </div>
@@ -1356,15 +1517,25 @@ const App: React.FC = () => {
                   {/* Appearance & Sound Controls */}
                   <div className="md:col-span-1 flex flex-col gap-4">
                       <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Appearance & Sound</label>
-                      <div className="flex gap-3">
-                          <button onClick={toggleAudio} className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-all shadow-sm ${config.audioEnabled ? 'bg-green-500 text-white border-green-600' : 'bg-white dark:bg-slate-700 text-slate-400 border-slate-200 dark:border-slate-600'}`} title="Toggle Voice">
-                              {config.audioEnabled ? <Volume2 className="w-6 h-6" /> : <VolumeX className="w-6 h-6" />}
-                              <span className="font-bold text-xs">{config.audioEnabled ? 'ON' : 'OFF'}</span>
+                      <div className="grid grid-cols-2 gap-3">
+                          <button 
+                            onClick={toggleTheme} 
+                            className={`flex flex-col items-center justify-center gap-2 p-3 rounded-xl border transition-all shadow-sm ${config.theme === 'dark' ? 'bg-slate-700 text-yellow-400 border-slate-600' : 'bg-white text-blue-600 border-slate-200 hover:border-blue-300'}`}
+                          >
+                              {config.theme === 'dark' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
+                              <span className="font-black text-[10px] uppercase tracking-tighter">
+                                {config.theme === 'dark' ? 'DARK MODE' : 'LIGHT MODE'}
+                              </span>
                           </button>
 
-                          <button onClick={toggleTheme} className={`flex-1 flex items-center justify-center gap-2 p-3 rounded-lg border transition-all shadow-sm ${config.theme === 'dark' ? 'bg-slate-700 text-yellow-400 border-slate-600' : 'bg-yellow-50 text-orange-500 border-orange-200'}`} title="Toggle Theme">
-                              {config.theme === 'dark' ? <Moon className="w-6 h-6" /> : <Sun className="w-6 h-6" />}
-                              <span className="font-bold text-xs uppercase">{config.theme}</span>
+                          <button 
+                            onClick={toggleAudio} 
+                            className={`flex flex-col items-center justify-center gap-2 p-3 rounded-xl border transition-all shadow-sm ${config.audioEnabled ? 'bg-green-500 text-white border-green-600' : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'}`}
+                          >
+                              {config.audioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+                              <span className="font-black text-[10px] uppercase tracking-tighter">
+                                AUDIO: {config.audioEnabled ? 'ON' : 'OFF'}
+                              </span>
                           </button>
                       </div>
 
@@ -1397,11 +1568,11 @@ const App: React.FC = () => {
                           <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Alert System</label>
                           <div className="flex flex-col gap-2">
                               <button 
-                                onClick={() => {
+                                 onClick={() => {
                                     if ('Notification' in window) {
                                         Notification.requestPermission().then(permission => {
                                             if (permission === 'granted') {
-                                                new Notification("Notifications Enabled", { body: "You will now receive reactor start alerts." });
+                                                new Notification("Notifications Enabled", { body: "You will now receive reaktor start alerts." });
                                             }
                                         });
                                     }
@@ -1515,7 +1686,7 @@ const App: React.FC = () => {
                                 <input 
                                     type="range" 
                                     min="5" 
-                                    max="180" 
+                                    max="300" 
                                     step="1"
                                     value={config.marqueeSpeed} 
                                     onChange={(e) => handleConfigChange('marqueeSpeed', parseInt(e.target.value))} 
@@ -1632,7 +1803,7 @@ const App: React.FC = () => {
                   <Activity className="w-3 h-3" />
                   ADJUST STEAM
                   {config.gradeMode === 'gradeChange' && (
-                      <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-[10px] px-1.5 py-0.5 rounded font-black ${GRADE_COLORS[activeDemonomerGrade]} border border-white/20 shadow-sm`}>
+                      <span className={`absolute right-2 top-1/2 -translate-y-1/2 text-sm px-2 py-1 rounded-md font-black ${GRADE_COLORS[activeDemonomerGrade]} border border-white/20 shadow-sm`}>
                           {activeDemonomerGrade}
                       </span>
                   )}
@@ -1747,7 +1918,7 @@ const App: React.FC = () => {
                                      {Array(5).fill(null).map((_, i) => (
                                          <span key={i} className="flex items-center gap-2 mx-8 font-black text-blue-800 dark:text-blue-100 uppercase tracking-wider text-[0.875em]">
                                              <AlertTriangle className="w-[1.25em] h-[1.25em]" />
-                                             {config.runningText}
+                                             {autoRunningText}
                                          </span>
                                      ))}
                                  </div>
@@ -1759,7 +1930,7 @@ const App: React.FC = () => {
                                      {Array(5).fill(null).map((_, i) => (
                                          <span key={i + 10} className="flex items-center gap-2 mx-8 font-black text-blue-800 dark:text-blue-100 uppercase tracking-wider text-[0.875em]">
                                              <AlertTriangle className="w-[1.25em] h-[1.25em]" />
-                                             {config.runningText}
+                                             {autoRunningText}
                                          </span>
                                      ))}
                                  </div>
@@ -1775,7 +1946,10 @@ const App: React.FC = () => {
                   {REACTORS.map((reactor) => (
                     <tr key={reactor.id} className="border-b border-slate-200 dark:border-slate-700 last:border-0" style={{ height: `${config.tableRowHeight}px` }}>
                       
-                      <td className={`${reactor.color} ${reactor.textColor} border-r border-slate-900/10 dark:border-slate-900/30 p-2 relative group w-[140px]`}>
+                      <td 
+                        className={`${reactor.color} ${reactor.textColor} border-r border-slate-900/10 dark:border-slate-900/30 p-2 relative group`}
+                        style={{ width: '140px', minWidth: '140px', maxWidth: '140px' }}
+                      >
                          <div className="flex flex-col items-center justify-center h-full">
                             <span className="font-black font-serif drop-shadow-md leading-none" style={{ fontSize: '2.2em' }}>{reactor.label}</span>
                             
@@ -1847,6 +2021,10 @@ const App: React.FC = () => {
                               key={item.id} 
                               onClick={() => openRescheduleModal(item)}
                               className={cellClasses}
+                              style={{ 
+                                width: `calc((100% - 140px) / ${config.columnsToDisplay})`,
+                                minWidth: '130px'
+                              }}
                           >
                             <div className="h-full flex flex-col justify-between p-1">
                               
@@ -1886,13 +2064,11 @@ const App: React.FC = () => {
                                 {isSkipped ? (
                                   <div className="flex flex-col items-center justify-center w-full h-full p-0">
                                       <span 
-                                        className={`font-black uppercase text-center leading-none text-red-500 max-w-full px-1 ${skipReason === 'MAINTENANCE' ? 'whitespace-nowrap tracking-tighter' : 'whitespace-normal break-words tracking-wider'}`} 
+                                        className="font-black uppercase text-center leading-none text-red-500 max-w-full px-1 whitespace-normal break-words tracking-tight" 
                                         style={{ 
-                                          fontSize: skipReason === 'MAINTENANCE' ? '1.97em' : 
-                                                    skipReason === 'ABNORMAL_REAKSI' ? '2.10em' : 
-                                                    skipReason === 'CLEANING_ROBOT' ? '2.33em' : '2.59em', 
-                                          wordBreak: skipReason === 'MAINTENANCE' ? 'normal' : 'break-word', 
-                                          hyphens: skipReason === 'MAINTENANCE' ? 'none' : 'auto' 
+                                          fontSize: '2.0em', 
+                                          wordBreak: 'break-word', 
+                                          hyphens: 'auto' 
                                         }}
                                       >
                                           {displaySkipText}
@@ -1902,7 +2078,7 @@ const App: React.FC = () => {
                                   <>
                                       {/* Date above time */}
                                       <span className={`font-bold ${isActive || isPast ? 'text-white/90' : (isFuture ? 'text-slate-500 dark:text-slate-500' : 'text-slate-500 dark:text-slate-400')}`} style={{ fontSize: '0.85em' }}>
-                                          {formatDate(item.startTime)}
+                                          {formatDate(getBatchDate(item.startTime))}
                                       </span>
                                       
                                       {/* Unified Time Display - Significantly Larger */}
@@ -2026,7 +2202,7 @@ const App: React.FC = () => {
               <Activity className="w-4 h-4" />
             </div>
             <div>
-              <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Reactor Cycle Timeline</h3>
+              <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Reaktor Cycle Timeline</h3>
             </div>
           </div>
           <div className="flex items-center gap-4">
@@ -2057,7 +2233,7 @@ const App: React.FC = () => {
             <thead>
               <tr className="bg-slate-50 dark:bg-slate-900/50">
                 <th className="sticky left-0 z-40 bg-slate-50 dark:bg-slate-900 border-b border-r border-slate-200 dark:border-slate-800 p-2 text-slate-500 uppercase tracking-wider text-[0.6em] font-black w-20">
-                  REACTOR
+                  REAKTOR
                 </th>
                 {slots.map((slot, i) => (
                   <th key={i} className="border-b border-slate-200 dark:border-slate-800 p-1 text-slate-500 uppercase tracking-wider text-[0.7em] font-black w-[48px]">
@@ -2218,7 +2394,7 @@ const App: React.FC = () => {
                                             <td className="p-0.5">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-[1.15em] rounded-md py-1 focus:ring-2 focus:ring-blue-500/30 transition-all shadow-sm flex justify-center" 
+                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-[1.5em] rounded-md py-1 focus:ring-2 focus:ring-blue-500/30 transition-all shadow-sm flex justify-center" 
                                                     value={row.ns} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'ns', e.target.value)}
                                                 />
@@ -2226,7 +2402,7 @@ const App: React.FC = () => {
                                             <td className="p-1">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-[1.15em] rounded-md py-1 focus:ring-4 focus:ring-blue-500/30 transition-all shadow-sm flex justify-center" 
+                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-[1.5em] rounded-md py-1 focus:ring-4 focus:ring-blue-500/30 transition-all shadow-sm flex justify-center" 
                                                     value={row.readyBlowing} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'readyBlowing', e.target.value)}
                                                 />
@@ -2234,7 +2410,7 @@ const App: React.FC = () => {
                                             <td className="p-0.5">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-green-50 dark:bg-green-900/20 text-green-900 dark:text-green-100 outline-none w-full text-center font-bold text-[1.15em] rounded py-1 focus:ring-2 focus:ring-green-500/50 flex justify-center" 
+                                                    className="bg-green-50 dark:bg-green-900/20 text-green-900 dark:text-green-100 outline-none w-full text-center font-bold text-[1.5em] rounded py-1 focus:ring-2 focus:ring-green-500/50 flex justify-center" 
                                                     value={row.blowing} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'blowing', e.target.value)}
                                                 />
@@ -2247,13 +2423,13 @@ const App: React.FC = () => {
                                             <td className="p-0.5">
                                                 <input 
                                                     type="time" 
-                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-bold text-[1.15em] rounded py-1 focus:ring-2 focus:ring-blue-500/50 flex justify-center" 
+                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-bold text-[1.5em] rounded py-1 focus:ring-2 focus:ring-blue-500/50 flex justify-center" 
                                                     value={row.blowingComplete} 
                                                     onChange={(e) => handleCycleTimeChange(row.id, 'blowingComplete', e.target.value)}
                                                 />
                                             </td>
                                             <td className="p-0.5">
-                                                <div className="bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-100 w-full text-center font-black text-[1.25em] rounded py-1 border-2 border-red-500/20 flex items-center justify-center">
+                                                <div className="bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-100 w-full text-center font-black text-[2.2em] rounded py-1 border-2 border-red-500/20 flex items-center justify-center">
                                                     {cycleTime || '-'}
                                                 </div>
                                             </td>
@@ -2262,13 +2438,31 @@ const App: React.FC = () => {
                                 })}
                             </tbody>
                         </table>
-                        <button 
-                            onClick={() => setCycleTimeData(prev => [...prev, { id: Date.now(), ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }])}
-                            className="mt-1 w-full py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold rounded-lg border border-dashed border-indigo-300 dark:border-indigo-700 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-1 text-[0.7em]"
-                        >
-                            <LayoutGrid className="w-3 h-3" />
-                            ADD ROW
-                        </button>
+                        <div className="flex gap-2 mt-1">
+                            <button 
+                                onClick={() => setCycleTimeData(prev => [...prev, { id: Date.now(), ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }])}
+                                className="flex-1 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold rounded-lg border border-dashed border-indigo-300 dark:border-indigo-700 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-1 text-[0.7em]"
+                            >
+                                <LayoutGrid className="w-3 h-3" />
+                                ADD ROW
+                            </button>
+                            <button 
+                                onClick={() => {
+                                    setCycleTimeData(prev => prev.map(row => ({
+                                        ...row,
+                                        ns: '',
+                                        readyBlowing: '',
+                                        blowing: '',
+                                        blowingComplete: ''
+                                    })));
+                                }}
+                                className="px-4 py-1 bg-red-100 dark:bg-red-950/30 text-red-600 dark:text-red-400 font-bold rounded-lg border border-dashed border-red-300 dark:border-red-800 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center justify-center gap-1 text-[0.7em]"
+                                title="Kosongkan isi semua kolom pada baris yang ada"
+                            >
+                                <Trash2 className="w-3 h-3" />
+                                CLEAR
+                            </button>
+                        </div>
                     </div>
                </div>
 
@@ -2335,7 +2529,7 @@ const App: React.FC = () => {
                   <AlertTriangle className={`w-32 h-32 mb-8 ${REACTORS.find(r => r.id === fullScreenAlertItem.reactorId)?.id === 'U' ? 'text-black' : 'text-yellow-300'}`} />
                   <h1 className="text-6xl font-black tracking-tighter mb-4">PREPARE TO START</h1>
                   <div className="bg-white text-red-600 px-12 py-6 rounded-2xl shadow-xl flex flex-col items-center mb-8">
-                      <span className="text-2xl font-bold uppercase tracking-widest text-slate-500">REACTOR</span>
+                      <span className="text-2xl font-bold uppercase tracking-widest text-slate-500">REAKTOR</span>
                       <span className="text-9xl font-black">{fullScreenAlertItem.reactorId}</span>
                   </div>
                   <div className="flex gap-12">
@@ -2446,12 +2640,12 @@ const App: React.FC = () => {
       </div>
 
       <div className="max-w-7xl mx-auto mt-6 pb-6 text-center text-slate-400 dark:text-slate-500 text-sm font-bold">
-          AILO CORP | SCHEDULE START PVC 5
+          2025 | SCHEDULE START PVC 5
       </div>
 
       {/* --- DEMONOMER POPUP --- */}
       {isDemonomerPopupOpen && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 animate-in fade-in duration-200">
               <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-7xl h-[90vh] overflow-hidden flex flex-col ring-4 ring-teal-500/50">
                   <div className="bg-teal-600 text-white p-4 flex items-center justify-between shrink-0">
                       <h3 className="text-2xl font-black flex items-center gap-2">
@@ -2484,7 +2678,7 @@ const App: React.FC = () => {
 
       {/* --- START SILO CONFIRMATION MODAL --- */}
       {isFormulaModalOpen && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
               <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 ring-4 ring-blue-500/50">
                   <div className="bg-blue-600 text-white p-6 flex items-center justify-between">
                       <h3 className="text-2xl font-black flex items-center gap-2">
@@ -2537,7 +2731,7 @@ const App: React.FC = () => {
 
       {/* --- START SILO CONFIRMATION MODAL --- */}
       {startSiloData && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
               <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 ring-4 ring-emerald-500/50">
                   {/* Header */}
                   <div className="bg-emerald-600 text-white p-6 flex items-center justify-between">
@@ -2617,7 +2811,7 @@ const App: React.FC = () => {
 
       {/* ... [Reschedule Modal] ... */}
       {selectedItem && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
             <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
                 <div className="bg-slate-800 dark:bg-slate-950 text-white p-6 flex justify-between items-center shrink-0">
                     <div>
@@ -2626,7 +2820,7 @@ const App: React.FC = () => {
                             Adjust Schedule
                         </h3>
                         <p className="text-sm font-bold text-slate-400">
-                            Reactor {selectedItem.reactorId} &bull; Batch {selectedItem.batchNumber || '---'}
+                            Reaktor {selectedItem.reactorId} &bull; Batch {selectedItem.batchNumber || '---'}
                         </p>
                     </div>
                     <button onClick={closeRescheduleModal} className="text-slate-400 hover:text-white transition-colors">
@@ -2737,8 +2931,8 @@ const App: React.FC = () => {
 
                             {/* Shift Toggle */}
                             <div className="flex items-center gap-4 bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border-2 border-orange-100 dark:border-orange-900/40 cursor-pointer" onClick={() => setEditForm(prev => ({...prev, shiftSubsequent: !prev.shiftSubsequent}))}>
-                                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${editForm.shiftSubsequent ? 'bg-orange-500 border-orange-600' : 'bg-white dark:bg-slate-800 border-slate-300 dark:border-slate-600'}`}>
-                                    {editForm.shiftSubsequent && <div className="w-3 h-3 bg-white rounded-sm" />}
+                                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${editForm.shiftSubsequent ? 'bg-orange-500 border-orange-600' : 'bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600'}`}>
+                                    {editForm.shiftSubsequent && <div className="w-3 h-3 bg-white dark:bg-white rounded-sm" />}
                                 </div>
                                 <div className="flex-1">
                                     <span className="block text-base font-black text-slate-700 dark:text-slate-300">
@@ -2797,9 +2991,9 @@ const App: React.FC = () => {
 
       {/* --- Edit Reactor Note Modal --- */}
       {editingReactorNote && (
-          <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
               <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-sm p-6 animate-in zoom-in-95">
-                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Edit Note for Reactor {editingReactorNote}</h3>
+                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Edit Note untuk Reaktor {editingReactorNote}</h3>
                   <div className="flex justify-center mb-4">
                       <textarea
                         value={tempReactorNote}
@@ -2824,7 +3018,7 @@ const App: React.FC = () => {
 
       {/* --- Reset Sequence Modal --- */}
       {isResetModalOpen && (
-          <div className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
+          <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
               <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 ring-4 ring-red-500/50">
                   {/* Header */}
                   <div className="bg-red-600 text-white p-6 flex items-center justify-between">
@@ -2855,15 +3049,59 @@ const App: React.FC = () => {
                           />
                       </div>
 
-                      {/* Time Input */}
-                      <div className="space-y-2 bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
-                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">New Start Time (Reactor S)</label>
+                      {/* Time Input with Helpers */}
+                      <div className="space-y-2 bg-slate-100 dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700">
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">New Start Time (Reaktor S)</label>
                           <input 
                               type="datetime-local" 
                               value={resetParams.time}
                               onChange={(e) => setResetParams({...resetParams, time: e.target.value})}
                               className="w-full bg-transparent text-center font-mono font-bold text-xl outline-none border-b-2 border-slate-300 focus:border-red-500 dark:text-white"
                           />
+                          
+                          {/* Easy Time Adjustment Helpers */}
+                          <div className="pt-3 space-y-2">
+                              <button
+                                  type="button"
+                                  onClick={() => {
+                                      setResetParams(prev => ({ ...prev, time: getLocalIsoString(new Date()) }));
+                                  }}
+                                  className="w-full py-2 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-200 rounded-lg font-black text-xs transition-colors uppercase tracking-wider"
+                              >
+                                  Gunakan Waktu Sekarang
+                              </button>
+                              
+                              <div className="grid grid-cols-4 gap-1.5 text-[10px]">
+                                  <button
+                                      type="button"
+                                      onClick={() => adjustResetParamsTime(-60)}
+                                      className="py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-red-500 hover:text-white text-slate-700 dark:text-slate-200 rounded font-bold transition-all"
+                                  >
+                                      -1 Jam
+                                  </button>
+                                  <button
+                                      type="button"
+                                      onClick={() => adjustResetParamsTime(-10)}
+                                      className="py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-red-500 hover:text-white text-slate-700 dark:text-slate-200 rounded font-bold transition-all"
+                                  >
+                                      -10 Min
+                                  </button>
+                                  <button
+                                      type="button"
+                                      onClick={() => adjustResetParamsTime(10)}
+                                      className="py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-emerald-500 hover:text-white text-slate-700 dark:text-slate-200 rounded font-bold transition-all"
+                                  >
+                                      +10 Min
+                                  </button>
+                                  <button
+                                      type="button"
+                                      onClick={() => adjustResetParamsTime(60)}
+                                      className="py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-emerald-500 hover:text-white text-slate-700 dark:text-slate-200 rounded font-bold transition-all"
+                                  >
+                                      +1 Jam
+                                  </button>
+                              </div>
+                          </div>
                       </div>
 
                   </div>

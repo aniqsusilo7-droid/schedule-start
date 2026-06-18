@@ -14,6 +14,16 @@ export const formatDate = (date: Date): string => {
   });
 };
 
+export const getBatchDate = (date: Date): Date => {
+  const d = new Date(date.getTime());
+  const h = d.getHours();
+  const m = d.getMinutes();
+  if (h > 21 || (h === 21 && m >= 35)) {
+    d.setDate(d.getDate() + 1);
+  }
+  return d;
+};
+
 export const addMinutes = (date: Date, minutes: number): Date => {
   return new Date(date.getTime() + minutes * 60000);
 };
