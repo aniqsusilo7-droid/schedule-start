@@ -1251,13 +1251,8 @@ const App: React.FC = () => {
 
       return (
         <span className="flex items-center gap-1">
-          <span>total batch pada tanggal {prevBatchStr} adalah </span>
-          <span className="bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-300 font-extrabold px-1.5 py-0.5 rounded border border-emerald-200/50 dark:border-emerald-800/50 mx-1 text-[1.1em]">
-            {countPrev} batch
-          </span>
-          <span> dan estimasi batch pada hari ini adalah </span>
-          <span className="bg-amber-100 dark:bg-amber-950/60 text-amber-600 dark:text-amber-300 font-extrabold px-1.5 py-0.5 rounded border border-amber-200/50 dark:border-amber-800/50 mx-1 text-[1.1em]">
-            {countToday} batch
+          <span className="text-rose-600 dark:text-rose-400 font-extrabold ms-1">
+            estimasi batch pada hari ini adalah <span className="text-blue-600 dark:text-blue-400 font-extrabold">{countToday} batch</span>
           </span>
           {config.runningText && (
             <>
@@ -1273,10 +1268,9 @@ const App: React.FC = () => {
       console.error("Error in autoRunningText useMemo:", error);
       return (
         <span className="flex items-center gap-1">
-          <span>total batch pada tanggal -- adalah </span>
-          <span className="text-emerald-600 dark:text-emerald-400 font-extrabold px-1 text-[1.1em]">0 batch</span>
-          <span> dan estimasi batch pada hari ini adalah </span>
-          <span className="text-amber-600 dark:text-amber-400 font-extrabold px-1 text-[1.1em]">0 batch</span>
+          <span className="text-rose-600 dark:text-rose-400 font-extrabold ms-1">
+            estimasi batch pada hari ini adalah <span className="text-blue-600 dark:text-blue-400 font-extrabold">0 batch</span>
+          </span>
         </span>
       );
     }
@@ -2062,18 +2056,43 @@ const App: React.FC = () => {
                               {/* Middle: Start Time & Badges */}
                               <div className="text-center relative flex flex-col items-center justify-center flex-1 my-1">
                                 {isSkipped ? (
-                                  <div className="flex flex-col items-center justify-center w-full h-full p-0">
-                                      <span 
-                                        className="font-black uppercase text-center leading-none text-red-500 max-w-full px-1 whitespace-normal break-words tracking-tight" 
-                                        style={{ 
-                                          fontSize: '2.0em', 
-                                          wordBreak: 'break-word', 
-                                          hyphens: 'auto' 
-                                        }}
-                                      >
-                                          {displaySkipText}
-                                      </span>
-                                  </div>
+                                  skipReason === 'MAINTENANCE' ? (
+                                    <div className="flex flex-col items-center justify-center w-full h-full p-0 overflow-hidden">
+                                        <svg 
+                                          className="w-full h-auto text-red-500 dark:text-red-500 font-sans p-1" 
+                                          viewBox="0 0 150 45" 
+                                          preserveAspectRatio="xMidYMid meet"
+                                        >
+                                            <text 
+                                              x="50%" 
+                                              y="50%" 
+                                              dominantBaseline="central" 
+                                              textAnchor="middle" 
+                                              className="font-black uppercase" 
+                                              fill="currentColor"
+                                              fontSize="18.5"
+                                              letterSpacing="-0.8"
+                                              textLength="142"
+                                              lengthAdjust="spacingAndGlyphs"
+                                            >
+                                                {displaySkipText}
+                                            </text>
+                                        </svg>
+                                    </div>
+                                  ) : (
+                                    <div className="flex flex-col items-center justify-center w-full h-full p-0">
+                                        <span 
+                                          className="font-black uppercase text-center leading-tight text-red-500 max-w-full px-1 whitespace-normal tracking-tight" 
+                                          style={{ 
+                                            fontSize: displaySkipText.length <= 4 ? '1.8em' : displaySkipText.length <= 10 ? '1.3em' : '1.1em', 
+                                            wordBreak: 'normal', 
+                                            overflowWrap: 'break-word'
+                                          }}
+                                        >
+                                            {displaySkipText}
+                                        </span>
+                                    </div>
+                                  )
                                 ) : (
                                   <>
                                       {/* Date above time */}
@@ -2448,16 +2467,15 @@ const App: React.FC = () => {
                             </button>
                             <button 
                                 onClick={() => {
-                                    setCycleTimeData(prev => prev.map(row => ({
-                                        ...row,
-                                        ns: '',
-                                        readyBlowing: '',
-                                        blowing: '',
-                                        blowingComplete: ''
-                                    })));
+                                    if (window.confirm("Apakah Anda yakin ingin mengosongkan semua data cycle time dan kembali ke default?")) {
+                                        setCycleTimeData([
+                                            { id: 1, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' },
+                                            { id: 2, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }
+                                        ]);
+                                    }
                                 }}
                                 className="px-4 py-1 bg-red-100 dark:bg-red-950/30 text-red-600 dark:text-red-400 font-bold rounded-lg border border-dashed border-red-300 dark:border-red-800 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center justify-center gap-1 text-[0.7em]"
-                                title="Kosongkan isi semua kolom pada baris yang ada"
+                                title="Clear all data and reset to default 2 rows"
                             >
                                 <Trash2 className="w-3 h-3" />
                                 CLEAR
