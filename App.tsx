@@ -2079,6 +2079,28 @@ const App: React.FC = () => {
                                             </text>
                                         </svg>
                                     </div>
+                                  ) : (skipReason === 'CLEANING_ROBOT' || skipReason === 'ABNORMAL_REAKSI' || skipReason === 'POISON_CHARGE' || displaySkipText.includes(' ')) ? (
+                                    <div className="flex flex-col items-center justify-center w-full h-full p-0">
+                                      <div 
+                                        className="flex flex-col items-center justify-center font-black uppercase text-center leading-[1.0] text-red-500 max-w-full px-1 tracking-tight" 
+                                        style={{ 
+                                          fontSize: 
+                                            config.columnsToDisplay <= 1 ? '3.2em' :
+                                            config.columnsToDisplay === 2 ? '2.7em' :
+                                            config.columnsToDisplay === 3 ? '2.2em' :
+                                            config.columnsToDisplay === 4 ? '1.8em' :
+                                            config.columnsToDisplay === 5 ? '1.5em' :
+                                            config.columnsToDisplay === 6 ? '1.3em' :
+                                            config.columnsToDisplay === 7 ? '1.1em' :
+                                            config.columnsToDisplay === 8 ? '0.95em' :
+                                            config.columnsToDisplay === 9 ? '0.85em' : '0.75em'
+                                        }}
+                                      >
+                                        {displaySkipText.split(' ').map((word, idx) => (
+                                          <span key={idx} className="block whitespace-nowrap">{word}</span>
+                                        ))}
+                                      </div>
+                                    </div>
                                   ) : (
                                     <div className="flex flex-col items-center justify-center w-full h-full p-0">
                                         <span 
