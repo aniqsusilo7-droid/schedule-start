@@ -10,7 +10,6 @@ import { Catatan } from './components/Catatan';
 import { Kesepakatan } from './components/Kesepakatan';
 import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders } from 'lucide-react';
 import { supabase } from './supabaseClient';
-import { db, doc, setDoc, updateDoc, deleteDoc, getDoc, collection, getDocs, writeBatch } from './firebaseClient';
 import { Reorder } from 'framer-motion';
 
 const GRADES: GradeType[] = ['SM', 'SLK', 'SLP', 'SE', 'SR'];
@@ -774,96 +773,16 @@ const App: React.FC = () => {
       }
   }, []);
 
-  // --- Firebase Duplication Helpers ---
-  const handleFirestoreError = (error: unknown, operationType: 'create' | 'update' | 'delete' | 'list' | 'get' | 'write', path: string | null) => {
-    const errInfo = {
-      error: error instanceof Error ? error.message : String(error),
-      authInfo: {
-        userId: null,
-        email: null,
-        emailVerified: null,
-        isAnonymous: null,
-        tenantId: null,
-        providerInfo: []
-      },
-      operationType,
-      path
-    };
-    console.error('Firestore Error: ', JSON.stringify(errInfo));
-    throw new Error(JSON.stringify(errInfo));
+  // --- Firebase Duplication Helpers (DISABLED) ---
+  const handleFirestoreError = (error: unknown, operationType: string, path: string | null) => {
+    console.error('Firestore Error: ', error);
   };
 
-  const syncAppSettingsToFirebase = async (updates: Partial<any>) => {
-    try {
-      const docRef = doc(db, 'app_settings', '1');
-      const cleanUpdates = JSON.parse(JSON.stringify(updates, (k, v) => v === undefined ? null : v));
-      await setDoc(docRef, cleanUpdates, { merge: true });
-    } catch (err) {
-      console.warn("Failed to sync app_settings to Firebase:", err);
-      handleFirestoreError(err, 'write', 'app_settings/1');
-    }
-  };
-
-  const syncReactorNoteToFirebase = async (reactorId: string, note: string) => {
-    try {
-      const docRef = doc(db, 'reactor_notes', reactorId);
-      await setDoc(docRef, {
-        reactor_id: reactorId,
-        note: note,
-        updated_at: new Date().toISOString()
-      }, { merge: true });
-    } catch (err) {
-      console.warn("Failed to sync reactor note to Firebase:", err);
-      handleFirestoreError(err, 'write', `reactor_notes/${reactorId}`);
-    }
-  };
-
-  const syncOverrideToFirebase = async (id: string, overrideData: any) => {
-    try {
-      const docRef = doc(db, 'schedule_overrides', id);
-      const dataToSave = {
-        id: id,
-        override_time: overrideData.override_time || null,
-        is_skipped: overrideData.is_skipped ?? false,
-        skip_reason: overrideData.skip_reason || 'PASS',
-        mode: overrideData.mode || 'CLOSE',
-        grade: overrideData.grade || null,
-        note: overrideData.note || null,
-        shift_subsequent: overrideData.shift_subsequent ?? false,
-        manual_delay_minutes: overrideData.manual_delay_minutes || 0,
-        stage_info: overrideData.stage_info || '',
-        updated_at: new Date().toISOString()
-      };
-      await setDoc(docRef, dataToSave, { merge: true });
-    } catch (err) {
-      console.warn("Failed to sync override to Firebase:", err);
-      handleFirestoreError(err, 'write', `schedule_overrides/${id}`);
-    }
-  };
-
-  const deleteOverrideFromFirebase = async (id: string) => {
-    try {
-      const docRef = doc(db, 'schedule_overrides', id);
-      await deleteDoc(docRef);
-    } catch (err) {
-      console.warn("Failed to delete override from Firebase:", err);
-      handleFirestoreError(err, 'delete', `schedule_overrides/${id}`);
-    }
-  };
-
-  const clearAllOverridesFromFirebase = async () => {
-    try {
-      const snapshot = await getDocs(collection(db, 'schedule_overrides'));
-      const batch = writeBatch(db);
-      snapshot.docs.forEach(dDoc => {
-        batch.delete(dDoc.ref);
-      });
-      await batch.commit();
-    } catch (err) {
-      console.warn("Failed to clear overrides from Firebase:", err);
-      handleFirestoreError(err, 'delete', 'schedule_overrides');
-    }
-  };
+  const syncAppSettingsToFirebase = async (updates: Partial<any>) => {};
+  const syncReactorNoteToFirebase = async (reactorId: string, note: string) => {};
+  const syncOverrideToFirebase = async (id: string, overrideData: any) => {};
+  const deleteOverrideFromFirebase = async (id: string) => {};
+  const clearAllOverridesFromFirebase = async () => {};
 
   // --- Supabase Data Loading ---
   const loadData = useCallback(async (showLoading = true) => {
@@ -914,39 +833,8 @@ const App: React.FC = () => {
       if (overridesError) throw overridesError;
       overridesData = oData;
 
-      // Proactively sync/backup to Firebase when Supabase loads successfully
-      if (settingsData) {
-        await syncAppSettingsToFirebase(settingsData);
-      }
-      if (notesData) {
-        for (const row of notesData) {
-          await syncReactorNoteToFirebase(row.reactor_id, row.note);
-        }
-      }
-      if (overridesData) {
-        for (const row of overridesData) {
-          await syncOverrideToFirebase(row.id, row);
-        }
-      }
-
     } catch (error) {
-      console.warn("Failed to load data from Supabase, trying Firebase Firestore fallback...", error);
-      
-      try {
-        // Fallback to Firebase
-        const settingsSnap = await getDoc(doc(db, 'app_settings', '1'));
-        if (settingsSnap.exists()) {
-          settingsData = settingsSnap.data();
-        }
-
-        const notesSnap = await getDocs(collection(db, 'reactor_notes'));
-        notesData = notesSnap.docs.map(doc => doc.data());
-
-        const overridesSnap = await getDocs(collection(db, 'schedule_overrides'));
-        overridesData = overridesSnap.docs.map(doc => doc.data());
-      } catch (fbError) {
-        console.error("Critical: Failed to load from both Supabase and Firebase:", fbError);
-      }
+      console.warn("Failed to load data from Supabase:", error);
     }
 
     try {
