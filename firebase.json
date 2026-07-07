@@ -1,0 +1,12 @@
+{
+  "firestore": [
+    {
+      "database": "(default)",
+      "rules": "firestore.rules"
+    },
+    {
+      "database": "ai-studio-schedulestart-286d74e9-d738-4c34-ba8f-1f2309c2fd9e",
+      "rules": "firestore.rules"
+    }
+  ]
+}

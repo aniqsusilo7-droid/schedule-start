@@ -1,0 +1,75 @@
+{
+  "entities": {
+    "AppSettings": {
+      "title": "App Settings",
+      "description": "Global configuration and state for the reactor scheduler",
+      "type": "object",
+      "properties": {
+        "id": { "type": "integer" },
+        "base_batch_number": { "type": "integer" },
+        "base_start_time": { "type": "string" },
+        "interval_hours": { "type": "integer" },
+        "interval_minutes": { "type": "integer" },
+        "columns_to_display": { "type": "integer" },
+        "audio_enabled": { "type": "boolean" },
+        "current_grade": { "type": "string" },
+        "is_stopped": { "type": "boolean" },
+        "alert_threshold_seconds": { "type": "integer" },
+        "running_text": { "type": "string" },
+        "is_marquee_paused": { "type": "boolean" },
+        "marquee_speed": { "type": "integer" },
+        "theme": { "type": "string" },
+        "alarm_sound": { "type": "string" },
+        "table_row_height": { "type": "integer" },
+        "table_font_size": { "type": "integer" },
+        "batch_duration_minutes": { "type": "integer" },
+        "grade_mode": { "type": "string" }
+      },
+      "required": ["id"]
+    },
+    "ReactorNote": {
+      "title": "Reactor Note",
+      "description": "Notes associated with specific reactors",
+      "type": "object",
+      "properties": {
+        "reactor_id": { "type": "string" },
+        "note": { "type": "string" },
+        "updated_at": { "type": "string" }
+      },
+      "required": ["reactor_id", "note"]
+    },
+    "ScheduleOverride": {
+      "title": "Schedule Override",
+      "description": "Overrides to the scheduled cycles",
+      "type": "object",
+      "properties": {
+        "id": { "type": "string" },
+        "override_time": { "type": "string" },
+        "is_skipped": { "type": "boolean" },
+        "skip_reason": { "type": "string" },
+        "mode": { "type": "string" },
+        "grade": { "type": "string" },
+        "note": { "type": "string" },
+        "shift_subsequent": { "type": "boolean" },
+        "manual_delay_minutes": { "type": "integer" },
+        "stage_info": { "type": "string" },
+        "updated_at": { "type": "string" }
+      },
+      "required": ["id"]
+    }
+  },
+  "firestore": {
+    "/app_settings/{documentId}": {
+      "schema": "AppSettings",
+      "description": "Stores the global settings with document id 1"
+    },
+    "/reactor_notes/{reactorId}": {
+      "schema": "ReactorNote",
+      "description": "Stores text notes indexed by reactor ID"
+    },
+    "/schedule_overrides/{overrideId}": {
+      "schema": "ScheduleOverride",
+      "description": "Stores cycle overrides indexed by reactor ID or slot identifier"
+    }
+  }
+}

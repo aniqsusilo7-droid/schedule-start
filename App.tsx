@@ -8,8 +8,9 @@ import { Demonomer } from './components/Demonomer';
 import { Silo } from './components/Silo';
 import { Catatan } from './components/Catatan';
 import { Kesepakatan } from './components/Kesepakatan';
-import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2 } from 'lucide-react';
+import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders } from 'lucide-react';
 import { supabase } from './supabaseClient';
+import { db, doc, setDoc, updateDoc, deleteDoc, getDoc, collection, getDocs, writeBatch } from './firebaseClient';
 import { Reorder } from 'framer-motion';
 
 const GRADES: GradeType[] = ['SM', 'SLK', 'SLP', 'SE', 'SR'];
@@ -174,6 +175,369 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 gainNode.connect(noiseCtx.destination);
                 noise.start(nt);
             }, 1000);
+        } else if (type === 'train') {
+            // Train Chugger & Whistle
+            for (let i = 0; i < 4; i++) {
+                const chugTime = t + i * 0.4;
+                const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.15, ctx.sampleRate);
+                const noiseData = noiseBuffer.getChannelData(0);
+                for (let j = 0; j < noiseData.length; j++) {
+                    noiseData[j] = Math.random() * 2 - 1;
+                }
+                const noiseSource = ctx.createBufferSource();
+                noiseSource.buffer = noiseBuffer;
+                
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(250, chugTime);
+                
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(0, chugTime);
+                gain.gain.linearRampToValueAtTime(0.3, chugTime + 0.02);
+                gain.gain.exponentialRampToValueAtTime(0.01, chugTime + 0.15);
+                
+                noiseSource.connect(filter);
+                filter.connect(gain);
+                gain.connect(ctx.destination);
+                noiseSource.start(chugTime);
+                noiseSource.stop(chugTime + 0.15);
+            }
+            const whistleStart = t + 1.6;
+            const whistleDuration = 1.2;
+            [400, 480].forEach(freq => {
+                const osc = ctx.createOscillator();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(freq, whistleStart);
+                
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(1000, whistleStart);
+                
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(0, whistleStart);
+                gain.gain.linearRampToValueAtTime(0.15, whistleStart + 0.1);
+                gain.gain.setValueAtTime(0.15, whistleStart + whistleDuration - 0.2);
+                gain.gain.exponentialRampToValueAtTime(0.001, whistleStart + whistleDuration);
+                
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(whistleStart);
+                osc.stop(whistleStart + whistleDuration);
+            });
+        } else if (type === 'car_horn') {
+            // Beep beep!
+            [t, t + 0.4].forEach(startTime => {
+                const duration = 0.25;
+                [400, 450].forEach(freq => {
+                    const osc = ctx.createOscillator();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(freq, startTime);
+                    
+                    const filter = ctx.createBiquadFilter();
+                    filter.type = 'lowpass';
+                    filter.frequency.setValueAtTime(1200, startTime);
+                    
+                    const gain = ctx.createGain();
+                    gain.gain.setValueAtTime(0, startTime);
+                    gain.gain.linearRampToValueAtTime(0.2, startTime + 0.02);
+                    gain.gain.setValueAtTime(0.2, startTime + duration - 0.02);
+                    gain.gain.linearRampToValueAtTime(0, startTime + duration);
+                    
+                    osc.connect(filter);
+                    filter.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(startTime);
+                    osc.stop(startTime + duration);
+                });
+            });
+        } else if (type === 'ship_horn') {
+            // Massive deep ocean liner horn
+            const shipDuration = 2.5;
+            [75, 110, 150].forEach((freq, idx) => {
+                const osc = ctx.createOscillator();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(freq, t);
+                
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(300, t);
+                
+                const gain = ctx.createGain();
+                const volume = idx === 0 ? 0.4 : 0.2;
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(volume, t + 0.2);
+                gain.gain.setValueAtTime(volume, t + shipDuration - 0.3);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + shipDuration);
+                
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(t);
+                osc.stop(t + shipDuration);
+            });
+        } else if (type === 'ringtone') {
+            // Digital arpeggio ringtone
+            const notes = [659.25, 783.99, 987.77, 1318.51, 987.77, 1318.51, 1567.98];
+            for (let loop = 0; loop < 2; loop++) {
+                const baseTime = t + loop * 1.5;
+                notes.forEach((freq, index) => {
+                    const noteStart = baseTime + index * 0.15;
+                    const osc = ctx.createOscillator();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, noteStart);
+                    
+                    const gain = ctx.createGain();
+                    gain.gain.setValueAtTime(0, noteStart);
+                    gain.gain.linearRampToValueAtTime(0.25, noteStart + 0.02);
+                    gain.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.13);
+                    
+                    osc.connect(gain);
+                    gain.connect(ctx.destination);
+                    osc.start(noteStart);
+                    osc.stop(noteStart + 0.15);
+                });
+            }
+        } else if (type === 'missile') {
+            // Screaming downward sweep + explosion
+            const missileDuration = 1.5;
+            const osc = ctx.createOscillator();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(1500, t);
+            osc.frequency.exponentialRampToValueAtTime(100, t + missileDuration);
+            
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(2000, t);
+            
+            const gain = ctx.createGain();
+            gain.gain.setValueAtTime(0, t);
+            gain.gain.linearRampToValueAtTime(0.2, t + 0.1);
+            gain.gain.linearRampToValueAtTime(0.1, t + missileDuration);
+            
+            osc.connect(filter);
+            filter.connect(gain);
+            gain.connect(ctx.destination);
+            
+            osc.start(t);
+            osc.stop(t + missileDuration);
+
+            // Explosion
+            const explosionTime = t + missileDuration;
+            const bufferSize = ctx.sampleRate * 1.5;
+            const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+            const data = buffer.getChannelData(0);
+            for (let i = 0; i < bufferSize; i++) {
+                data[i] = Math.random() * 2 - 1;
+            }
+            const noise = ctx.createBufferSource();
+            noise.buffer = buffer;
+            
+            const expFilter = ctx.createBiquadFilter();
+            expFilter.type = 'lowpass';
+            expFilter.frequency.setValueAtTime(800, explosionTime);
+            expFilter.frequency.exponentialRampToValueAtTime(40, explosionTime + 1.2);
+            
+            const expGain = ctx.createGain();
+            expGain.gain.setValueAtTime(0.6, explosionTime);
+            expGain.gain.exponentialRampToValueAtTime(0.001, explosionTime + 1.2);
+            
+            noise.connect(expFilter);
+            expFilter.connect(expGain);
+            expGain.connect(ctx.destination);
+            noise.start(explosionTime);
+            noise.stop(explosionTime + 1.5);
+        } else if (type === 'crow') {
+            // Crow caw-caw squawks (2 caws)
+            [t, t + 0.6].forEach(startTime => {
+                const osc = ctx.createOscillator();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(650, startTime);
+                osc.frequency.linearRampToValueAtTime(550, startTime + 0.35);
+                
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(1000, startTime);
+                filter.Q.setValueAtTime(3.0, startTime);
+                
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(0, startTime);
+                gain.gain.linearRampToValueAtTime(0.3, startTime + 0.05);
+                gain.gain.setValueAtTime(0.3, startTime + 0.2);
+                gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
+                
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(startTime);
+                osc.stop(startTime + 0.4);
+            });
+        } else if (type === 'magic_spell') {
+            // Magical glistening arpeggio
+            const scale = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98, 2093.00];
+            scale.forEach((freq, index) => {
+                const noteTime = t + index * 0.1;
+                const osc = ctx.createOscillator();
+                osc.type = 'triangle';
+                osc.frequency.setValueAtTime(freq, noteTime);
+                osc.frequency.linearRampToValueAtTime(freq + 10, noteTime + 0.25);
+                
+                const delay = ctx.createDelay();
+                delay.delayTime.setValueAtTime(0.08, noteTime);
+                
+                const gainNode = ctx.createGain();
+                gainNode.gain.setValueAtTime(0, noteTime);
+                gainNode.gain.linearRampToValueAtTime(0.15, noteTime + 0.02);
+                gainNode.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.4);
+                
+                osc.connect(gainNode);
+                gainNode.connect(delay);
+                delay.connect(ctx.destination);
+                gainNode.connect(ctx.destination);
+                
+                osc.start(noteTime);
+                osc.stop(noteTime + 0.5);
+            });
+        } else if (type === 'ufo') {
+            // Alien ship hover with vibrato
+            const osc = ctx.createOscillator();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(200, t);
+            
+            const lfo = ctx.createOscillator();
+            lfo.type = 'sine';
+            lfo.frequency.setValueAtTime(12, t);
+            
+            const lfoGain = ctx.createGain();
+            lfoGain.gain.setValueAtTime(80, t);
+            
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(800, t);
+            
+            const gainNode = ctx.createGain();
+            gainNode.gain.setValueAtTime(0, t);
+            gainNode.gain.linearRampToValueAtTime(0.35, t + 0.3);
+            
+            osc.frequency.linearRampToValueAtTime(400, t + 1.5);
+            osc.frequency.linearRampToValueAtTime(150, t + 3.0);
+            
+            gainNode.gain.setValueAtTime(0.35, t + 2.7);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, t + 3.0);
+            
+            lfo.connect(lfoGain);
+            lfoGain.connect(osc.frequency);
+            
+            osc.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            
+            lfo.start(t);
+            osc.start(t);
+            
+            lfo.stop(t + 3.0);
+            osc.stop(t + 3.0);
+        } else if (type === 'laser') {
+            // Rapid sci-fi laser pulses
+            for (let i = 0; i < 5; i++) {
+                const laserTime = t + i * 0.25;
+                const osc = ctx.createOscillator();
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(1800, laserTime);
+                osc.frequency.exponentialRampToValueAtTime(80, laserTime + 0.18);
+                
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(2000, laserTime);
+                
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(0, laserTime);
+                gain.gain.linearRampToValueAtTime(0.2, laserTime + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.001, laserTime + 0.18);
+                
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(ctx.destination);
+                
+                osc.start(laserTime);
+                osc.stop(laserTime + 0.18);
+            }
+        } else if (type === 'telephone') {
+            // Classic rotary telephone ring
+            [t, t + 1.2].forEach(ringTime => {
+                const duration = 0.8;
+                const modOsc = ctx.createOscillator();
+                modOsc.type = 'square';
+                modOsc.frequency.setValueAtTime(16, ringTime);
+                
+                const modGain = ctx.createGain();
+                modGain.gain.setValueAtTime(0.4, ringTime);
+                
+                [1100, 1250].forEach(freq => {
+                    const osc = ctx.createOscillator();
+                    osc.type = 'sine';
+                    osc.frequency.setValueAtTime(freq, ringTime);
+                    
+                    const strikeGain = ctx.createGain();
+                    strikeGain.gain.setValueAtTime(0, ringTime);
+                    strikeGain.gain.linearRampToValueAtTime(0.2, ringTime + 0.02);
+                    strikeGain.gain.setValueAtTime(0.2, ringTime + duration - 0.05);
+                    strikeGain.gain.exponentialRampToValueAtTime(0.001, ringTime + duration);
+                    
+                    osc.connect(strikeGain);
+                    modGain.connect(strikeGain.gain);
+                    strikeGain.connect(ctx.destination);
+                    
+                    osc.start(ringTime);
+                    osc.stop(ringTime + duration);
+                });
+                modOsc.start(ringTime);
+                modOsc.stop(ringTime + duration);
+            });
+        } else if (type === 'arcade') {
+            // Bouncy 8-bit game victory melody
+            const notes = [261.63, 329.63, 392.00, 523.25, 392.00, 523.25, 659.25];
+            notes.forEach((freq, index) => {
+                const noteTime = t + index * 0.12;
+                const osc = ctx.createOscillator();
+                osc.type = 'square';
+                osc.frequency.setValueAtTime(freq, noteTime);
+                
+                const gain = ctx.createGain();
+                gain.gain.setValueAtTime(0, noteTime);
+                gain.gain.linearRampToValueAtTime(0.12, noteTime + 0.01);
+                gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.1);
+                
+                osc.connect(gain);
+                gain.connect(ctx.destination);
+                osc.start(noteTime);
+                osc.stop(noteTime + 0.12);
+            });
+        } else if (type === 'gong') {
+            // Epic deep temple gong
+            const freqs = [100, 142, 224, 335, 470, 680];
+            freqs.forEach((freq, idx) => {
+                const osc = ctx.createOscillator();
+                osc.type = idx % 2 === 0 ? 'sine' : 'triangle';
+                osc.frequency.setValueAtTime(freq, t);
+                
+                const filter = ctx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(400, t);
+                
+                const gain = ctx.createGain();
+                const initVol = idx === 0 ? 0.3 : 0.1;
+                gain.gain.setValueAtTime(0, t);
+                gain.gain.linearRampToValueAtTime(initVol, t + 0.05);
+                gain.gain.exponentialRampToValueAtTime(0.001, t + 4.0);
+                
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(ctx.destination);
+                
+                osc.start(t);
+                osc.stop(t + 4.0);
+            });
         }
 
     } catch (e) {
@@ -192,7 +556,7 @@ const SECTIONS = {
 
 const App: React.FC = () => {
   // --- State ---
-  const [currentView, setCurrentView] = useState<'scheduler' | 'demonomer' | 'silo' | 'catatan' | 'kesepakatan'>('scheduler');
+  const [currentView, setCurrentView] = useState<'scheduler' | 'demonomer' | 'silo' | 'catatan'>('scheduler');
   const [isDemonomerPopupOpen, setIsDemonomerPopupOpen] = useState(false);
   const [now, setNow] = useState(new Date());
   
@@ -220,10 +584,26 @@ const App: React.FC = () => {
   const [shouldBlinkNote, setShouldBlinkNote] = useState(false);
 
   // Catalyst State (Supabase Persistence)
-  const [catalystData, setCatalystData] = useState({
+  const [catalystData, setCatalystData] = useState<any>({
     f: { netto: '24,9', bruto: '' },
     h: { netto: '10,8', bruto: '' },
-    g: { netto: '', bruto: '' }
+    g: { netto: '', bruto: '' },
+    presets: {
+      SM: { F: '16,3', H: '25,7' },
+      SLP: { F: '', H: '' },
+      SLK: { F: '', H: '' },
+      SE: { F: '', G: '' },
+      SR: { F: '', G: '' }
+    }
+  });
+
+  const [isCatalystModalOpen, setIsCatalystModalOpen] = useState(false);
+  const [tempCatalystPresets, setTempCatalystPresets] = useState<Record<string, Record<string, string>>>({
+    SM: { F: '16,3', H: '25,7' },
+    SLP: { F: '', H: '' },
+    SLK: { F: '', H: '' },
+    SE: { F: '', G: '' },
+    SR: { F: '', G: '' }
   });
 
   // Demonomer State (Supabase Persistence)
@@ -315,6 +695,7 @@ const App: React.FC = () => {
   const announcedBatches = useRef<Set<string>>(new Set());
   const [audioAllowed, setAudioAllowed] = useState(false); // Track if audio is allowed
   const [dbSchemaError, setDbSchemaError] = useState<string | null>(null);
+  const supabaseColumnsRef = useRef<Set<string>>(new Set());
 
   const activeDemonomerGrade = config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade;
 
@@ -375,12 +756,14 @@ const App: React.FC = () => {
   // Temp State for Settings Inputs
   const [tempBaseBatchNumber, setTempBaseBatchNumber] = useState(config.baseBatchNumber);
   const [tempBaseStartTime, setTempBaseStartTime] = useState(config.baseStartTime);
+  const [tempAlarmSound, setTempAlarmSound] = useState<AlarmSoundType>(config.alarmSound);
 
   // Sync temp state with config when config loads/changes
   useEffect(() => {
     setTempBaseBatchNumber(config.baseBatchNumber);
     setTempBaseStartTime(config.baseStartTime);
-  }, [config.baseBatchNumber, config.baseStartTime]);
+    setTempAlarmSound(config.alarmSound);
+  }, [config.baseBatchNumber, config.baseStartTime, config.alarmSound]);
 
   // --- Effects ---
   
@@ -391,38 +774,188 @@ const App: React.FC = () => {
       }
   }, []);
 
+  // --- Firebase Duplication Helpers ---
+  const handleFirestoreError = (error: unknown, operationType: 'create' | 'update' | 'delete' | 'list' | 'get' | 'write', path: string | null) => {
+    const errInfo = {
+      error: error instanceof Error ? error.message : String(error),
+      authInfo: {
+        userId: null,
+        email: null,
+        emailVerified: null,
+        isAnonymous: null,
+        tenantId: null,
+        providerInfo: []
+      },
+      operationType,
+      path
+    };
+    console.error('Firestore Error: ', JSON.stringify(errInfo));
+    throw new Error(JSON.stringify(errInfo));
+  };
+
+  const syncAppSettingsToFirebase = async (updates: Partial<any>) => {
+    try {
+      const docRef = doc(db, 'app_settings', '1');
+      const cleanUpdates = JSON.parse(JSON.stringify(updates, (k, v) => v === undefined ? null : v));
+      await setDoc(docRef, cleanUpdates, { merge: true });
+    } catch (err) {
+      console.warn("Failed to sync app_settings to Firebase:", err);
+      handleFirestoreError(err, 'write', 'app_settings/1');
+    }
+  };
+
+  const syncReactorNoteToFirebase = async (reactorId: string, note: string) => {
+    try {
+      const docRef = doc(db, 'reactor_notes', reactorId);
+      await setDoc(docRef, {
+        reactor_id: reactorId,
+        note: note,
+        updated_at: new Date().toISOString()
+      }, { merge: true });
+    } catch (err) {
+      console.warn("Failed to sync reactor note to Firebase:", err);
+      handleFirestoreError(err, 'write', `reactor_notes/${reactorId}`);
+    }
+  };
+
+  const syncOverrideToFirebase = async (id: string, overrideData: any) => {
+    try {
+      const docRef = doc(db, 'schedule_overrides', id);
+      const dataToSave = {
+        id: id,
+        override_time: overrideData.override_time || null,
+        is_skipped: overrideData.is_skipped ?? false,
+        skip_reason: overrideData.skip_reason || 'PASS',
+        mode: overrideData.mode || 'CLOSE',
+        grade: overrideData.grade || null,
+        note: overrideData.note || null,
+        shift_subsequent: overrideData.shift_subsequent ?? false,
+        manual_delay_minutes: overrideData.manual_delay_minutes || 0,
+        stage_info: overrideData.stage_info || '',
+        updated_at: new Date().toISOString()
+      };
+      await setDoc(docRef, dataToSave, { merge: true });
+    } catch (err) {
+      console.warn("Failed to sync override to Firebase:", err);
+      handleFirestoreError(err, 'write', `schedule_overrides/${id}`);
+    }
+  };
+
+  const deleteOverrideFromFirebase = async (id: string) => {
+    try {
+      const docRef = doc(db, 'schedule_overrides', id);
+      await deleteDoc(docRef);
+    } catch (err) {
+      console.warn("Failed to delete override from Firebase:", err);
+      handleFirestoreError(err, 'delete', `schedule_overrides/${id}`);
+    }
+  };
+
+  const clearAllOverridesFromFirebase = async () => {
+    try {
+      const snapshot = await getDocs(collection(db, 'schedule_overrides'));
+      const batch = writeBatch(db);
+      snapshot.docs.forEach(dDoc => {
+        batch.delete(dDoc.ref);
+      });
+      await batch.commit();
+    } catch (err) {
+      console.warn("Failed to clear overrides from Firebase:", err);
+      handleFirestoreError(err, 'delete', 'schedule_overrides');
+    }
+  };
+
   // --- Supabase Data Loading ---
   const loadData = useCallback(async (showLoading = true) => {
     if (showLoading) setIsLoading(true);
+    let settingsData: any = null;
+    let notesData: any = null;
+    let overridesData: any = null;
+
     try {
       // 1. Fetch Global Settings
-      const { data: settingsData, error: settingsError } = await supabase
+      const { data: sData, error: settingsError } = await supabase
         .from('app_settings')
         .select('*')
         .single();
 
       if (settingsError && settingsError.code !== 'PGRST116') throw settingsError;
+      settingsData = sData;
+      if (sData) {
+        const columns = Object.keys(sData);
+        supabaseColumnsRef.current = new Set(columns);
+        
+        // Check for missing columns in Supabase app_settings table
+        const missing: string[] = [];
+        if (!columns.includes('alarm_sound')) missing.push('alarm_sound');
+        if (!columns.includes('grade_mode')) missing.push('grade_mode');
+        if (!columns.includes('cycle_time_data')) missing.push('cycle_time_data');
+        
+        if (missing.length > 0) {
+          setDbSchemaError(`Missing database column(s): ${missing.join(', ')}`);
+        } else {
+          setDbSchemaError(null);
+        }
+      }
 
       // 2. Fetch Reactor Notes
-      const { data: notesData, error: notesError } = await supabase
+      const { data: nData, error: notesError } = await supabase
         .from('reactor_notes')
         .select('*');
       
       if (notesError) throw notesError;
+      notesData = nData;
 
+      // 3. Fetch Schedule Overrides (Item Configs)
+      const { data: oData, error: overridesError } = await supabase
+        .from('schedule_overrides')
+        .select('*');
+
+      if (overridesError) throw overridesError;
+      overridesData = oData;
+
+      // Proactively sync/backup to Firebase when Supabase loads successfully
+      if (settingsData) {
+        await syncAppSettingsToFirebase(settingsData);
+      }
+      if (notesData) {
+        for (const row of notesData) {
+          await syncReactorNoteToFirebase(row.reactor_id, row.note);
+        }
+      }
+      if (overridesData) {
+        for (const row of overridesData) {
+          await syncOverrideToFirebase(row.id, row);
+        }
+      }
+
+    } catch (error) {
+      console.warn("Failed to load data from Supabase, trying Firebase Firestore fallback...", error);
+      
+      try {
+        // Fallback to Firebase
+        const settingsSnap = await getDoc(doc(db, 'app_settings', '1'));
+        if (settingsSnap.exists()) {
+          settingsData = settingsSnap.data();
+        }
+
+        const notesSnap = await getDocs(collection(db, 'reactor_notes'));
+        notesData = notesSnap.docs.map(doc => doc.data());
+
+        const overridesSnap = await getDocs(collection(db, 'schedule_overrides'));
+        overridesData = overridesSnap.docs.map(doc => doc.data());
+      } catch (fbError) {
+        console.error("Critical: Failed to load from both Supabase and Firebase:", fbError);
+      }
+    }
+
+    try {
       const notesMap: Record<string, string> = {};
       if (notesData) {
           notesData.forEach((row: any) => {
               notesMap[row.reactor_id] = row.note;
           });
       }
-
-      // 3. Fetch Schedule Overrides (Item Configs)
-      const { data: overridesData, error: overridesError } = await supabase
-        .from('schedule_overrides')
-        .select('*');
-
-      if (overridesError) throw overridesError;
 
       const itemConfigsMap: Record<string, ItemConfig> = {};
       if (overridesData) {
@@ -475,7 +1008,14 @@ const App: React.FC = () => {
 
           // Load Catalyst Data
           if (settingsData.catalyst_data) {
-              setCatalystData(settingsData.catalyst_data);
+              const loadedCatalyst = settingsData.catalyst_data;
+              setCatalystData(loadedCatalyst);
+              if (loadedCatalyst.presets) {
+                  setTempCatalystPresets(prev => ({
+                      ...prev,
+                      ...loadedCatalyst.presets
+                  }));
+              }
           }
 
           // Load Silo State
@@ -488,17 +1028,51 @@ const App: React.FC = () => {
               setDemonomerData(settingsData.demonomer_data);
           }
 
+          // Load Cycle Time Data
+          if (settingsData.cycle_time_data) {
+              setCycleTimeData(settingsData.cycle_time_data);
+          }
+
           // Load Grade Mode
           if (settingsData && 'grade_mode' in settingsData && settingsData.grade_mode) {
               setConfig(prev => ({ ...prev, gradeMode: settingsData.grade_mode as 'normal' | 'gradeChange' }));
           }
 
       } else {
-           // Init defaults if no settings exist
-           await supabase.from('app_settings').insert([{ id: 1 }]);
+           // Init defaults if no settings exist (both databases)
+           try {
+               await supabase.from('app_settings').insert([{ id: 1 }]);
+           } catch (err) {
+               console.warn("Could not insert initial row to Supabase:", err);
+           }
+           
+           const initialSettings = {
+               id: 1,
+               base_batch_number: 5164,
+               base_start_time: new Date().toISOString(),
+               interval_hours: 1,
+               interval_minutes: 30,
+               columns_to_display: 4,
+               audio_enabled: false,
+               current_grade: 'SM',
+               is_stopped: false,
+               alert_threshold_seconds: 60,
+               running_text: 'JIKA DELAY DIATAS 15 MENIT WAJIB ADJUST SCHEDULE!',
+               is_marquee_paused: false,
+               marquee_speed: 30,
+               theme: 'light',
+               alarm_sound: 'siren',
+               table_row_height: 95,
+               table_font_size: 26,
+               batch_duration_minutes: 120,
+               hidden_reactors: [],
+               hidden_fields: [],
+               grade_mode: 'normal'
+           };
+           await syncAppSettingsToFirebase(initialSettings);
       }
-    } catch (error) {
-      console.error("Error loading data from Supabase:", error);
+    } catch (err) {
+      console.error("Error setting configuration states:", err);
     } finally {
       if (showLoading) setIsLoading(false);
     }
@@ -529,24 +1103,38 @@ const App: React.FC = () => {
   const updateGlobalSetting = async (updates: Partial<any>) => {
       // Optimistic update
       try {
-          const { error } = await supabase
-              .from('app_settings')
-              .update(updates)
-              .eq('id', 1);
-          
-          if (error) {
-              // Specifically handle missing column error (PGRST204)
-              if (error.code === 'PGRST204') {
-                  if (error.message.includes('grade_mode')) {
-                      setDbSchemaError("Missing 'grade_mode' column in app_settings table.");
-                      console.warn("Database column 'grade_mode' is missing. Please run the SQL in supabase_schema.sql to update your database.");
-                  } else if (error.message.includes('alarm_sound')) {
-                      setDbSchemaError("Missing 'alarm_sound' column in app_settings table.");
-                      console.warn("Database column 'alarm_sound' is missing. Please run the SQL in supabase_schema.sql to update your database.");
-                  }
-                  return;
+          // Sync to Firebase
+          await syncAppSettingsToFirebase(updates);
+
+          // Filter updates to only send columns known to exist in Supabase's app_settings table
+          const supabaseUpdates: any = {};
+          let hasSupabaseUpdates = false;
+
+          Object.keys(updates).forEach(key => {
+              if (supabaseColumnsRef.current.size === 0 || supabaseColumnsRef.current.has(key)) {
+                  supabaseUpdates[key] = updates[key];
+                  hasSupabaseUpdates = true;
               }
-              console.error("Failed to update settings:", error);
+          });
+
+          if (hasSupabaseUpdates) {
+              const { error } = await supabase
+                  .from('app_settings')
+                  .update(supabaseUpdates)
+                  .eq('id', 1);
+              
+              if (error) {
+                  // Specifically handle missing column error (PGRST204)
+                  if (error.code === 'PGRST204') {
+                      if (error.message.includes('grade_mode')) {
+                          console.warn("Database column 'grade_mode' is missing. Saved locally and to Firebase fallback.");
+                      } else if (error.message.includes('alarm_sound')) {
+                          console.warn("Database column 'alarm_sound' is missing. Saved locally and to Firebase fallback.");
+                      }
+                      return;
+                  }
+                  console.error("Failed to update settings in Supabase:", error);
+              }
           }
       } catch (err) {
           console.error("Unexpected error updating settings:", err);
@@ -660,6 +1248,13 @@ const App: React.FC = () => {
       try {
           const newStartTime = new Date(tempBaseStartTime).toISOString();
           
+          // Sync to Firebase
+          await syncAppSettingsToFirebase({
+              base_batch_number: tempBaseBatchNumber,
+              base_start_time: newStartTime,
+          });
+          await clearAllOverridesFromFirebase();
+          
           // Update Supabase
           await supabase.from('app_settings').update({
               base_batch_number: tempBaseBatchNumber,
@@ -753,6 +1348,13 @@ const App: React.FC = () => {
           }
           const newStartTime = parsedDate.toISOString();
           
+          // Sync to Firebase
+          await syncAppSettingsToFirebase({
+              base_batch_number: resetParams.batch,
+              base_start_time: newStartTime,
+          });
+          await clearAllOverridesFromFirebase();
+          
           // Update Supabase
           const { error } = await supabase.from('app_settings').update({
               base_batch_number: resetParams.batch,
@@ -790,6 +1392,52 @@ const App: React.FC = () => {
     updateGlobalSetting({ catalyst_data: newData });
   };
 
+  const openCatalystModal = () => {
+      if (catalystData.presets) {
+          setTempCatalystPresets(prev => ({
+              ...prev,
+              ...catalystData.presets
+          }));
+      }
+      setIsCatalystModalOpen(true);
+  };
+
+  const handleTempPresetChange = (grade: string, catKey: string, val: string) => {
+      setTempCatalystPresets(prev => ({
+          ...prev,
+          [grade]: {
+              ...prev[grade],
+              [catKey]: val
+          }
+      }));
+  };
+
+  const saveCatalystPresets = () => {
+      const updatedCatalystData = {
+          ...catalystData,
+          presets: tempCatalystPresets
+      };
+      setCatalystData(updatedCatalystData);
+      updateGlobalSetting({ catalyst_data: updatedCatalystData });
+      setIsCatalystModalOpen(false);
+  };
+
+  const applyCatalystPreset = (grade: string) => {
+      const preset = tempCatalystPresets[grade];
+      if (!preset) return;
+
+      const newCata = {
+          ...catalystData,
+          f: { ...catalystData.f, netto: preset.F || '' },
+          h: { ...catalystData.h, netto: preset.H || '' },
+          g: { ...catalystData.g, netto: preset.G || '' }
+      };
+
+      setCatalystData(newCata);
+      updateGlobalSetting({ catalyst_data: newCata });
+      setIsCatalystModalOpen(false);
+  };
+
   // --- Cycle Time Logic ---
   const calculateDuration = (start: string, end: string) => {
       if (!start || !end) return '';
@@ -820,7 +1468,11 @@ const App: React.FC = () => {
   };
 
   const handleCycleTimeChange = (id: number, field: string, value: string) => {
-      setCycleTimeData(prev => prev.map(row => row.id === id ? { ...row, [field]: value } : row));
+      setCycleTimeData(prev => {
+          const newData = prev.map(row => row.id === id ? { ...row, [field]: value } : row);
+          updateGlobalSetting({ cycle_time_data: newData });
+          return newData;
+      });
   };
 
   // --- Silo Handlers ---
@@ -918,6 +1570,9 @@ const App: React.FC = () => {
                   [editingReactorNote]: tempReactorNote
               }
           }));
+
+          // Sync to Firebase
+          await syncReactorNoteToFirebase(editingReactorNote, tempReactorNote);
 
           const { error } = await supabase
               .from('reactor_notes')
@@ -1032,6 +1687,19 @@ const App: React.FC = () => {
         }
       }));
 
+      // Sync to Firebase
+      await syncOverrideToFirebase(selectedItem.id, {
+          override_time: newConfig.overrideTime,
+          is_skipped: newConfig.isSkipped,
+          skip_reason: newConfig.skipReason,
+          mode: newConfig.mode,
+          grade: newConfig.grade,
+          note: newConfig.note,
+          shift_subsequent: newConfig.shiftSubsequent,
+          manual_delay_minutes: newConfig.manualDelayMinutes,
+          stage_info: newConfig.stageInfo
+      });
+
       // DB Upsert
       const { error } = await supabase
           .from('schedule_overrides')
@@ -1061,6 +1729,9 @@ const App: React.FC = () => {
       const newConfigs = { ...config.itemConfigs };
       delete newConfigs[selectedItem.id];
       setConfig(prev => ({ ...prev, itemConfigs: newConfigs }));
+
+      // Sync to Firebase
+      await deleteOverrideFromFirebase(selectedItem.id);
 
       // DB Delete
       const { error } = await supabase
@@ -1249,8 +1920,35 @@ const App: React.FC = () => {
       const countToday = list.filter(b => !b.isSkipped && formatDate(getBatchDate(b.startTime)) === todayBatchStr).length;
       const countPrev = list.filter(b => !b.isSkipped && formatDate(getBatchDate(b.startTime)) === prevBatchStr).length;
 
+      // Detect grade changes for today's batches
+      const allScheduledItems = Object.values(scheduleMatrix).flat() as ScheduleItem[];
+      const activeItems = allScheduledItems.filter(item => item.status !== 'skipped');
+      activeItems.sort((a, b) => a.batchNumber - b.batchNumber);
+
+      const gradeChanges: string[] = [];
+      for(let i = 0; i < activeItems.length - 2; i++) {
+         const oldGrade = activeItems[i].grade;
+         const newGrade1 = activeItems[i+1].grade;
+         const newGrade2 = activeItems[i+2].grade;
+
+         if (oldGrade !== newGrade1 && newGrade1 === newGrade2) {
+             const batchDateStr = formatDate(getBatchDate(activeItems[i+1].startTime));
+             const msg = `pada tanggal ${batchDateStr} grade change ${oldGrade} ke ${newGrade1}`;
+             if (!gradeChanges.includes(msg)) {
+                 gradeChanges.push(msg);
+             }
+         }
+      }
+      
+      const gradeChangesText = gradeChanges.length > 0 ? (
+        <span className="text-rose-600 dark:text-rose-400 font-extrabold mr-3">
+          {gradeChanges.join(" | ")} |
+        </span>
+      ) : null;
+
       return (
         <span className="flex items-center gap-1">
+          {gradeChangesText}
           <span className="text-rose-600 dark:text-rose-400 font-extrabold ms-1">
             estimasi batch pada hari ini adalah <span className="text-blue-600 dark:text-blue-400 font-extrabold">{countToday} batch</span>
           </span>
@@ -1274,7 +1972,7 @@ const App: React.FC = () => {
         </span>
       );
     }
-  }, [config, now]);
+  }, [config, now, scheduleMatrix]);
 
   // --- Auto Reset / Advance Logic ---
   useEffect(() => {
@@ -1457,9 +2155,6 @@ const App: React.FC = () => {
                   <button onClick={() => setCurrentView('catatan')} className={`relative px-3.5 py-1.5 text-[0.75rem] font-bold uppercase tracking-wider rounded-full transition-all duration-300 flex items-center gap-1.5 ${currentView === 'catatan' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600 scale-105' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}>
                       <FileText className={`w-3.5 h-3.5 transition-colors ${currentView === 'catatan' ? 'text-emerald-600 dark:text-emerald-400' : ''}`} /> <span>CATATAN</span>
                   </button>
-                  <button onClick={() => setCurrentView('kesepakatan')} className={`relative px-3.5 py-1.5 text-[0.75rem] font-bold uppercase tracking-wider rounded-full transition-all duration-300 flex items-center gap-1.5 ${currentView === 'kesepakatan' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600 scale-105' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}>
-                      <Handshake className={`w-3.5 h-3.5 transition-colors ${currentView === 'kesepakatan' ? 'text-emerald-600 dark:text-emerald-400' : ''}`} /> <span>KESEPAKATAN</span>
-                  </button>
                   
                   <div className={`w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1 transition-opacity duration-500 ${isSettingsButtonVisible || isSettingsOpen ? 'opacity-100' : 'opacity-0'}`}></div>
                   
@@ -1484,12 +2179,29 @@ const App: React.FC = () => {
                           <AlertTriangle className="w-6 h-6 shrink-0 text-red-400" />
                           <div className="flex-1">
                               <p className="font-black text-lg leading-none mb-1 uppercase tracking-tighter">Database Schema Outdated</p>
-                              <p className="opacity-80 font-bold">The 'grade_mode' feature requires a database update. Please run the SQL in <code>supabase_schema.sql</code> in your Supabase SQL Editor.</p>
+                              <p className="opacity-80 font-bold text-xs">
+                                  {dbSchemaError}. Jalankan script di bawah ini pada Supabase SQL Editor Anda untuk mengupdate tabel agar fitur alarm & cycle time berjalan dengan lancar.
+                              </p>
                               <div className="mt-3 flex gap-3">
                                   <button 
                                       onClick={() => {
-                                          navigator.clipboard.writeText("ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS grade_mode TEXT DEFAULT 'normal';");
-                                          alert("SQL copied to clipboard!");
+                                          let sql = "";
+                                          if (dbSchemaError.includes('alarm_sound')) {
+                                              sql += "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS alarm_sound TEXT DEFAULT 'siren';\n";
+                                          }
+                                          if (dbSchemaError.includes('grade_mode')) {
+                                              sql += "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS grade_mode TEXT DEFAULT 'normal';\n";
+                                          }
+                                          if (dbSchemaError.includes('cycle_time_data')) {
+                                              sql += "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS cycle_time_data JSONB DEFAULT '[{\"id\": 1, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}, {\"id\": 2, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}]'::jsonb;\n";
+                                          }
+                                          if (!sql) {
+                                              sql = "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS alarm_sound TEXT DEFAULT 'siren';\n" +
+                                                    "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS grade_mode TEXT DEFAULT 'normal';\n" +
+                                                    "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS cycle_time_data JSONB DEFAULT '[{\"id\": 1, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}, {\"id\": 2, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}]'::jsonb;";
+                                          }
+                                          navigator.clipboard.writeText(sql);
+                                          alert("SQL berhasil disalin ke clipboard!");
                                       }}
                                       className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-black text-xs transition-colors shadow-lg uppercase"
                                   >
@@ -1554,6 +2266,63 @@ const App: React.FC = () => {
                         <RotateCcw className="w-6 h-6" />
                         INPUT FOR RE-S
                       </button>
+                  </div>
+
+                  {/* ALARM SOUND SETTINGS (Penambahan Baru) */}
+                  <div className="md:col-span-2 flex flex-col gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm justify-between">
+                      <div>
+                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block flex items-center gap-1.5">
+                              <Bell className="w-4 h-4 text-blue-500" /> PENGATURAN SUARA ALARM
+                          </label>
+                          <div className="relative">
+                              <select 
+                                  value={tempAlarmSound} 
+                                  onChange={(e) => {
+                                      const newSound = e.target.value as AlarmSoundType;
+                                      setTempAlarmSound(newSound);
+                                      handleConfigChange('alarmSound', newSound);
+                                      playAlarmSound(newSound); // preview instantly
+                                  }}
+                                  className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                              >
+                                  <option value="siren">🚨 Siren (Original)</option>
+                                  <option value="rocket">🚀 Suara Roket (rocket)</option>
+                                  <option value="jet">✈️ Suara Pesawat Jet (jet)</option>
+                                  <option value="powerpoint">📊 PowerPoint Chime</option>
+                                  <option value="bomb">💣 Bomb Explosion</option>
+                                  <option value="fajar_sadboy">😭 Fajar Sadboy (Speech)</option>
+                                  <option value="train">🚂 Suara Kereta Api (train)</option>
+                                  <option value="car_horn">🚗 Suara Klakson Mobil (car_horn)</option>
+                                  <option value="ship_horn">🚢 Suara Klakson Kapal (ship_horn)</option>
+                                  <option value="ringtone">📞 Suara Nada Dering (ringtone)</option>
+                                  <option value="missile">🚀 Suara Tembakan Rudal (missile)</option>
+                                  <option value="crow">🐦 Suara Burung Gagak (crow)</option>
+                                  <option value="magic_spell">🪄 Magic Spell (magic_spell)</option>
+                                  <option value="ufo">🛸 UFO Beam (ufo)</option>
+                                  <option value="laser">🔫 Alien Laser (laser)</option>
+                                  <option value="telephone">☎️ Old Telephone Ring (telephone)</option>
+                                  <option value="arcade">👾 Retro Arcade Chime (arcade)</option>
+                                  <option value="gong">🔔 Epic Gong Strike (gong)</option>
+                              </select>
+                          </div>
+                      </div>
+
+                      <div className="flex flex-col gap-2">
+                          <div className="text-xs text-emerald-500 dark:text-emerald-400 font-bold flex items-center gap-1.5">
+                              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
+                              <span>Suara langsung terapply & disimpan ke database!</span>
+                          </div>
+
+                          <button 
+                              onClick={() => {
+                                  playAlarmSound(tempAlarmSound); // play sound preview as test
+                              }}
+                              className="w-full py-2.5 px-4 rounded-lg font-black uppercase text-xs tracking-wider transition-all duration-300 shadow-md flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
+                          >
+                              <Volume2 className="w-4 h-4" />
+                              TEST SUARA ALARM
+                          </button>
+                      </div>
                   </div>
 
                   {/* ALERT SYSTEM CONTROLS */}
@@ -1835,9 +2604,16 @@ const App: React.FC = () => {
   const renderCatalystMiniWidget = () => {
       return (
           <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800">
-              <div className="bg-indigo-600 text-white font-bold text-[0.8em] px-3 py-2 text-center flex items-center justify-center gap-2 uppercase tracking-tight">
-                  <Activity className="w-3 h-3" />
-                  CATALYST DATA
+              <div 
+                  onClick={openCatalystModal}
+                  className="bg-indigo-600 hover:bg-indigo-700 cursor-pointer text-white font-bold text-[0.8em] px-3 py-2 text-center flex items-center justify-between gap-2 uppercase tracking-tight transition-colors"
+                  title="Click to open Catalyst Presets Settings"
+              >
+                  <div className="flex items-center gap-2">
+                      <Activity className="w-3 h-3 animate-pulse" />
+                      CATALYST DATA
+                  </div>
+                  <Sliders className="w-3.5 h-3.5 opacity-80" />
               </div>
               <div className="p-2">
                   <table className="w-full border-collapse">
@@ -1857,7 +2633,7 @@ const App: React.FC = () => {
                                   <td className="py-1 px-1">
                                       <input 
                                           type="text" 
-                                          value={catalystData[key].netto} 
+                                          value={catalystData[key]?.netto || ''} 
                                           onChange={(e) => handleCatalystChange(key, 'netto', e.target.value)}
                                           className="w-full bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-white text-center font-bold py-1 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 text-[1.1em]"
                                       />
@@ -1865,7 +2641,7 @@ const App: React.FC = () => {
                                   <td className="py-1 px-1">
                                       <input 
                                           type="text" 
-                                          value={catalystData[key].bruto} 
+                                          value={catalystData[key]?.bruto || ''} 
                                           onChange={(e) => handleCatalystChange(key, 'bruto', e.target.value)}
                                           className="w-full bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-white text-center font-bold py-1 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 text-[1.1em]"
                                       />
@@ -2377,136 +3153,149 @@ const App: React.FC = () => {
       return (
            <div className="flex flex-col gap-4" style={{ fontSize: `${config.tableFontSize}px` }}>
                 
-                {/* 1. CYCLE TIME WIDGET - FULL WIDTH */}
-               <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
-                    <div className={`${GRADE_COLORS[config.currentGrade] || 'bg-indigo-600'} text-white font-bold text-[0.7em] px-3 py-1 text-center rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight transition-colors`}>
-                        <Calculator className="w-3 h-3" />
-                        HITUNG CYCLE TIME
-                    </div>
-                    <div className={`${GRADE_COLORS[config.currentGrade] ? GRADE_COLORS[config.currentGrade].replace('bg-', 'bg-').concat('/10') : 'bg-white dark:bg-slate-800'} rounded-b-xl p-1.5 flex flex-col gap-1.5 transition-colors`}>
-                        <table className="w-full border-collapse text-center font-bold text-[1.1em]">
-                            <thead>
-                                <tr>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">NS START</th>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">READY BLOWING</th>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">BLOWING START</th>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">BLOWING HOLD</th>
-                                    <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">BLOWING COMPLETE</th>
-                                    <th 
-                                        className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em] cursor-pointer hover:text-blue-500 transition-colors"
-                                        onClick={() => {
-                                            setTempFormula(demonomerData.cycleTimeFormula);
-                                            setIsFormulaModalOpen(true);
-                                        }}
-                                        title="Click to edit formula"
-                                    >
-                                        CYCLE TIME
-                                    </th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {cycleTimeData.map((row) => {
-                                    const blowingHold = calculateBlowingHold(row.readyBlowing, row.blowing);
-                                    
-                                    // Calculate Cycle Time using dynamic formula
-                                    let cycleTime = '';
-                                    if (row.blowingComplete && row.ns && blowingHold) {
-                                        const totalDuration = calculateDuration(row.ns, row.blowingComplete);
-                                        if (totalDuration) {
-                                            const [tdH, tdM] = totalDuration.split(':').map(Number);
-                                            const [bhH, bhM] = blowingHold.split(':').map(Number);
-                                            
-                                            const totalMins = (tdH * 60 + tdM);
-                                            const holdMins = (bhH * 60 + bhM);
-                                            
-                                            const resultMins = evaluateMath(demonomerData.cycleTimeFormula, {
-                                                COMP: totalMins,
-                                                HOLD: holdMins
-                                            });
+               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                   {/* 1. CYCLE TIME WIDGET */}
+                   <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                        <div className={`${GRADE_COLORS[config.currentGrade] || 'bg-indigo-600'} text-white font-bold text-[0.7em] px-3 py-1 text-center rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight transition-colors`}>
+                            <Calculator className="w-3 h-3" />
+                            HITUNG CYCLE TIME
+                        </div>
+                        <div className={`${GRADE_COLORS[config.currentGrade] ? GRADE_COLORS[config.currentGrade].replace('bg-', 'bg-').concat('/10') : 'bg-white dark:bg-slate-800'} rounded-b-xl p-1.5 flex flex-col gap-1.5 transition-colors`}>
+                            <table className="w-full border-collapse text-center font-bold text-[1.1em]">
+                                <thead>
+                                    <tr>
+                                        <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">NS START</th>
+                                        <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">READY BLOWING</th>
+                                        <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">BLOWING START</th>
+                                        <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">BLOWING HOLD</th>
+                                        <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">BLOWING COMPLETE</th>
+                                        <th 
+                                            className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em] cursor-pointer hover:text-blue-500 transition-colors"
+                                            onClick={() => {
+                                                setTempFormula(demonomerData.cycleTimeFormula);
+                                                setIsFormulaModalOpen(true);
+                                            }}
+                                            title="Click to edit formula"
+                                        >
+                                            CYCLE TIME
+                                        </th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {cycleTimeData.map((row) => {
+                                        const blowingHold = calculateBlowingHold(row.readyBlowing, row.blowing);
+                                        
+                                        // Calculate Cycle Time using dynamic formula
+                                        let cycleTime = '';
+                                        if (row.blowingComplete && row.ns && blowingHold) {
+                                            const totalDuration = calculateDuration(row.ns, row.blowingComplete);
+                                            if (totalDuration) {
+                                                const [tdH, tdM] = totalDuration.split(':').map(Number);
+                                                const [bhH, bhM] = blowingHold.split(':').map(Number);
+                                                
+                                                const totalMins = (tdH * 60 + tdM);
+                                                const holdMins = (bhH * 60 + bhM);
+                                                
+                                                const resultMins = evaluateMath(demonomerData.cycleTimeFormula, {
+                                                    COMP: totalMins,
+                                                    HOLD: holdMins
+                                                });
 
-                                            if (resultMins >= 0) {
-                                                cycleTime = `${Math.floor(resultMins / 60).toString().padStart(2, '0')}:${(Math.round(resultMins % 60)).toString().padStart(2, '0')}`;
+                                                if (resultMins >= 0) {
+                                                    cycleTime = `${Math.floor(resultMins / 60).toString().padStart(2, '0')}:${(Math.round(resultMins % 60)).toString().padStart(2, '0')}`;
+                                                }
                                             }
                                         }
-                                    }
 
-                                    return (
-                                        <tr key={row.id} className="border-b border-slate-100 dark:border-slate-700/50 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                            <td className="p-0.5">
-                                                <input 
-                                                    type="time" 
-                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-[1.5em] rounded-md py-1 focus:ring-2 focus:ring-blue-500/30 transition-all shadow-sm flex justify-center" 
-                                                    value={row.ns} 
-                                                    onChange={(e) => handleCycleTimeChange(row.id, 'ns', e.target.value)}
-                                                />
-                                            </td>
-                                            <td className="p-1">
-                                                <input 
-                                                    type="time" 
-                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-[1.5em] rounded-md py-1 focus:ring-4 focus:ring-blue-500/30 transition-all shadow-sm flex justify-center" 
-                                                    value={row.readyBlowing} 
-                                                    onChange={(e) => handleCycleTimeChange(row.id, 'readyBlowing', e.target.value)}
-                                                />
-                                            </td>
-                                            <td className="p-0.5">
-                                                <input 
-                                                    type="time" 
-                                                    className="bg-green-50 dark:bg-green-900/20 text-green-900 dark:text-green-100 outline-none w-full text-center font-bold text-[1.5em] rounded py-1 focus:ring-2 focus:ring-green-500/50 flex justify-center" 
-                                                    value={row.blowing} 
-                                                    onChange={(e) => handleCycleTimeChange(row.id, 'blowing', e.target.value)}
-                                                />
-                                            </td>
-                                            <td className="p-0.5">
-                                                <div className="bg-orange-50 dark:bg-orange-900/20 text-orange-900 dark:text-orange-100 w-full text-center font-bold text-[1.15em] rounded py-1 flex items-center justify-center">
-                                                    {blowingHold || '-'}
-                                                </div>
-                                            </td>
-                                            <td className="p-0.5">
-                                                <input 
-                                                    type="time" 
-                                                    className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-bold text-[1.5em] rounded py-1 focus:ring-2 focus:ring-blue-500/50 flex justify-center" 
-                                                    value={row.blowingComplete} 
-                                                    onChange={(e) => handleCycleTimeChange(row.id, 'blowingComplete', e.target.value)}
-                                                />
-                                            </td>
-                                            <td className="p-0.5">
-                                                <div className="bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-100 w-full text-center font-black text-[2.2em] rounded py-1 border-2 border-red-500/20 flex items-center justify-center">
-                                                    {cycleTime || '-'}
-                                                </div>
-                                            </td>
-                                        </tr>
-                                    );
-                                })}
-                            </tbody>
-                        </table>
-                        <div className="flex gap-2 mt-1">
-                            <button 
-                                onClick={() => setCycleTimeData(prev => [...prev, { id: Date.now(), ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }])}
-                                className="flex-1 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold rounded-lg border border-dashed border-indigo-300 dark:border-indigo-700 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-1 text-[0.7em]"
-                            >
-                                <LayoutGrid className="w-3 h-3" />
-                                ADD ROW
-                            </button>
-                            <button 
-                                onClick={() => {
-                                    if (window.confirm("Apakah Anda yakin ingin mengosongkan semua data cycle time dan kembali ke default?")) {
-                                        setCycleTimeData([
-                                            { id: 1, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' },
-                                            { id: 2, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }
-                                        ]);
-                                    }
-                                }}
-                                className="px-4 py-1 bg-red-100 dark:bg-red-950/30 text-red-600 dark:text-red-400 font-bold rounded-lg border border-dashed border-red-300 dark:border-red-800 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center justify-center gap-1 text-[0.7em]"
-                                title="Clear all data and reset to default 2 rows"
-                            >
-                                <Trash2 className="w-3 h-3" />
-                                CLEAR
-                            </button>
+                                        return (
+                                            <tr key={row.id} className="border-b border-slate-100 dark:border-slate-700/50 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                                                <td className="p-0.5">
+                                                    <input 
+                                                        type="time" 
+                                                        className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-[1.5em] rounded-md py-1 focus:ring-2 focus:ring-blue-500/30 transition-all shadow-sm flex justify-center" 
+                                                        value={row.ns} 
+                                                        onChange={(e) => handleCycleTimeChange(row.id, 'ns', e.target.value)}
+                                                    />
+                                                </td>
+                                                <td className="p-1">
+                                                    <input 
+                                                        type="time" 
+                                                        className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-[1.5em] rounded-md py-1 focus:ring-4 focus:ring-blue-500/30 transition-all shadow-sm flex justify-center" 
+                                                        value={row.readyBlowing} 
+                                                        onChange={(e) => handleCycleTimeChange(row.id, 'readyBlowing', e.target.value)}
+                                                    />
+                                                </td>
+                                                <td className="p-0.5">
+                                                    <input 
+                                                        type="time" 
+                                                        className="bg-green-50 dark:bg-green-900/20 text-green-900 dark:text-green-100 outline-none w-full text-center font-bold text-[1.5em] rounded py-1 focus:ring-2 focus:ring-green-500/50 flex justify-center" 
+                                                        value={row.blowing} 
+                                                        onChange={(e) => handleCycleTimeChange(row.id, 'blowing', e.target.value)}
+                                                    />
+                                                </td>
+                                                <td className="p-0.5">
+                                                    <div className="bg-orange-50 dark:bg-orange-900/20 text-orange-900 dark:text-orange-100 w-full text-center font-bold text-[1.15em] rounded py-1 flex items-center justify-center">
+                                                        {blowingHold || '-'}
+                                                    </div>
+                                                </td>
+                                                <td className="p-0.5">
+                                                    <input 
+                                                        type="time" 
+                                                        className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-bold text-[1.5em] rounded py-1 focus:ring-2 focus:ring-blue-500/50 flex justify-center" 
+                                                        value={row.blowingComplete} 
+                                                        onChange={(e) => handleCycleTimeChange(row.id, 'blowingComplete', e.target.value)}
+                                                    />
+                                                </td>
+                                                <td className="p-0.5">
+                                                    <div className="bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-100 w-full text-center font-black text-[2.2em] rounded py-1 border-2 border-red-500/20 flex items-center justify-center">
+                                                        {cycleTime || '-'}
+                                                    </div>
+                                                </td>
+                                            </tr>
+                                        );
+                                    })}
+                                </tbody>
+                            </table>
+                            <div className="flex gap-2 mt-1">
+                                <button 
+                                    onClick={() => {
+                                        setCycleTimeData(prev => {
+                                            const newData = [...prev, { id: Date.now(), ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }];
+                                            updateGlobalSetting({ cycle_time_data: newData });
+                                            return newData;
+                                        });
+                                    }}
+                                    className="flex-1 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold rounded-lg border border-dashed border-indigo-300 dark:border-indigo-700 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-1 text-[0.7em]"
+                                >
+                                    <LayoutGrid className="w-3 h-3" />
+                                    ADD ROW
+                                </button>
+                                <button 
+                                    onClick={() => {
+                                        if (window.confirm("Apakah Anda yakin ingin mengosongkan semua data cycle time dan kembali ke default?")) {
+                                            const defaultData = [
+                                                { id: 1, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' },
+                                                { id: 2, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }
+                                            ];
+                                            setCycleTimeData(defaultData);
+                                            updateGlobalSetting({ cycle_time_data: defaultData });
+                                        }
+                                    }}
+                                    className="px-4 py-1 bg-red-100 dark:bg-red-950/30 text-red-600 dark:text-red-400 font-bold rounded-lg border border-dashed border-red-300 dark:border-red-800 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center justify-center gap-1 text-[0.7em]"
+                                    title="Clear all data and reset to default 2 rows"
+                                >
+                                    <Trash2 className="w-3 h-3" />
+                                    CLEAR
+                                </button>
+                            </div>
                         </div>
-                    </div>
+                   </div>
+
+                   {/* 2. KESEPAKATAN WIDGET */}
+                   <Kesepakatan currentGrade={activeDemonomerGrade} />
                </div>
 
-               {/* 2. CONFLICT TIMELINE TABLE */}
+               {/* 3. CONFLICT TIMELINE TABLE */}
                {renderConflictTimeline()}
            </div>
       );
@@ -2672,10 +3461,6 @@ const App: React.FC = () => {
               {currentView === 'catatan' && (
                 <Catatan onBack={() => setCurrentView('scheduler')} />
               )}
-
-              {currentView === 'kesepakatan' && (
-                <Kesepakatan onBack={() => setCurrentView('scheduler')} />
-              )}
           </div>
       </div>
 
@@ -2711,6 +3496,242 @@ const App: React.FC = () => {
                           gradeMode={config.gradeMode}
                           onGradeModeChange={(m) => handleConfigChange('gradeMode', m)}
                       />
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* --- CATALYST PRESETS MODAL --- */}
+      {isCatalystModalOpen && (
+          <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden transform transition-all scale-100 ring-4 ring-indigo-500/50">
+                  <div className="bg-indigo-600 text-white p-5 flex items-center justify-between">
+                      <h3 className="text-xl font-black flex items-center gap-2">
+                          <Sliders className="w-6 h-6 text-yellow-300 animate-pulse" />
+                          PRESET CATALYST PER GRADE
+                      </h3>
+                      <button onClick={() => setIsCatalystModalOpen(false)} className="p-1.5 hover:bg-white/20 rounded-full transition-colors">
+                          <X className="w-5 h-5" />
+                      </button>
+                  </div>
+                  <div className="p-5 space-y-4">
+                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
+                          Atur jumlah catalyst untuk setiap grade di bawah ini. Anda dapat meng-apply langsung ke tabel polymer atau menyimpan preset ke database.
+                      </p>
+                      
+                      <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
+                          <table className="w-full text-left border-collapse">
+                              <thead>
+                                  <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-bold text-[0.8em]">
+                                      <th className="p-3 uppercase">Grade</th>
+                                      <th className="p-3 uppercase">Catalyst 1</th>
+                                      <th className="p-3 uppercase">Catalyst 2</th>
+                                      <th className="p-3 text-center uppercase">Aksi</th>
+                                  </tr>
+                              </thead>
+                              <tbody className="divide-y divide-slate-150 dark:divide-slate-800">
+                                  {/* SM Row */}
+                                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                      <td className="p-3 font-black text-slate-800 dark:text-white">SM</td>
+                                      <td className="p-3">
+                                          <div className="flex items-center gap-1.5">
+                                              <span className="text-xs font-black text-slate-400 uppercase">F:</span>
+                                              <input 
+                                                  type="text" 
+                                                  value={tempCatalystPresets.SM?.F || ''} 
+                                                  onChange={(e) => handleTempPresetChange('SM', 'F', e.target.value)}
+                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                                                  placeholder="0"
+                                              />
+                                          </div>
+                                      </td>
+                                      <td className="p-3">
+                                          <div className="flex items-center gap-1.5">
+                                              <span className="text-xs font-black text-slate-400 uppercase">H:</span>
+                                              <input 
+                                                  type="text" 
+                                                  value={tempCatalystPresets.SM?.H || ''} 
+                                                  onChange={(e) => handleTempPresetChange('SM', 'H', e.target.value)}
+                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                                                  placeholder="0"
+                                              />
+                                          </div>
+                                      </td>
+                                      <td className="p-3 text-center">
+                                          <button 
+                                              onClick={() => applyCatalystPreset('SM')}
+                                              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 dark:text-indigo-400 rounded-lg font-black text-[0.75em] uppercase tracking-wider transition-colors border border-indigo-200/50 dark:border-indigo-800/50"
+                                          >
+                                              Apply
+                                          </button>
+                                      </td>
+                                  </tr>
+
+                                  {/* SLP Row */}
+                                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                      <td className="p-3 font-black text-slate-800 dark:text-white">SLP</td>
+                                      <td className="p-3">
+                                          <div className="flex items-center gap-1.5">
+                                              <span className="text-xs font-black text-slate-400 uppercase">F:</span>
+                                              <input 
+                                                  type="text" 
+                                                  value={tempCatalystPresets.SLP?.F || ''} 
+                                                  onChange={(e) => handleTempPresetChange('SLP', 'F', e.target.value)}
+                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                                                  placeholder="XX"
+                                              />
+                                          </div>
+                                      </td>
+                                      <td className="p-3">
+                                          <div className="flex items-center gap-1.5">
+                                              <span className="text-xs font-black text-slate-400 uppercase">H:</span>
+                                              <input 
+                                                  type="text" 
+                                                  value={tempCatalystPresets.SLP?.H || ''} 
+                                                  onChange={(e) => handleTempPresetChange('SLP', 'H', e.target.value)}
+                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                                                  placeholder="XX"
+                                              />
+                                          </div>
+                                      </td>
+                                      <td className="p-3 text-center">
+                                          <button 
+                                              onClick={() => applyCatalystPreset('SLP')}
+                                              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 dark:text-indigo-400 rounded-lg font-black text-[0.75em] uppercase tracking-wider transition-colors border border-indigo-200/50 dark:border-indigo-800/50"
+                                          >
+                                              Apply
+                                          </button>
+                                      </td>
+                                  </tr>
+
+                                  {/* SLK Row */}
+                                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                      <td className="p-3 font-black text-slate-800 dark:text-white">SLK</td>
+                                      <td className="p-3">
+                                          <div className="flex items-center gap-1.5">
+                                              <span className="text-xs font-black text-slate-400 uppercase">F:</span>
+                                              <input 
+                                                  type="text" 
+                                                  value={tempCatalystPresets.SLK?.F || ''} 
+                                                  onChange={(e) => handleTempPresetChange('SLK', 'F', e.target.value)}
+                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                                                  placeholder="XX"
+                                              />
+                                          </div>
+                                      </td>
+                                      <td className="p-3">
+                                          <div className="flex items-center gap-1.5">
+                                              <span className="text-xs font-black text-slate-400 uppercase">H:</span>
+                                              <input 
+                                                  type="text" 
+                                                  value={tempCatalystPresets.SLK?.H || ''} 
+                                                  onChange={(e) => handleTempPresetChange('SLK', 'H', e.target.value)}
+                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                                                  placeholder="XX"
+                                              />
+                                          </div>
+                                      </td>
+                                      <td className="p-3 text-center">
+                                          <button 
+                                              onClick={() => applyCatalystPreset('SLK')}
+                                              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 dark:text-indigo-400 rounded-lg font-black text-[0.75em] uppercase tracking-wider transition-colors border border-indigo-200/50 dark:border-indigo-800/50"
+                                          >
+                                              Apply
+                                          </button>
+                                      </td>
+                                  </tr>
+
+                                  {/* SE Row */}
+                                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                      <td className="p-3 font-black text-slate-800 dark:text-white">SE</td>
+                                      <td className="p-3">
+                                          <div className="flex items-center gap-1.5">
+                                              <span className="text-xs font-black text-slate-400 uppercase">F:</span>
+                                              <input 
+                                                  type="text" 
+                                                  value={tempCatalystPresets.SE?.F || ''} 
+                                                  onChange={(e) => handleTempPresetChange('SE', 'F', e.target.value)}
+                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                                                  placeholder="XX"
+                                              />
+                                          </div>
+                                      </td>
+                                      <td className="p-3">
+                                          <div className="flex items-center gap-1.5">
+                                              <span className="text-xs font-black text-slate-400 uppercase">G:</span>
+                                              <input 
+                                                  type="text" 
+                                                  value={tempCatalystPresets.SE?.G || ''} 
+                                                  onChange={(e) => handleTempPresetChange('SE', 'G', e.target.value)}
+                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                                                  placeholder="XX"
+                                              />
+                                          </div>
+                                      </td>
+                                      <td className="p-3 text-center">
+                                          <button 
+                                              onClick={() => applyCatalystPreset('SE')}
+                                              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 dark:text-indigo-400 rounded-lg font-black text-[0.75em] uppercase tracking-wider transition-colors border border-indigo-200/50 dark:border-indigo-800/50"
+                                          >
+                                              Apply
+                                          </button>
+                                      </td>
+                                  </tr>
+
+                                  {/* SR Row */}
+                                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
+                                      <td className="p-3 font-black text-slate-800 dark:text-white">SR</td>
+                                      <td className="p-3">
+                                          <div className="flex items-center gap-1.5">
+                                              <span className="text-xs font-black text-slate-400 uppercase">F:</span>
+                                              <input 
+                                                  type="text" 
+                                                  value={tempCatalystPresets.SR?.F || ''} 
+                                                  onChange={(e) => handleTempPresetChange('SR', 'F', e.target.value)}
+                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                                                  placeholder="XX"
+                                              />
+                                          </div>
+                                      </td>
+                                      <td className="p-3">
+                                          <div className="flex items-center gap-1.5">
+                                              <span className="text-xs font-black text-slate-400 uppercase">G:</span>
+                                              <input 
+                                                  type="text" 
+                                                  value={tempCatalystPresets.SR?.G || ''} 
+                                                  onChange={(e) => handleTempPresetChange('SR', 'G', e.target.value)}
+                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
+                                                  placeholder="XX"
+                                              />
+                                          </div>
+                                      </td>
+                                      <td className="p-3 text-center">
+                                          <button 
+                                              onClick={() => applyCatalystPreset('SR')}
+                                              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 dark:text-indigo-400 rounded-lg font-black text-[0.75em] uppercase tracking-wider transition-colors border border-indigo-200/50 dark:border-indigo-800/50"
+                                          >
+                                              Apply
+                                          </button>
+                                      </td>
+                                  </tr>
+                              </tbody>
+                          </table>
+                      </div>
+
+                      <div className="flex gap-3 pt-2">
+                          <button 
+                              onClick={() => setIsCatalystModalOpen(false)}
+                              className="flex-1 px-6 py-3 rounded-xl font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all uppercase tracking-widest text-sm"
+                          >
+                              BATAL
+                          </button>
+                          <button 
+                              onClick={saveCatalystPresets}
+                              className="flex-1 px-6 py-3 rounded-xl font-black text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 transition-all uppercase tracking-widest text-sm"
+                          >
+                              SIMPAN PRESETS
+                          </button>
+                      </div>
                   </div>
               </div>
           </div>

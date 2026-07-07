@@ -1,0 +1,14 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /app_settings/{document} {
+      allow read, write: if true;
+    }
+    match /reactor_notes/{document} {
+      allow read, write: if true;
+    }
+    match /schedule_overrides/{document} {
+      allow read, write: if true;
+    }
+  }
+}

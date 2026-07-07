@@ -1,6 +1,6 @@
 
 export type GradeType = 'SM' | 'SLK' | 'SLP' | 'SE' | 'SR';
-export type AlarmSoundType = 'siren' | 'rocket' | 'jet' | 'powerpoint' | 'bomb' | 'fajar_sadboy';
+export type AlarmSoundType = 'siren' | 'rocket' | 'jet' | 'powerpoint' | 'bomb' | 'fajar_sadboy' | 'train' | 'car_horn' | 'ship_horn' | 'ringtone' | 'missile' | 'crow' | 'magic_spell' | 'ufo' | 'laser' | 'telephone' | 'arcade' | 'gong';
 
 export interface ReactorConfig {
   id: string;
