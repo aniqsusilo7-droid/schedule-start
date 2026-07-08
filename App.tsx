@@ -35,10 +35,101 @@ const initAudioContext = () => {
 const playAlarmSound = (type: AlarmSoundType) => {
     try {
         if (type === 'fajar_sadboy') {
-            const utterance = new SpeechSynthesisUtterance("cook cook cook cook cook");
-            utterance.rate = 1.5;
-            utterance.pitch = 1.2;
-            window.speechSynthesis.speak(utterance);
+            // Replace with Gaspol Dangak Song (10 seconds, loud volume)
+            const ctx = initAudioContext();
+            if (!ctx) return;
+            const t = ctx.currentTime;
+            const duration = 10.0;
+            
+            // We want it to be loud, so we use a high-gain node (boosted 3x: 0.8 * 3 = 2.4)
+            const mainGain = ctx.createGain();
+            mainGain.gain.setValueAtTime(0, t);
+            mainGain.gain.linearRampToValueAtTime(2.4, t + 0.1); // Extremely loud sound!
+            mainGain.gain.setValueAtTime(2.4, t + duration - 0.5);
+            mainGain.gain.linearRampToValueAtTime(0, t + duration);
+            mainGain.connect(ctx.destination);
+
+            // Dangdut drum beats ("Dang" and "Dut") scheduled over 10 seconds
+            // "Dut" is a deep low-frequency drum slide, "Dang" is a bright high-frequency slap.
+            const bpm = 135;
+            const beatDuration = 60 / bpm; // ~0.44s
+            const totalBeats = Math.floor(duration / beatDuration);
+
+            for (let beat = 0; beat < totalBeats; beat++) {
+                const beatTime = t + beat * beatDuration;
+                
+                // Let's create a "Dut" sound on beat start
+                // Low frequency tom-like sweep: 150Hz -> 60Hz
+                const dutOsc = ctx.createOscillator();
+                const dutGain = ctx.createGain();
+                dutOsc.type = 'sine';
+                dutOsc.frequency.setValueAtTime(150, beatTime);
+                dutOsc.frequency.exponentialRampToValueAtTime(60, beatTime + 0.15);
+                
+                dutGain.gain.setValueAtTime(1.2, beatTime); // Boosted 3x from 0.4
+                dutGain.gain.exponentialRampToValueAtTime(0.01, beatTime + 0.15);
+                
+                dutOsc.connect(dutGain);
+                dutGain.connect(mainGain);
+                dutOsc.start(beatTime);
+                dutOsc.stop(beatTime + 0.15);
+
+                // Create a "Dang" sound on the off-beat (halfway through the beat)
+                const dangTime = beatTime + beatDuration * 0.5;
+                if (dangTime < t + duration) {
+                    const dangOsc = ctx.createOscillator();
+                    const dangGain = ctx.createGain();
+                    dangOsc.type = 'triangle';
+                    dangOsc.frequency.setValueAtTime(320, dangTime);
+                    dangOsc.frequency.exponentialRampToValueAtTime(280, dangTime + 0.1);
+
+                    dangGain.gain.setValueAtTime(0.9, dangTime); // Boosted 3x from 0.3
+                    dangGain.gain.exponentialRampToValueAtTime(0.01, dangTime + 0.1);
+
+                    dangOsc.connect(dangGain);
+                    dangGain.connect(mainGain);
+                    dangOsc.start(dangTime);
+                    dangOsc.stop(dangTime + 0.1);
+                }
+            }
+
+            // High-octave driving melody (Indonesian organ tunggal style)
+            const melody = [
+                440.00, 523.25, 659.25, 587.33, 523.25, 493.88, 440.00, 493.88,
+                523.25, 659.25, 880.00, 783.99, 659.25, 587.33, 523.25, 493.88,
+                523.25, 587.33, 659.25, 880.00, 987.77, 880.00, 783.99, 659.25,
+                587.33, 659.25, 587.33, 523.25, 493.88, 440.00, 392.00, 440.00
+            ];
+
+            const noteDuration = beatDuration * 0.5; // Eighth notes
+            const totalNotes = Math.floor(duration / noteDuration);
+
+            for (let i = 0; i < totalNotes; i++) {
+                const noteTime = t + i * noteDuration;
+                const freq = melody[i % melody.length];
+
+                const osc = ctx.createOscillator();
+                const filter = ctx.createBiquadFilter();
+                const gain = ctx.createGain();
+
+                osc.type = 'sawtooth';
+                osc.frequency.setValueAtTime(freq, noteTime);
+
+                filter.type = 'bandpass';
+                filter.frequency.setValueAtTime(1200, noteTime);
+                filter.Q.setValueAtTime(1.5, noteTime);
+
+                gain.gain.setValueAtTime(0, noteTime);
+                gain.gain.linearRampToValueAtTime(1.5, noteTime + 0.02); // Boosted 3x from 0.5
+                gain.gain.exponentialRampToValueAtTime(0.001, noteTime + noteDuration - 0.02);
+
+                osc.connect(filter);
+                filter.connect(gain);
+                gain.connect(mainGain);
+
+                osc.start(noteTime);
+                osc.stop(noteTime + noteDuration);
+            }
             return;
         }
 
@@ -66,7 +157,7 @@ const playAlarmSound = (type: AlarmSoundType) => {
             osc.start(t);
             osc.stop(t + duration);
         } else if (type === 'rocket') {
-            // Rocket sound: low frequency noise sweeping up
+            // Rocket sound: low frequency noise sweeping up (3x of 2x = 6x volume)
             const bufferSize = ctx.sampleRate * duration;
             const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
             const data = buffer.getChannelData(0);
@@ -83,7 +174,7 @@ const playAlarmSound = (type: AlarmSoundType) => {
             
             const gainNode = ctx.createGain();
             gainNode.gain.setValueAtTime(0, t);
-            gainNode.gain.linearRampToValueAtTime(0.5, t + 1);
+            gainNode.gain.linearRampToValueAtTime(3.0, t + 1); // 3x volume boost (was 1.0)
             gainNode.gain.linearRampToValueAtTime(0, t + duration);
             
             noise.connect(filter);
@@ -91,7 +182,7 @@ const playAlarmSound = (type: AlarmSoundType) => {
             gainNode.connect(ctx.destination);
             noise.start(t);
         } else if (type === 'jet') {
-            // Jet sound: white noise with bandpass filter sweeping
+            // Jet sound: white noise with bandpass filter sweeping (3x of 2x = 6x volume)
             const bufferSize = ctx.sampleRate * duration;
             const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
             const data = buffer.getChannelData(0);
@@ -108,8 +199,8 @@ const playAlarmSound = (type: AlarmSoundType) => {
             
             const gainNode = ctx.createGain();
             gainNode.gain.setValueAtTime(0, t);
-            gainNode.gain.linearRampToValueAtTime(0.3, t + 2);
-            gainNode.gain.setValueAtTime(0.3, t + duration - 2);
+            gainNode.gain.linearRampToValueAtTime(1.8, t + 2); // 3x volume boost (was 0.6)
+            gainNode.gain.setValueAtTime(1.8, t + duration - 2); // 3x volume boost (was 0.6)
             gainNode.gain.linearRampToValueAtTime(0, t + duration);
             
             noise.connect(filter);
@@ -117,7 +208,7 @@ const playAlarmSound = (type: AlarmSoundType) => {
             gainNode.connect(ctx.destination);
             noise.start(t);
         } else if (type === 'powerpoint') {
-            // PowerPoint animation chime
+            // PowerPoint animation chime (3x of 2x = 6x volume)
             const osc = ctx.createOscillator();
             const gainNode = ctx.createGain();
             osc.type = 'sine';
@@ -126,22 +217,22 @@ const playAlarmSound = (type: AlarmSoundType) => {
             osc.frequency.setValueAtTime(1318.51, t + 0.2); // E6
             
             gainNode.gain.setValueAtTime(0, t);
-            gainNode.gain.linearRampToValueAtTime(0.2, t + 0.05);
-            gainNode.gain.exponentialRampToValueAtTime(0.01, t + 1);
+            gainNode.gain.linearRampToValueAtTime(1.2, t + 0.05); // 3x volume boost (was 0.4)
+            gainNode.gain.exponentialRampToValueAtTime(0.06, t + 1); // 3x volume boost (was 0.02)
             
             osc.connect(gainNode);
             gainNode.connect(ctx.destination);
             osc.start(t);
             osc.stop(t + 1);
         } else if (type === 'bomb') {
-            // Bomb sound: low frequency drop followed by noise burst
+            // Bomb sound: low frequency drop followed by noise burst (3x of 2x = 6x volume)
             const osc = ctx.createOscillator();
             const oscGain = ctx.createGain();
             osc.type = 'sine';
             osc.frequency.setValueAtTime(150, t);
             osc.frequency.exponentialRampToValueAtTime(0.01, t + 1);
-            oscGain.gain.setValueAtTime(0.5, t);
-            oscGain.gain.exponentialRampToValueAtTime(0.01, t + 1);
+            oscGain.gain.setValueAtTime(3.0, t); // 3x volume boost (was 1.0)
+            oscGain.gain.exponentialRampToValueAtTime(0.06, t + 1); // 3x volume boost (was 0.02)
             osc.connect(oscGain);
             oscGain.connect(ctx.destination);
             osc.start(t);
@@ -166,8 +257,8 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 filter.frequency.exponentialRampToValueAtTime(100, nt + 2);
                 
                 const gainNode = noiseCtx.createGain();
-                gainNode.gain.setValueAtTime(1, nt);
-                gainNode.gain.exponentialRampToValueAtTime(0.01, nt + 2);
+                gainNode.gain.setValueAtTime(6.0, nt); // 3x volume boost (was 2.0)
+                gainNode.gain.exponentialRampToValueAtTime(0.06, nt + 2); // 3x volume boost (was 0.02)
                 
                 noise.connect(filter);
                 filter.connect(gainNode);
@@ -175,7 +266,7 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 noise.start(nt);
             }, 1000);
         } else if (type === 'train') {
-            // Train Chugger & Whistle
+            // Train Chugger & Whistle (3x of 2x = 6x volume)
             for (let i = 0; i < 4; i++) {
                 const chugTime = t + i * 0.4;
                 const noiseBuffer = ctx.createBuffer(1, ctx.sampleRate * 0.15, ctx.sampleRate);
@@ -192,8 +283,8 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 
                 const gain = ctx.createGain();
                 gain.gain.setValueAtTime(0, chugTime);
-                gain.gain.linearRampToValueAtTime(0.3, chugTime + 0.02);
-                gain.gain.exponentialRampToValueAtTime(0.01, chugTime + 0.15);
+                gain.gain.linearRampToValueAtTime(1.8, chugTime + 0.02); // 3x volume boost (was 0.6)
+                gain.gain.exponentialRampToValueAtTime(0.06, chugTime + 0.15); // 3x volume boost (was 0.02)
                 
                 noiseSource.connect(filter);
                 filter.connect(gain);
@@ -214,9 +305,9 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 
                 const gain = ctx.createGain();
                 gain.gain.setValueAtTime(0, whistleStart);
-                gain.gain.linearRampToValueAtTime(0.15, whistleStart + 0.1);
-                gain.gain.setValueAtTime(0.15, whistleStart + whistleDuration - 0.2);
-                gain.gain.exponentialRampToValueAtTime(0.001, whistleStart + whistleDuration);
+                gain.gain.linearRampToValueAtTime(0.9, whistleStart + 0.1); // 3x volume boost (was 0.3)
+                gain.gain.setValueAtTime(0.9, whistleStart + whistleDuration - 0.2); // 3x volume boost (was 0.3)
+                gain.gain.exponentialRampToValueAtTime(0.006, whistleStart + whistleDuration); // 3x volume boost (was 0.002)
                 
                 osc.connect(filter);
                 filter.connect(gain);
@@ -225,7 +316,7 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 osc.stop(whistleStart + whistleDuration);
             });
         } else if (type === 'car_horn') {
-            // Beep beep!
+            // Beep beep! (3x of 2x = 6x volume)
             [t, t + 0.4].forEach(startTime => {
                 const duration = 0.25;
                 [400, 450].forEach(freq => {
@@ -239,8 +330,8 @@ const playAlarmSound = (type: AlarmSoundType) => {
                     
                     const gain = ctx.createGain();
                     gain.gain.setValueAtTime(0, startTime);
-                    gain.gain.linearRampToValueAtTime(0.2, startTime + 0.02);
-                    gain.gain.setValueAtTime(0.2, startTime + duration - 0.02);
+                    gain.gain.linearRampToValueAtTime(1.2, startTime + 0.02); // 3x volume boost (was 0.4)
+                    gain.gain.setValueAtTime(1.2, startTime + duration - 0.02); // 3x volume boost (was 0.4)
                     gain.gain.linearRampToValueAtTime(0, startTime + duration);
                     
                     osc.connect(filter);
@@ -251,7 +342,7 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 });
             });
         } else if (type === 'ship_horn') {
-            // Massive deep ocean liner horn
+            // Massive deep ocean liner horn (3x of 2x = 6x volume)
             const shipDuration = 2.5;
             [75, 110, 150].forEach((freq, idx) => {
                 const osc = ctx.createOscillator();
@@ -263,11 +354,11 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 filter.frequency.setValueAtTime(300, t);
                 
                 const gain = ctx.createGain();
-                const volume = idx === 0 ? 0.4 : 0.2;
+                const volume = idx === 0 ? 2.4 : 1.2; // 3x volume boost (was 0.8 / 0.4)
                 gain.gain.setValueAtTime(0, t);
                 gain.gain.linearRampToValueAtTime(volume, t + 0.2);
                 gain.gain.setValueAtTime(volume, t + shipDuration - 0.3);
-                gain.gain.exponentialRampToValueAtTime(0.001, t + shipDuration);
+                gain.gain.exponentialRampToValueAtTime(0.003, t + shipDuration); // 3x of 0.001
                 
                 osc.connect(filter);
                 filter.connect(gain);
@@ -276,7 +367,7 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 osc.stop(t + shipDuration);
             });
         } else if (type === 'ringtone') {
-            // Digital arpeggio ringtone
+            // Digital arpeggio ringtone (3x of 2x = 6x volume)
             const notes = [659.25, 783.99, 987.77, 1318.51, 987.77, 1318.51, 1567.98];
             for (let loop = 0; loop < 2; loop++) {
                 const baseTime = t + loop * 1.5;
@@ -288,8 +379,8 @@ const playAlarmSound = (type: AlarmSoundType) => {
                     
                     const gain = ctx.createGain();
                     gain.gain.setValueAtTime(0, noteStart);
-                    gain.gain.linearRampToValueAtTime(0.25, noteStart + 0.02);
-                    gain.gain.exponentialRampToValueAtTime(0.001, noteStart + 0.13);
+                    gain.gain.linearRampToValueAtTime(1.5, noteStart + 0.02); // 3x volume boost (was 0.5)
+                    gain.gain.exponentialRampToValueAtTime(0.006, noteStart + 0.13); // 3x volume boost (was 0.002)
                     
                     osc.connect(gain);
                     gain.connect(ctx.destination);
@@ -298,7 +389,7 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 });
             }
         } else if (type === 'missile') {
-            // Screaming downward sweep + explosion
+            // Screaming downward sweep + explosion (3x of 2x = 6x volume)
             const missileDuration = 1.5;
             const osc = ctx.createOscillator();
             osc.type = 'sawtooth';
@@ -311,8 +402,8 @@ const playAlarmSound = (type: AlarmSoundType) => {
             
             const gain = ctx.createGain();
             gain.gain.setValueAtTime(0, t);
-            gain.gain.linearRampToValueAtTime(0.2, t + 0.1);
-            gain.gain.linearRampToValueAtTime(0.1, t + missileDuration);
+            gain.gain.linearRampToValueAtTime(1.2, t + 0.1); // 3x volume boost (was 0.4)
+            gain.gain.linearRampToValueAtTime(0.6, t + missileDuration); // 3x volume boost (was 0.2)
             
             osc.connect(filter);
             filter.connect(gain);
@@ -338,8 +429,8 @@ const playAlarmSound = (type: AlarmSoundType) => {
             expFilter.frequency.exponentialRampToValueAtTime(40, explosionTime + 1.2);
             
             const expGain = ctx.createGain();
-            expGain.gain.setValueAtTime(0.6, explosionTime);
-            expGain.gain.exponentialRampToValueAtTime(0.001, explosionTime + 1.2);
+            expGain.gain.setValueAtTime(3.6, explosionTime); // 3x volume boost (was 1.2)
+            expGain.gain.exponentialRampToValueAtTime(0.006, explosionTime + 1.2); // 3x volume boost (was 0.002)
             
             noise.connect(expFilter);
             expFilter.connect(expGain);
@@ -347,7 +438,7 @@ const playAlarmSound = (type: AlarmSoundType) => {
             noise.start(explosionTime);
             noise.stop(explosionTime + 1.5);
         } else if (type === 'crow') {
-            // Crow caw-caw squawks (2 caws)
+            // Crow caw-caw squawks (2 caws) (3x of 2x = 6x volume)
             [t, t + 0.6].forEach(startTime => {
                 const osc = ctx.createOscillator();
                 osc.type = 'sawtooth';
@@ -361,9 +452,9 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 
                 const gain = ctx.createGain();
                 gain.gain.setValueAtTime(0, startTime);
-                gain.gain.linearRampToValueAtTime(0.3, startTime + 0.05);
-                gain.gain.setValueAtTime(0.3, startTime + 0.2);
-                gain.gain.exponentialRampToValueAtTime(0.001, startTime + 0.4);
+                gain.gain.linearRampToValueAtTime(1.8, startTime + 0.05); // 3x volume boost (was 0.6)
+                gain.gain.setValueAtTime(1.8, startTime + 0.2); // 3x volume boost (was 0.6)
+                gain.gain.exponentialRampToValueAtTime(0.006, startTime + 0.4); // 3x volume boost (was 0.002)
                 
                 osc.connect(filter);
                 filter.connect(gain);
@@ -372,7 +463,7 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 osc.stop(startTime + 0.4);
             });
         } else if (type === 'magic_spell') {
-            // Magical glistening arpeggio
+            // Magical glistening arpeggio (3x of 2x = 6x volume)
             const scale = [523.25, 659.25, 783.99, 1046.50, 1318.51, 1567.98, 2093.00];
             scale.forEach((freq, index) => {
                 const noteTime = t + index * 0.1;
@@ -386,8 +477,8 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 
                 const gainNode = ctx.createGain();
                 gainNode.gain.setValueAtTime(0, noteTime);
-                gainNode.gain.linearRampToValueAtTime(0.15, noteTime + 0.02);
-                gainNode.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.4);
+                gainNode.gain.linearRampToValueAtTime(0.9, noteTime + 0.02); // 3x volume boost (was 0.3)
+                gainNode.gain.exponentialRampToValueAtTime(0.006, noteTime + 0.4); // 3x volume boost (was 0.002)
                 
                 osc.connect(gainNode);
                 gainNode.connect(delay);
@@ -398,7 +489,7 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 osc.stop(noteTime + 0.5);
             });
         } else if (type === 'ufo') {
-            // Alien ship hover with vibrato
+            // Alien ship hover with vibrato (3x of 2x = 6x volume)
             const osc = ctx.createOscillator();
             osc.type = 'sawtooth';
             osc.frequency.setValueAtTime(200, t);
@@ -416,13 +507,13 @@ const playAlarmSound = (type: AlarmSoundType) => {
             
             const gainNode = ctx.createGain();
             gainNode.gain.setValueAtTime(0, t);
-            gainNode.gain.linearRampToValueAtTime(0.35, t + 0.3);
+            gainNode.gain.linearRampToValueAtTime(2.1, t + 0.3); // 3x volume boost (was 0.7)
             
             osc.frequency.linearRampToValueAtTime(400, t + 1.5);
             osc.frequency.linearRampToValueAtTime(150, t + 3.0);
             
-            gainNode.gain.setValueAtTime(0.35, t + 2.7);
-            gainNode.gain.exponentialRampToValueAtTime(0.001, t + 3.0);
+            gainNode.gain.setValueAtTime(2.1, t + 2.7); // 3x volume boost (was 0.7)
+            gainNode.gain.exponentialRampToValueAtTime(0.006, t + 3.0); // 3x volume boost (was 0.002)
             
             lfo.connect(lfoGain);
             lfoGain.connect(osc.frequency);
@@ -437,7 +528,7 @@ const playAlarmSound = (type: AlarmSoundType) => {
             lfo.stop(t + 3.0);
             osc.stop(t + 3.0);
         } else if (type === 'laser') {
-            // Rapid sci-fi laser pulses
+            // Rapid sci-fi laser pulses (3x of 2x = 6x volume)
             for (let i = 0; i < 5; i++) {
                 const laserTime = t + i * 0.25;
                 const osc = ctx.createOscillator();
@@ -451,8 +542,8 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 
                 const gain = ctx.createGain();
                 gain.gain.setValueAtTime(0, laserTime);
-                gain.gain.linearRampToValueAtTime(0.2, laserTime + 0.01);
-                gain.gain.exponentialRampToValueAtTime(0.001, laserTime + 0.18);
+                gain.gain.linearRampToValueAtTime(1.2, laserTime + 0.01); // 3x volume boost (was 0.4)
+                gain.gain.exponentialRampToValueAtTime(0.006, laserTime + 0.18); // 3x volume boost (was 0.002)
                 
                 osc.connect(filter);
                 filter.connect(gain);
@@ -462,7 +553,7 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 osc.stop(laserTime + 0.18);
             }
         } else if (type === 'telephone') {
-            // Classic rotary telephone ring
+            // Classic rotary telephone ring (3x of 2x = 6x volume)
             [t, t + 1.2].forEach(ringTime => {
                 const duration = 0.8;
                 const modOsc = ctx.createOscillator();
@@ -470,7 +561,7 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 modOsc.frequency.setValueAtTime(16, ringTime);
                 
                 const modGain = ctx.createGain();
-                modGain.gain.setValueAtTime(0.4, ringTime);
+                modGain.gain.setValueAtTime(2.4, ringTime); // 3x volume boost (was 0.8)
                 
                 [1100, 1250].forEach(freq => {
                     const osc = ctx.createOscillator();
@@ -479,9 +570,9 @@ const playAlarmSound = (type: AlarmSoundType) => {
                     
                     const strikeGain = ctx.createGain();
                     strikeGain.gain.setValueAtTime(0, ringTime);
-                    strikeGain.gain.linearRampToValueAtTime(0.2, ringTime + 0.02);
-                    strikeGain.gain.setValueAtTime(0.2, ringTime + duration - 0.05);
-                    strikeGain.gain.exponentialRampToValueAtTime(0.001, ringTime + duration);
+                    strikeGain.gain.linearRampToValueAtTime(1.2, ringTime + 0.02); // 3x volume boost (was 0.4)
+                    strikeGain.gain.setValueAtTime(1.2, ringTime + duration - 0.05); // 3x volume boost (was 0.4)
+                    strikeGain.gain.exponentialRampToValueAtTime(0.006, ringTime + duration); // 3x volume boost (was 0.002)
                     
                     osc.connect(strikeGain);
                     modGain.connect(strikeGain.gain);
@@ -494,7 +585,7 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 modOsc.stop(ringTime + duration);
             });
         } else if (type === 'arcade') {
-            // Bouncy 8-bit game victory melody
+            // Bouncy 8-bit game victory melody (3x of 2x = 6x volume)
             const notes = [261.63, 329.63, 392.00, 523.25, 392.00, 523.25, 659.25];
             notes.forEach((freq, index) => {
                 const noteTime = t + index * 0.12;
@@ -504,8 +595,8 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 
                 const gain = ctx.createGain();
                 gain.gain.setValueAtTime(0, noteTime);
-                gain.gain.linearRampToValueAtTime(0.12, noteTime + 0.01);
-                gain.gain.exponentialRampToValueAtTime(0.001, noteTime + 0.1);
+                gain.gain.linearRampToValueAtTime(0.72, noteTime + 0.01); // 3x volume boost (was 0.24)
+                gain.gain.exponentialRampToValueAtTime(0.006, noteTime + 0.1); // 3x volume boost (was 0.002)
                 
                 osc.connect(gain);
                 gain.connect(ctx.destination);
@@ -513,7 +604,7 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 osc.stop(noteTime + 0.12);
             });
         } else if (type === 'gong') {
-            // Epic deep temple gong
+            // Epic deep temple gong (3x of 2x = 6x volume)
             const freqs = [100, 142, 224, 335, 470, 680];
             freqs.forEach((freq, idx) => {
                 const osc = ctx.createOscillator();
@@ -525,10 +616,10 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 filter.frequency.setValueAtTime(400, t);
                 
                 const gain = ctx.createGain();
-                const initVol = idx === 0 ? 0.3 : 0.1;
+                const initVol = idx === 0 ? 1.8 : 0.6; // 3x volume boost (was 0.6 / 0.2)
                 gain.gain.setValueAtTime(0, t);
                 gain.gain.linearRampToValueAtTime(initVol, t + 0.05);
-                gain.gain.exponentialRampToValueAtTime(0.001, t + 4.0);
+                gain.gain.exponentialRampToValueAtTime(0.006, t + 4.0); // 3x of 0.002
                 
                 osc.connect(filter);
                 filter.connect(gain);
@@ -537,6 +628,190 @@ const playAlarmSound = (type: AlarmSoundType) => {
                 osc.start(t);
                 osc.stop(t + 4.0);
             });
+        } else if (type === 'siren_polisi') {
+            // Police Siren (Siren Polisi) - 10 seconds, loud volume (gain 2.4)
+            const duration = 10.0;
+            const osc = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(800, t);
+            for (let i = 0; i < duration * 4; i++) {
+                osc.frequency.linearRampToValueAtTime(1400, t + i * 0.25 + 0.125);
+                osc.frequency.linearRampToValueAtTime(800, t + i * 0.25 + 0.25);
+            }
+            gainNode.gain.setValueAtTime(0, t);
+            gainNode.gain.linearRampToValueAtTime(2.4, t + 0.1);
+            gainNode.gain.setValueAtTime(2.4, t + duration - 0.5);
+            gainNode.gain.linearRampToValueAtTime(0, t + duration);
+            
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(3000, t);
+
+            osc.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            osc.start(t);
+            osc.stop(t + duration);
+        } else if (type === 'siren_kebakaran') {
+            // Fire Siren (Siren Kebakaran) - 10 seconds, loud volume (gain 2.4)
+            const duration = 10.0;
+            const osc = ctx.createOscillator();
+            const gainNode = ctx.createGain();
+            osc.type = 'sawtooth';
+            osc.frequency.setValueAtTime(350, t);
+            for (let i = 0; i < duration / 2; i++) {
+                osc.frequency.linearRampToValueAtTime(850, t + i * 2.0 + 1.0);
+                osc.frequency.linearRampToValueAtTime(350, t + i * 2.0 + 2.0);
+            }
+            gainNode.gain.setValueAtTime(0, t);
+            gainNode.gain.linearRampToValueAtTime(2.4, t + 0.1);
+            gainNode.gain.setValueAtTime(2.4, t + duration - 0.5);
+            gainNode.gain.linearRampToValueAtTime(0, t + duration);
+
+            const filter = ctx.createBiquadFilter();
+            filter.type = 'lowpass';
+            filter.frequency.setValueAtTime(2000, t);
+
+            osc.connect(filter);
+            filter.connect(gainNode);
+            gainNode.connect(ctx.destination);
+            osc.start(t);
+            osc.stop(t + duration);
+        } else if (type === 'kicau_mania') {
+            // Bird Chirping (Kicau Mania) - 10 seconds, loud volume (gain 2.4)
+            const duration = 10.0;
+            const mainGain = ctx.createGain();
+            mainGain.gain.setValueAtTime(0, t);
+            mainGain.gain.linearRampToValueAtTime(2.4, t + 0.1);
+            mainGain.gain.setValueAtTime(2.4, t + duration - 0.5);
+            mainGain.gain.linearRampToValueAtTime(0, t + duration);
+            mainGain.connect(ctx.destination);
+
+            const chirpInterval = 0.4;
+            const totalChirps = Math.floor(duration / chirpInterval);
+
+            for (let i = 0; i < totalChirps; i++) {
+                const chirpTime = t + i * chirpInterval;
+                const offset = (Math.random() - 0.5) * 0.05;
+                const startTime = chirpTime + offset;
+                
+                const osc1 = ctx.createOscillator();
+                const gain1 = ctx.createGain();
+                osc1.type = 'sine';
+                osc1.frequency.setValueAtTime(1800 + Math.random() * 200, startTime);
+                osc1.frequency.exponentialRampToValueAtTime(4000 + Math.random() * 300, startTime + 0.12);
+                
+                gain1.gain.setValueAtTime(0, startTime);
+                gain1.gain.linearRampToValueAtTime(0.7, startTime + 0.02);
+                gain1.gain.exponentialRampToValueAtTime(0.001, startTime + 0.12);
+                
+                osc1.connect(gain1);
+                gain1.connect(mainGain);
+                osc1.start(startTime);
+                osc1.stop(startTime + 0.13);
+
+                const secondaryTime = startTime + 0.16;
+                if (secondaryTime < t + duration) {
+                    const osc2 = ctx.createOscillator();
+                    const gain2 = ctx.createGain();
+                    osc2.type = 'sine';
+                    osc2.frequency.setValueAtTime(3500, secondaryTime);
+                    osc2.frequency.exponentialRampToValueAtTime(2200, secondaryTime + 0.1);
+                    
+                    gain2.gain.setValueAtTime(0, secondaryTime);
+                    gain2.gain.linearRampToValueAtTime(0.5, secondaryTime + 0.01);
+                    gain2.gain.exponentialRampToValueAtTime(0.001, secondaryTime + 0.1);
+                    
+                    osc2.connect(gain2);
+                    gain2.connect(mainGain);
+                    osc2.start(secondaryTime);
+                    osc2.stop(secondaryTime + 0.11);
+                }
+            }
+        } else if (type === 'google_robot') {
+            // Google/Robot Voice speaking: "WOOOOOYYYY WOOOOOOYYYYY STAARTTT STAAAARTTT STARTTTT"
+            // Combined with a powerful robotic warning sound in Web Audio API so it's super loud
+            const ctx = initAudioContext();
+            if (ctx) {
+                const t = ctx.currentTime;
+                const duration = 10.0;
+                
+                // Very loud synth alarm background (gain 2.4)
+                const mainGain = ctx.createGain();
+                mainGain.gain.setValueAtTime(0, t);
+                mainGain.gain.linearRampToValueAtTime(2.4, t + 0.1);
+                mainGain.gain.setValueAtTime(2.4, t + duration - 0.5);
+                mainGain.gain.linearRampToValueAtTime(0, t + duration);
+                mainGain.connect(ctx.destination);
+                
+                // Pulsing robot energy sound (heavy low-end buzz + filter sweeps)
+                const pulseCount = 10;
+                for (let i = 0; i < pulseCount; i++) {
+                    const startTime = t + i * 1.0;
+                    
+                    const osc = ctx.createOscillator();
+                    osc.type = 'sawtooth';
+                    osc.frequency.setValueAtTime(80, startTime);
+                    osc.frequency.linearRampToValueAtTime(220, startTime + 0.5);
+                    osc.frequency.linearRampToValueAtTime(80, startTime + 1.0);
+                    
+                    const filter = ctx.createBiquadFilter();
+                    filter.type = 'peaking';
+                    filter.frequency.setValueAtTime(800, startTime);
+                    filter.frequency.exponentialRampToValueAtTime(3000, startTime + 0.3);
+                    filter.frequency.exponentialRampToValueAtTime(500, startTime + 1.0);
+                    filter.Q.setValueAtTime(5, startTime);
+                    
+                    const pGain = ctx.createGain();
+                    pGain.gain.setValueAtTime(0, startTime);
+                    pGain.gain.linearRampToValueAtTime(0.6, startTime + 0.1);
+                    pGain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.95);
+                    
+                    osc.connect(filter);
+                    filter.connect(pGain);
+                    pGain.connect(mainGain);
+                    
+                    osc.start(startTime);
+                    osc.stop(startTime + 1.0);
+                }
+            }
+
+            // Speak the text
+            try {
+                if ('speechSynthesis' in window) {
+                    window.speechSynthesis.cancel(); // Cancel any ongoing speech
+                    
+                    const speakSentence = () => {
+                        const utterance = new SpeechSynthesisUtterance("WOOOOOYYYY WOOOOOOYYYYY  STAARTTT STAAAARTTT STARTTTT");
+                        utterance.rate = 1.0;
+                        utterance.pitch = 0.5; // masculine / robotic pitch
+                        utterance.volume = 1.0; // max volume
+                        
+                        // Select a male voice if available
+                        const voices = window.speechSynthesis.getVoices();
+                        const maleVoice = voices.find(v => 
+                            v.name.toLowerCase().includes('male') || 
+                            v.name.toLowerCase().includes('david') || 
+                            v.name.toLowerCase().includes('google uk english male') ||
+                            v.name.toLowerCase().includes('id-id')
+                        );
+                        if (maleVoice) {
+                            utterance.voice = maleVoice;
+                        }
+                        window.speechSynthesis.speak(utterance);
+                    };
+
+                    // Speak multiple times during the 10-second window
+                    speakSentence();
+                    setTimeout(() => {
+                        speakSentence();
+                    }, 4000);
+                }
+            } catch (speechErr) {
+                console.error("Speech Synthesis Error:", speechErr);
+            }
+            return;
         }
 
     } catch (e) {
@@ -553,11 +828,105 @@ const SECTIONS = {
     silo: 'Silo Monitor'
 };
 
+const HEADER_COLOR_SCHEMES = [
+  {
+    // Scheme 0: Blue/Indigo (Classic/Corporate)
+    schedule: "text-blue-600 dark:text-blue-400",
+    start: "text-slate-800 dark:text-slate-200",
+    reaktor: "text-indigo-600 dark:text-indigo-400",
+    date: "text-blue-600 dark:text-blue-400",
+    headerBg: "bg-blue-50/70 dark:bg-blue-950/20",
+    headerBorder: "border-blue-200/50 dark:border-blue-800/50",
+    marqueeBg: "bg-blue-100 dark:bg-blue-900/50",
+    marqueeText: "text-blue-900 dark:text-blue-100",
+    marqueeBorder: "border-blue-200 dark:border-blue-800",
+    marqueeGradientFrom: "from-blue-100 dark:from-slate-900/50",
+    icon: "text-blue-600 dark:text-blue-400"
+  },
+  {
+    // Scheme 1: Emerald/Teal (Fresh/Green)
+    schedule: "text-emerald-600 dark:text-emerald-400",
+    start: "text-slate-800 dark:text-slate-200",
+    reaktor: "text-teal-600 dark:text-teal-400",
+    date: "text-emerald-600 dark:text-emerald-400",
+    headerBg: "bg-emerald-50/70 dark:bg-emerald-950/20",
+    headerBorder: "border-emerald-200/50 dark:border-emerald-800/50",
+    marqueeBg: "bg-emerald-100 dark:bg-emerald-950/60",
+    marqueeText: "text-emerald-900 dark:text-emerald-100",
+    marqueeBorder: "border-emerald-200 dark:border-emerald-800",
+    marqueeGradientFrom: "from-emerald-100 dark:from-slate-900/50",
+    icon: "text-emerald-600 dark:text-emerald-400"
+  },
+  {
+    // Scheme 2: Amber/Orange (Warm/Warning)
+    schedule: "text-amber-600 dark:text-amber-400",
+    start: "text-slate-800 dark:text-slate-200",
+    reaktor: "text-orange-600 dark:text-orange-400",
+    date: "text-amber-600 dark:text-amber-400",
+    headerBg: "bg-amber-50/70 dark:bg-amber-950/20",
+    headerBorder: "border-amber-200/50 dark:border-amber-800/50",
+    marqueeBg: "bg-amber-100 dark:bg-amber-950/60",
+    marqueeText: "text-amber-900 dark:text-amber-100",
+    marqueeBorder: "border-amber-200 dark:border-amber-800",
+    marqueeGradientFrom: "from-amber-100 dark:from-slate-900/50",
+    icon: "text-amber-600 dark:text-amber-400"
+  },
+  {
+    // Scheme 3: Rose/Pink (Vibrant/Urgent)
+    schedule: "text-rose-600 dark:text-rose-400",
+    start: "text-slate-800 dark:text-slate-200",
+    reaktor: "text-pink-600 dark:text-pink-400",
+    date: "text-rose-600 dark:text-rose-400",
+    headerBg: "bg-rose-50/70 dark:bg-rose-950/20",
+    headerBorder: "border-rose-200/50 dark:border-rose-800/50",
+    marqueeBg: "bg-rose-100 dark:bg-rose-950/60",
+    marqueeText: "text-rose-900 dark:text-rose-100",
+    marqueeBorder: "border-rose-200 dark:border-rose-800",
+    marqueeGradientFrom: "from-rose-100 dark:from-slate-900/50",
+    icon: "text-rose-600 dark:text-rose-400"
+  },
+  {
+    // Scheme 4: Purple/Violet (Cyber/Mystic)
+    schedule: "text-violet-600 dark:text-violet-400",
+    start: "text-slate-800 dark:text-slate-200",
+    reaktor: "text-fuchsia-600 dark:text-fuchsia-400",
+    date: "text-violet-600 dark:text-violet-400",
+    headerBg: "bg-violet-50/70 dark:bg-violet-950/20",
+    headerBorder: "border-violet-200/50 dark:border-violet-800/50",
+    marqueeBg: "bg-violet-100 dark:bg-violet-950/60",
+    marqueeText: "text-violet-900 dark:text-violet-100",
+    marqueeBorder: "border-violet-200 dark:border-violet-800",
+    marqueeGradientFrom: "from-violet-100 dark:from-slate-900/50",
+    icon: "text-violet-600 dark:text-violet-400"
+  },
+  {
+    // Scheme 5: Cyan/Lime (Neon/High Contrast)
+    schedule: "text-cyan-600 dark:text-cyan-400",
+    start: "text-slate-800 dark:text-slate-200",
+    reaktor: "text-lime-600 dark:text-lime-400",
+    date: "text-cyan-600 dark:text-cyan-400",
+    headerBg: "bg-cyan-50/70 dark:bg-cyan-950/20",
+    headerBorder: "border-cyan-200/50 dark:border-cyan-800/50",
+    marqueeBg: "bg-cyan-100 dark:bg-cyan-950/60",
+    marqueeText: "text-cyan-900 dark:text-cyan-100",
+    marqueeBorder: "border-cyan-200 dark:border-cyan-800",
+    marqueeGradientFrom: "from-cyan-100 dark:from-slate-900/50",
+    icon: "text-cyan-600 dark:text-cyan-400"
+  }
+];
+
 const App: React.FC = () => {
   // --- State ---
   const [currentView, setCurrentView] = useState<'scheduler' | 'demonomer' | 'silo' | 'catatan'>('scheduler');
   const [isDemonomerPopupOpen, setIsDemonomerPopupOpen] = useState(false);
   const [now, setNow] = useState(new Date());
+  
+  // Determine current color scheme based on 1-minute intervals (modulus of schemes list)
+  const currentColorScheme = useMemo(() => {
+    const minutesSinceEpoch = Math.floor(now.getTime() / (60 * 1000));
+    const schemeIndex = minutesSinceEpoch % HEADER_COLOR_SCHEMES.length;
+    return HEADER_COLOR_SCHEMES[schemeIndex];
+  }, [now]);
   
   // State for dismissed alerts (to allow closing the full screen overlay)
   const [dismissedAlerts, setDismissedAlerts] = useState<Set<string>>(new Set());
@@ -652,6 +1021,9 @@ const App: React.FC = () => {
     delayMinutes: number;
     manualDelayMinutes: number;
     stageInfo: string;
+    hasCustomInterval: boolean;
+    customIntervalHours: number;
+    customIntervalMinutes: number;
   }>({
     timeValue: '',
     note: '',
@@ -662,7 +1034,10 @@ const App: React.FC = () => {
     delayHours: 0,
     delayMinutes: 0,
     manualDelayMinutes: 0,
-    stageInfo: ''
+    stageInfo: '',
+    hasCustomInterval: false,
+    customIntervalHours: 1,
+    customIntervalMinutes: 30
   });
 
   const [config, setConfig] = useState<AppState>({
@@ -695,6 +1070,33 @@ const App: React.FC = () => {
   const [audioAllowed, setAudioAllowed] = useState(false); // Track if audio is allowed
   const [dbSchemaError, setDbSchemaError] = useState<string | null>(null);
   const supabaseColumnsRef = useRef<Set<string>>(new Set());
+  const isCatalystModalOpenRef = useRef(false);
+  const isDemonomerPopupOpenRef = useRef(false);
+
+  // Store active alarm sound in ref to avoid stale closures during first interaction
+  const alarmSoundRef = useRef(config.alarmSound);
+  useEffect(() => {
+      alarmSoundRef.current = config.alarmSound;
+  }, [config.alarmSound]);
+
+  // Play the loaded alarm sound once on initial app load for confirmation
+  const hasPlayedInitialSoundRef = useRef(false);
+  useEffect(() => {
+    if (!isLoading && config.alarmSound) {
+        if (!hasPlayedInitialSoundRef.current) {
+            hasPlayedInitialSoundRef.current = true;
+            playAlarmSound(config.alarmSound);
+        }
+    }
+  }, [isLoading, config.alarmSound]);
+
+  useEffect(() => {
+    isCatalystModalOpenRef.current = isCatalystModalOpen;
+  }, [isCatalystModalOpen]);
+
+  useEffect(() => {
+    isDemonomerPopupOpenRef.current = isDemonomerPopupOpen;
+  }, [isDemonomerPopupOpen]);
 
   const activeDemonomerGrade = config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade;
 
@@ -857,7 +1259,9 @@ const App: React.FC = () => {
                   note: row.note,
                   shiftSubsequent: row.shift_subsequent,
                   manualDelayMinutes: row.manual_delay_minutes,
-                  stageInfo: row.stage_info || ''
+                  stageInfo: row.stage_info || '',
+                  customIntervalHours: ('custom_interval_hours' in row && row.custom_interval_hours !== null && row.custom_interval_hours !== undefined) ? Number(row.custom_interval_hours) : undefined,
+                  customIntervalMinutes: ('custom_interval_minutes' in row && row.custom_interval_minutes !== null && row.custom_interval_minutes !== undefined) ? Number(row.custom_interval_minutes) : undefined
               };
           });
       }
@@ -894,31 +1298,57 @@ const App: React.FC = () => {
               setZoomLevel(settingsData.zoom_level);
           }
 
+          const activeEl = document.activeElement;
+          const isFocusedOnInput = activeEl && (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA');
+
           // Load Catalyst Data
           if (settingsData.catalyst_data) {
               const loadedCatalyst = settingsData.catalyst_data;
-              setCatalystData(loadedCatalyst);
-              if (loadedCatalyst.presets) {
-                  setTempCatalystPresets(prev => ({
-                      ...prev,
-                      ...loadedCatalyst.presets
-                  }));
+              const mergedPresets = {
+                  SM: { F: '16,3', H: '25,7' },
+                  SLP: { F: '', H: '' },
+                  SLK: { F: '', H: '' },
+                  SE: { F: '', G: '' },
+                  SR: { F: '', G: '' },
+                  ...(loadedCatalyst.presets || {})
+              };
+              const updatedCatalyst = {
+                  ...loadedCatalyst,
+                  presets: mergedPresets
+              };
+
+              const isEditingCatalyst = isCatalystModalOpenRef.current || 
+                  (isFocusedOnInput && (activeEl.closest('.catalyst-widget-container') || activeEl.closest('.catalyst-modal-container')));
+
+              if (!isEditingCatalyst) {
+                  setCatalystData(updatedCatalyst);
+                  setTempCatalystPresets(mergedPresets);
               }
           }
 
           // Load Silo State
           if (settingsData.silo_state) {
-              setSiloState(settingsData.silo_state);
+              const isEditingSilo = isFocusedOnInput && activeEl.closest('.silo-container');
+              if (!isEditingSilo) {
+                  setSiloState(settingsData.silo_state);
+              }
           }
 
           // Load Demonomer Data
           if (settingsData.demonomer_data) {
-              setDemonomerData(settingsData.demonomer_data);
+              const isEditingDemonomer = isDemonomerPopupOpenRef.current || 
+                  (isFocusedOnInput && activeEl.closest('.demonomer-widget-container'));
+              if (!isEditingDemonomer) {
+                  setDemonomerData(settingsData.demonomer_data);
+              }
           }
 
           // Load Cycle Time Data
           if (settingsData.cycle_time_data) {
-              setCycleTimeData(settingsData.cycle_time_data);
+              const isEditingCycleTime = isFocusedOnInput && activeEl.closest('.cycle-time-container');
+              if (!isEditingCycleTime) {
+                  setCycleTimeData(settingsData.cycle_time_data);
+              }
           }
 
           // Load Grade Mode
@@ -1499,7 +1929,10 @@ const App: React.FC = () => {
       delayHours: 0,
       delayMinutes: 0,
       manualDelayMinutes: itemConfig.manualDelayMinutes || 0,
-      stageInfo: itemConfig.stageInfo || ''
+      stageInfo: itemConfig.stageInfo || '',
+      hasCustomInterval: itemConfig.customIntervalHours !== undefined,
+      customIntervalHours: itemConfig.customIntervalHours !== undefined ? itemConfig.customIntervalHours : config.intervalHours,
+      customIntervalMinutes: itemConfig.customIntervalMinutes !== undefined ? itemConfig.customIntervalMinutes : config.intervalMinutes,
     });
   };
 
@@ -1566,16 +1999,69 @@ const App: React.FC = () => {
         stageInfo: editForm.stageInfo
       };
 
+      const newConfigs = { ...config.itemConfigs };
+      const dbUpserts: any[] = [];
+
+      if (editForm.hasCustomInterval) {
+        // Find already started items in scheduleMatrix (status === 'past' || status === 'active')
+        const allItems = Object.values(scheduleMatrix).flat() as ScheduleItem[];
+        const alreadyStartedItems = allItems.filter(item => 
+          (item.status === 'past' || item.status === 'active') && 
+          item.id !== selectedItem.id
+        );
+
+        for (const item of alreadyStartedItems) {
+          const existingConfig = config.itemConfigs[item.id];
+          const hasTimeOverride = !!existingConfig?.overrideTime;
+
+          const frozenConfig: ItemConfig = {
+            overrideTime: hasTimeOverride ? existingConfig.overrideTime : item.startTime.toISOString(),
+            note: existingConfig?.note || '',
+            isSkipped: existingConfig?.isSkipped || false,
+            skipReason: existingConfig?.skipReason || 'PASS',
+            mode: existingConfig?.mode || 'CLOSE',
+            grade: existingConfig?.grade,
+            shiftSubsequent: true,
+            manualDelayMinutes: existingConfig?.manualDelayMinutes || 0,
+            stageInfo: existingConfig?.stageInfo || ''
+          };
+
+          newConfigs[item.id] = frozenConfig;
+          dbUpserts.push({
+            id: item.id,
+            override_time: frozenConfig.overrideTime,
+            is_skipped: frozenConfig.isSkipped,
+            skip_reason: frozenConfig.skipReason,
+            mode: frozenConfig.mode,
+            grade: frozenConfig.grade,
+            note: frozenConfig.note,
+            shift_subsequent: frozenConfig.shiftSubsequent,
+            manual_delay_minutes: frozenConfig.manualDelayMinutes,
+            stage_info: frozenConfig.stageInfo,
+            updated_at: new Date()
+          });
+        }
+
+        // Also update the global settings in database
+        await updateGlobalSetting({
+          interval_hours: editForm.customIntervalHours,
+          interval_minutes: editForm.customIntervalMinutes
+        });
+      }
+
       // Optimistic Update
       setConfig(prev => ({
         ...prev,
+        intervalHours: editForm.hasCustomInterval ? editForm.customIntervalHours : prev.intervalHours,
+        intervalMinutes: editForm.hasCustomInterval ? editForm.customIntervalMinutes : prev.intervalMinutes,
         itemConfigs: {
           ...prev.itemConfigs,
+          ...newConfigs,
           [selectedItem.id]: newConfig
         }
       }));
 
-      // Sync to Firebase
+      // Sync to Firebase (main item)
       await syncOverrideToFirebase(selectedItem.id, {
           override_time: newConfig.overrideTime,
           is_skipped: newConfig.isSkipped,
@@ -1588,24 +2074,30 @@ const App: React.FC = () => {
           stage_info: newConfig.stageInfo
       });
 
+      const selectedItemUpsert = {
+          id: selectedItem.id,
+          override_time: newConfig.overrideTime,
+          is_skipped: newConfig.isSkipped,
+          skip_reason: newConfig.skipReason,
+          mode: newConfig.mode,
+          grade: newConfig.grade,
+          note: newConfig.note,
+          shift_subsequent: newConfig.shiftSubsequent,
+          manual_delay_minutes: newConfig.manualDelayMinutes,
+          stage_info: newConfig.stageInfo,
+          updated_at: new Date()
+      };
+
+      const allUpserts = [...dbUpserts, selectedItemUpsert];
+
       // DB Upsert
       const { error } = await supabase
           .from('schedule_overrides')
-          .upsert({
-              id: selectedItem.id,
-              override_time: newConfig.overrideTime,
-              is_skipped: newConfig.isSkipped,
-              skip_reason: newConfig.skipReason,
-              mode: newConfig.mode,
-              grade: newConfig.grade,
-              note: newConfig.note,
-              shift_subsequent: newConfig.shiftSubsequent,
-              manual_delay_minutes: newConfig.manualDelayMinutes,
-              stage_info: newConfig.stageInfo,
-              updated_at: new Date()
-          });
+          .upsert(allUpserts);
 
-      if (error) console.error("Error saving override:", error);
+      if (error) {
+          console.error("Error saving overrides:", error);
+      }
 
       closeRescheduleModal();
     }
@@ -1642,6 +2134,8 @@ const App: React.FC = () => {
     let currentBatch = config.baseBatchNumber;
     let sequenceCursor = baseDate.getTime();
     let globalIndex = 0;
+    let runningIntervalMinutes = totalIntervalMinutes;
+    let lastAddedIntervalMinutes = totalIntervalMinutes;
 
     REACTORS.forEach(r => matrix[r.id] = []);
 
@@ -1650,6 +2144,14 @@ const App: React.FC = () => {
         const reactor = REACTORS[rIndex];
         const uniqueId = `${reactor.id}-${currentBatch}`;
         const itemConfig = config.itemConfigs[uniqueId];
+
+        if (itemConfig?.customIntervalHours !== undefined && itemConfig?.customIntervalMinutes !== undefined) {
+            const newInterval = (itemConfig.customIntervalHours * 60) + itemConfig.customIntervalMinutes;
+            if (globalIndex > 0) {
+                sequenceCursor = sequenceCursor - (lastAddedIntervalMinutes * 60000) + (newInterval * 60000);
+            }
+            runningIntervalMinutes = newInterval;
+        }
 
         let originalTime = new Date(sequenceCursor);
         let effectiveTime = originalTime;
@@ -1693,7 +2195,8 @@ const App: React.FC = () => {
         });
 
         if (!isSkipped) {
-            sequenceCursor += (totalIntervalMinutes * 60000);
+            sequenceCursor += (runningIntervalMinutes * 60000);
+            lastAddedIntervalMinutes = runningIntervalMinutes;
             currentBatch++;
         }
         
@@ -1731,12 +2234,23 @@ const App: React.FC = () => {
       // 1. Forward list
       let currentBatch = config.baseBatchNumber;
       let sequenceCursor = baseDate.getTime();
+      let runningIntervalMinutes = totalIntervalMinutes;
+      let lastAddedIntervalMinutes = totalIntervalMinutes;
+      let globalIndex = 0;
       
       for (let col = 0; col < Math.max(24, config.columnsToDisplay); col++) {
         for (let rIndex = 0; rIndex < REACTORS.length; rIndex++) {
           const reactor = REACTORS[rIndex];
           const uniqueId = `${reactor.id}-${currentBatch}`;
           const itemConfig = config.itemConfigs[uniqueId];
+
+          if (itemConfig?.customIntervalHours !== undefined && itemConfig?.customIntervalMinutes !== undefined) {
+              const newInterval = (itemConfig.customIntervalHours * 60) + itemConfig.customIntervalMinutes;
+              if (globalIndex > 0) {
+                  sequenceCursor = sequenceCursor - (lastAddedIntervalMinutes * 60000) + (newInterval * 60000);
+              }
+              runningIntervalMinutes = newInterval;
+          }
 
           let originalTime = new Date(sequenceCursor);
           let effectiveTime = originalTime;
@@ -1758,9 +2272,12 @@ const App: React.FC = () => {
           });
 
           if (!isSkipped) {
-              sequenceCursor += (totalIntervalMinutes * 60000);
+              sequenceCursor += (runningIntervalMinutes * 60000);
+              lastAddedIntervalMinutes = runningIntervalMinutes;
               currentBatch++;
           }
+
+          globalIndex++;
         }
       }
 
@@ -1932,7 +2449,9 @@ const App: React.FC = () => {
 
   // Handler to enable audio manually
   const enableAudio = () => {
-      playAlarmSound(config.alarmSound);
+      if (!isLoading) {
+          playAlarmSound(alarmSoundRef.current);
+      }
       setAudioAllowed(true);
   };
 
@@ -2006,18 +2525,18 @@ const App: React.FC = () => {
           </div>
 
           {/* Center Section: Title */}
-          <div className="flex flex-col items-center justify-center shrink-0 p-1.5 rounded-xl bg-white/50 dark:bg-slate-800/50 backdrop-blur-sm border border-slate-200/50 dark:border-slate-700/50 shadow-sm mx-4">
-            <h1 className="text-[2.0em] font-black text-slate-900 dark:text-white tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm">
-               <span className="text-blue-600 dark:text-blue-400">SCHEDULE</span> 
-               <span className="text-slate-800 dark:text-slate-200">START</span>
+          <div className={`flex flex-col items-center justify-center shrink-0 p-1.5 rounded-xl backdrop-blur-sm border shadow-sm mx-4 transition-all duration-1000 ${currentColorScheme.headerBg} ${currentColorScheme.headerBorder}`}>
+            <h1 className="text-[2.0em] font-black tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm">
+               <span className={`transition-colors duration-1000 ${currentColorScheme.schedule}`}>SCHEDULE</span> 
+               <span className={`transition-colors duration-1000 ${currentColorScheme.start}`}>START</span>
             </h1>
             <div className="flex items-center gap-4 mt-1 border-t-2 border-slate-200 dark:border-slate-700 pt-1 w-full justify-center">
-                <span className="text-[0.8em] font-black text-slate-500 dark:text-slate-400 tracking-widest uppercase">
+                <span className={`text-[0.8em] font-black tracking-widest uppercase transition-colors duration-1000 ${currentColorScheme.reaktor}`}>
                     REAKTOR PVC 5
                 </span>
                 <div className="h-3 w-px bg-slate-300 dark:bg-slate-600"></div>
-                <span className="text-[0.8em] font-black text-blue-600 dark:text-blue-400 tracking-widest uppercase flex items-center gap-2">
-                    <Calendar className="w-[1.2em] h-[1.2em]" />
+                <span className={`text-[0.8em] font-black tracking-widest uppercase flex items-center gap-2 transition-colors duration-1000 ${currentColorScheme.date}`}>
+                    <Calendar className={`w-[1.2em] h-[1.2em] transition-colors duration-1000 ${currentColorScheme.icon}`} />
                     {formatDate(now)}
                 </span>
             </div>
@@ -2072,7 +2591,7 @@ const App: React.FC = () => {
                               </p>
                               <div className="mt-3 flex gap-3">
                                   <button 
-                                      onClick={() => {
+                                       onClick={() => {
                                           let sql = "";
                                           if (dbSchemaError.includes('alarm_sound')) {
                                               sql += "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS alarm_sound TEXT DEFAULT 'siren';\n";
@@ -2083,10 +2602,16 @@ const App: React.FC = () => {
                                           if (dbSchemaError.includes('cycle_time_data')) {
                                               sql += "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS cycle_time_data JSONB DEFAULT '[{\"id\": 1, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}, {\"id\": 2, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}]'::jsonb;\n";
                                           }
+                                          if (dbSchemaError.includes('custom_interval_hours') || dbSchemaError.includes('custom_interval_minutes')) {
+                                              sql += "ALTER TABLE schedule_overrides ADD COLUMN IF NOT EXISTS custom_interval_hours INT DEFAULT NULL;\n" +
+                                                     "ALTER TABLE schedule_overrides ADD COLUMN IF NOT EXISTS custom_interval_minutes INT DEFAULT NULL;\n";
+                                          }
                                           if (!sql) {
                                               sql = "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS alarm_sound TEXT DEFAULT 'siren';\n" +
                                                     "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS grade_mode TEXT DEFAULT 'normal';\n" +
-                                                    "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS cycle_time_data JSONB DEFAULT '[{\"id\": 1, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}, {\"id\": 2, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}]'::jsonb;";
+                                                    "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS cycle_time_data JSONB DEFAULT '[{\"id\": 1, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}, {\"id\": 2, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}]'::jsonb;\n" +
+                                                    "ALTER TABLE schedule_overrides ADD COLUMN IF NOT EXISTS custom_interval_hours INT DEFAULT NULL;\n" +
+                                                    "ALTER TABLE schedule_overrides ADD COLUMN IF NOT EXISTS custom_interval_minutes INT DEFAULT NULL;";
                                           }
                                           navigator.clipboard.writeText(sql);
                                           alert("SQL berhasil disalin ke clipboard!");
@@ -2174,11 +2699,15 @@ const App: React.FC = () => {
                                   className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
                               >
                                   <option value="siren">🚨 Siren (Original)</option>
+                                  <option value="siren_polisi">🚓 Siren Polisi (10s)</option>
+                                  <option value="siren_kebakaran">🚒 Siren Kebakaran (10s)</option>
+                                  <option value="kicau_mania">🐦 Kicau Mania (10s)</option>
+                                  <option value="google_robot">🤖 Google/Robot Voice ("Woy Woy Start")</option>
                                   <option value="rocket">🚀 Suara Roket (rocket)</option>
                                   <option value="jet">✈️ Suara Pesawat Jet (jet)</option>
                                   <option value="powerpoint">📊 PowerPoint Chime</option>
                                   <option value="bomb">💣 Bomb Explosion</option>
-                                  <option value="fajar_sadboy">😭 Fajar Sadboy (Speech)</option>
+                                  <option value="fajar_sadboy">💃 Gaspol Dangak (Lagu 10s)</option>
                                   <option value="train">🚂 Suara Kereta Api (train)</option>
                                   <option value="car_horn">🚗 Suara Klakson Mobil (car_horn)</option>
                                   <option value="ship_horn">🚢 Suara Klakson Kapal (ship_horn)</option>
@@ -2446,7 +2975,7 @@ const App: React.FC = () => {
 
   const renderSteamWidget = () => {
       return (
-          <div className="flex flex-col shadow-sm rounded-xl w-full border border-slate-200 dark:border-slate-700">
+          <div className="flex flex-col shadow-sm rounded-xl w-full border border-slate-200 dark:border-slate-700 demonomer-widget-container">
               <button 
                   onClick={() => setIsDemonomerPopupOpen(true)}
                   className="bg-teal-600 hover:bg-teal-700 text-white font-bold text-[0.85em] px-2 py-2 text-center rounded-t-xl flex items-center justify-center gap-1 uppercase tracking-tight cursor-pointer transition-colors w-full relative"
@@ -2491,7 +3020,7 @@ const App: React.FC = () => {
 
   const renderCatalystMiniWidget = () => {
       return (
-          <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800">
+          <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800 catalyst-widget-container">
               <div 
                   onClick={openCatalystModal}
                   className="bg-indigo-600 hover:bg-indigo-700 cursor-pointer text-white font-bold text-[0.8em] px-3 py-2 text-center flex items-center justify-between gap-2 uppercase tracking-tight transition-colors"
@@ -2561,12 +3090,12 @@ const App: React.FC = () => {
           <div className="w-[80%] flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
             
              {/* MARQUEE BAR: Placed between header and table rows */}
-             <div className="w-full bg-blue-100 dark:bg-blue-900/50 border-b border-blue-200 dark:border-blue-800 overflow-hidden h-10 relative flex items-center">
+             <div className={`w-full ${currentColorScheme.marqueeBg} border-b ${currentColorScheme.marqueeBorder} overflow-hidden h-10 relative flex items-center transition-all duration-1000`}>
                   
                   <div className="flex-1 overflow-hidden h-full relative flex items-center">
                        <div className="absolute inset-0 flex items-center w-full">
-                            <div className="absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r from-blue-100 dark:from-slate-900/50 to-transparent pointer-events-none"></div>
-                            <div className="absolute right-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-l from-blue-100 dark:from-slate-900/50 to-transparent pointer-events-none"></div>
+                            <div className={`absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r ${currentColorScheme.marqueeGradientFrom} to-transparent pointer-events-none transition-all duration-1000`}></div>
+                            <div className={`absolute right-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-l ${currentColorScheme.marqueeGradientFrom} to-transparent pointer-events-none transition-all duration-1000`}></div>
                             
                             <div className="flex whitespace-nowrap w-full">
                                  <div 
@@ -2574,7 +3103,7 @@ const App: React.FC = () => {
                                      style={{ animationDuration: `${config.marqueeSpeed}s` }}
                                  >
                                      {Array(5).fill(null).map((_, i) => (
-                                         <span key={i} className="flex items-center gap-2 mx-8 font-black text-blue-800 dark:text-blue-100 uppercase tracking-wider text-[0.875em]">
+                                         <span key={i} className={`flex items-center gap-2 mx-8 font-black uppercase tracking-wider text-[0.875em] transition-colors duration-1000 ${currentColorScheme.marqueeText}`}>
                                              <AlertTriangle className="w-[1.25em] h-[1.25em]" />
                                              {autoRunningText}
                                          </span>
@@ -2586,13 +3115,13 @@ const App: React.FC = () => {
                                      aria-hidden="true"
                                  >
                                      {Array(5).fill(null).map((_, i) => (
-                                         <span key={i + 10} className="flex items-center gap-2 mx-8 font-black text-blue-800 dark:text-blue-100 uppercase tracking-wider text-[0.875em]">
+                                         <span key={i + 10} className={`flex items-center gap-2 mx-8 font-black uppercase tracking-wider text-[0.875em] transition-colors duration-1000 ${currentColorScheme.marqueeText}`}>
                                              <AlertTriangle className="w-[1.25em] h-[1.25em]" />
                                              {autoRunningText}
                                          </span>
                                      ))}
                                  </div>
-                             </div>
+                            </div>
                        </div>
                   </div>
              </div>
@@ -3043,7 +3572,7 @@ const App: React.FC = () => {
                 
                <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                    {/* 1. CYCLE TIME WIDGET */}
-                   <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+                   <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 cycle-time-container">
                         <div className={`${GRADE_COLORS[config.currentGrade] || 'bg-indigo-600'} text-white font-bold text-[0.7em] px-3 py-1 text-center rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight transition-colors`}>
                             <Calculator className="w-3 h-3" />
                             HITUNG CYCLE TIME
@@ -3338,12 +3867,14 @@ const App: React.FC = () => {
               )}
 
               {currentView === 'silo' && (
-                <Silo 
-                    activeSilo={siloState.activeSilo}
-                    silos={siloState.silos}
-                    onDataChange={handleSiloDataChange}
-                    onSiloSelect={handleSiloSwitch}
-                />
+                <div className="silo-container">
+                    <Silo 
+                        activeSilo={siloState.activeSilo}
+                        silos={siloState.silos}
+                        onDataChange={handleSiloDataChange}
+                        onSiloSelect={handleSiloSwitch}
+                    />
+                </div>
               )}
 
               {currentView === 'catatan' && (
@@ -3392,7 +3923,7 @@ const App: React.FC = () => {
       {/* --- CATALYST PRESETS MODAL --- */}
       {isCatalystModalOpen && (
           <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
-              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden transform transition-all scale-100 ring-4 ring-indigo-500/50">
+              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden transform transition-all scale-100 ring-4 ring-indigo-500/50 catalyst-modal-container">
                   <div className="bg-indigo-600 text-white p-5 flex items-center justify-between">
                       <h3 className="text-xl font-black flex items-center gap-2">
                           <Sliders className="w-6 h-6 text-yellow-300 animate-pulse" />
@@ -3890,6 +4421,58 @@ const App: React.FC = () => {
                                     <span className="block text-xs font-bold text-slate-500 dark:text-slate-500">Delay will push all subsequent batches forward</span>
                                 </div>
                                 <PauseCircle className="w-6 h-6 text-orange-400" />
+                            </div>
+
+                            {/* Custom Subsequent Interval Adjuster */}
+                            <div className="bg-blue-50 dark:bg-blue-900/10 p-6 rounded-xl border-2 border-blue-200 dark:border-blue-900/40">
+                                <div 
+                                    className="flex items-center gap-4 cursor-pointer mb-4 select-none" 
+                                    onClick={() => setEditForm(prev => ({ ...prev, hasCustomInterval: !prev.hasCustomInterval }))}
+                                >
+                                    <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${editForm.hasCustomInterval ? 'bg-blue-600 border-blue-700' : 'bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600'}`}>
+                                        {editForm.hasCustomInterval && <div className="w-3 h-3 bg-white dark:bg-white rounded-sm" />}
+                                    </div>
+                                    <div className="flex-1">
+                                        <span className="block text-base font-black text-blue-800 dark:text-blue-300">
+                                            Adjust Subsequent Cycle Interval
+                                        </span>
+                                        <span className="block text-xs font-bold text-blue-600 dark:text-blue-400">
+                                            Ubah interval cycle berikutnya mulai dari reaktor ini
+                                        </span>
+                                    </div>
+                                </div>
+
+                                <div className="pt-4 border-t-2 border-blue-100 dark:border-blue-900/30 transition-all">
+                                    <label className="text-sm font-black text-blue-700 dark:text-blue-300 uppercase mb-3 block">New Interval Value</label>
+                                    <div className="flex items-center gap-4">
+                                        <div className="flex-1">
+                                            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-black block mb-1">HOURS</span>
+                                            <input 
+                                                type="number" 
+                                                min="0" 
+                                                disabled={!editForm.hasCustomInterval}
+                                                value={editForm.customIntervalHours} 
+                                                onChange={(e) => setEditForm(prev => ({ ...prev, customIntervalHours: Math.max(0, parseInt(e.target.value) || 0) }))} 
+                                                className={`w-full border-2 border-blue-200 dark:border-blue-800 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all ${!editForm.hasCustomInterval ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-900/40' : ''}`} 
+                                            />
+                                        </div>
+                                        <div className="flex-1">
+                                            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-black block mb-1">MINUTES</span>
+                                            <input 
+                                                type="number" 
+                                                min="0" 
+                                                max="59" 
+                                                disabled={!editForm.hasCustomInterval}
+                                                value={editForm.customIntervalMinutes} 
+                                                onChange={(e) => setEditForm(prev => ({ ...prev, customIntervalMinutes: Math.min(59, Math.max(0, parseInt(e.target.value) || 0)) }))} 
+                                                className={`w-full border-2 border-blue-200 dark:border-blue-800 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all ${!editForm.hasCustomInterval ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-900/40' : ''}`} 
+                                            />
+                                        </div>
+                                    </div>
+                                    <span className="block text-xs font-bold text-amber-600 dark:text-amber-400 mt-3 bg-amber-500/10 p-2.5 rounded-lg border border-amber-500/20">
+                                        ℹ️ Interval baru ({editForm.customIntervalHours} jam {editForm.customIntervalMinutes} menit) akan berlaku untuk semua reaktor berikutnya dalam cycle yang belum start.
+                                    </span>
+                                </div>
                             </div>
                         </>
                     )}

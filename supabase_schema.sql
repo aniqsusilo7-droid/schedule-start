@@ -40,6 +40,8 @@ CREATE TABLE IF NOT EXISTS schedule_overrides (
     shift_subsequent BOOLEAN DEFAULT FALSE,
     manual_delay_minutes BIGINT DEFAULT 0,
     stage_info TEXT,
+    custom_interval_hours INT DEFAULT NULL,
+    custom_interval_minutes INT DEFAULT NULL,
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 

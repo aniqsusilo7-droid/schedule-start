@@ -1,6 +1,6 @@
 
 export type GradeType = 'SM' | 'SLK' | 'SLP' | 'SE' | 'SR';
-export type AlarmSoundType = 'siren' | 'rocket' | 'jet' | 'powerpoint' | 'bomb' | 'fajar_sadboy' | 'train' | 'car_horn' | 'ship_horn' | 'ringtone' | 'missile' | 'crow' | 'magic_spell' | 'ufo' | 'laser' | 'telephone' | 'arcade' | 'gong';
+export type AlarmSoundType = 'siren' | 'rocket' | 'jet' | 'powerpoint' | 'bomb' | 'fajar_sadboy' | 'train' | 'car_horn' | 'ship_horn' | 'ringtone' | 'missile' | 'crow' | 'magic_spell' | 'ufo' | 'laser' | 'telephone' | 'arcade' | 'gong' | 'siren_polisi' | 'siren_kebakaran' | 'kicau_mania' | 'google_robot';
 
 export interface ReactorConfig {
   id: string;
@@ -21,6 +21,8 @@ export interface ItemConfig {
   shiftSubsequent?: boolean; // If true, this delay affects future times
   manualDelayMinutes?: number; // Track explicitly applied delay
   stageInfo?: string; // Specific label for this batch (e.g., "Sample Blowing")
+  customIntervalHours?: number; // Custom interval hours for subsequent reactors
+  customIntervalMinutes?: number; // Custom interval minutes for subsequent reactors
 }
 
 export interface ScheduleItem {
