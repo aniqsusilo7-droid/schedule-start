@@ -833,7 +833,7 @@ const HEADER_COLOR_SCHEMES = [
     // Scheme 0: Blue/Indigo (Classic/Corporate)
     schedule: "text-blue-600 dark:text-blue-400",
     start: "text-slate-800 dark:text-slate-200",
-    reaktor: "text-indigo-600 dark:text-indigo-400",
+    reaktor: "text-blue-600 dark:text-blue-400 font-extrabold",
     date: "text-blue-600 dark:text-blue-400",
     headerBg: "bg-blue-50/70 dark:bg-blue-950/20",
     headerBorder: "border-blue-200/50 dark:border-blue-800/50",
@@ -847,7 +847,7 @@ const HEADER_COLOR_SCHEMES = [
     // Scheme 1: Emerald/Teal (Fresh/Green)
     schedule: "text-emerald-600 dark:text-emerald-400",
     start: "text-slate-800 dark:text-slate-200",
-    reaktor: "text-teal-600 dark:text-teal-400",
+    reaktor: "text-emerald-600 dark:text-emerald-400 font-extrabold",
     date: "text-emerald-600 dark:text-emerald-400",
     headerBg: "bg-emerald-50/70 dark:bg-emerald-950/20",
     headerBorder: "border-emerald-200/50 dark:border-emerald-800/50",
@@ -861,7 +861,7 @@ const HEADER_COLOR_SCHEMES = [
     // Scheme 2: Amber/Orange (Warm/Warning)
     schedule: "text-amber-600 dark:text-amber-400",
     start: "text-slate-800 dark:text-slate-200",
-    reaktor: "text-orange-600 dark:text-orange-400",
+    reaktor: "text-amber-600 dark:text-amber-400 font-extrabold",
     date: "text-amber-600 dark:text-amber-400",
     headerBg: "bg-amber-50/70 dark:bg-amber-950/20",
     headerBorder: "border-amber-200/50 dark:border-amber-800/50",
@@ -875,7 +875,7 @@ const HEADER_COLOR_SCHEMES = [
     // Scheme 3: Rose/Pink (Vibrant/Urgent)
     schedule: "text-rose-600 dark:text-rose-400",
     start: "text-slate-800 dark:text-slate-200",
-    reaktor: "text-pink-600 dark:text-pink-400",
+    reaktor: "text-rose-600 dark:text-rose-400 font-extrabold",
     date: "text-rose-600 dark:text-rose-400",
     headerBg: "bg-rose-50/70 dark:bg-rose-950/20",
     headerBorder: "border-rose-200/50 dark:border-rose-800/50",
@@ -889,7 +889,7 @@ const HEADER_COLOR_SCHEMES = [
     // Scheme 4: Purple/Violet (Cyber/Mystic)
     schedule: "text-violet-600 dark:text-violet-400",
     start: "text-slate-800 dark:text-slate-200",
-    reaktor: "text-fuchsia-600 dark:text-fuchsia-400",
+    reaktor: "text-violet-600 dark:text-violet-400 font-extrabold",
     date: "text-violet-600 dark:text-violet-400",
     headerBg: "bg-violet-50/70 dark:bg-violet-950/20",
     headerBorder: "border-violet-200/50 dark:border-violet-800/50",
@@ -903,7 +903,7 @@ const HEADER_COLOR_SCHEMES = [
     // Scheme 5: Cyan/Lime (Neon/High Contrast)
     schedule: "text-cyan-600 dark:text-cyan-400",
     start: "text-slate-800 dark:text-slate-200",
-    reaktor: "text-lime-600 dark:text-lime-400",
+    reaktor: "text-cyan-600 dark:text-cyan-400 font-extrabold",
     date: "text-cyan-600 dark:text-cyan-400",
     headerBg: "bg-cyan-50/70 dark:bg-cyan-950/20",
     headerBorder: "border-cyan-200/50 dark:border-cyan-800/50",
@@ -992,7 +992,10 @@ const App: React.FC = () => {
   // --- Cycle Time State ---
   const [cycleTimeData, setCycleTimeData] = useState([
       { id: 1, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' },
-      { id: 2, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }
+      { id: 2, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' },
+      { id: 3, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' },
+      { id: 4, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' },
+      { id: 5, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }
   ]);
 
   // --- Silo State ---
@@ -1097,6 +1100,8 @@ const App: React.FC = () => {
   useEffect(() => {
     isDemonomerPopupOpenRef.current = isDemonomerPopupOpen;
   }, [isDemonomerPopupOpen]);
+
+  const lastCycleTimeUpdateRef = useRef<number>(0);
 
   const activeDemonomerGrade = config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade;
 
@@ -1346,8 +1351,14 @@ const App: React.FC = () => {
           // Load Cycle Time Data
           if (settingsData.cycle_time_data) {
               const isEditingCycleTime = isFocusedOnInput && activeEl.closest('.cycle-time-container');
-              if (!isEditingCycleTime) {
-                  setCycleTimeData(settingsData.cycle_time_data);
+              const wasRecentlyUpdatedLocally = (Date.now() - lastCycleTimeUpdateRef.current) < 4000;
+              if (!isEditingCycleTime && !wasRecentlyUpdatedLocally) {
+                  const dbRows = settingsData.cycle_time_data || [];
+                  const normalizedRows = Array.from({ length: 5 }, (_, idx) => {
+                      const existing = dbRows[idx];
+                      return existing ? { ...existing, id: idx + 1 } : { id: idx + 1, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' };
+                  });
+                  setCycleTimeData(normalizedRows);
               }
           }
 
@@ -1786,11 +1797,10 @@ const App: React.FC = () => {
   };
 
   const handleCycleTimeChange = (id: number, field: string, value: string) => {
-      setCycleTimeData(prev => {
-          const newData = prev.map(row => row.id === id ? { ...row, [field]: value } : row);
-          updateGlobalSetting({ cycle_time_data: newData });
-          return newData;
-      });
+      lastCycleTimeUpdateRef.current = Date.now();
+      const newData = cycleTimeData.map(row => row.id === id ? { ...row, [field]: value } : row);
+      setCycleTimeData(newData);
+      updateGlobalSetting({ cycle_time_data: newData });
   };
 
   // --- Silo Handlers ---
@@ -2504,24 +2514,51 @@ const App: React.FC = () => {
           
           {/* Left Section: Widget */}
           <div className="flex shrink-0">
-              {/* Widget: Interval & Time */}
-              <div className="flex bg-slate-800 rounded-lg p-1 shadow-md">
-                     {/* Interval */}
-                     <div className="px-4 py-1.5 flex flex-col items-center justify-center border-r border-slate-700/50 min-w-[120px]">
-                        <span className="text-[0.5em] text-cyan-400 font-bold uppercase tracking-wider mb-1">INTERVAL</span>
-                        <div className="text-[1.5em] font-mono font-black text-cyan-300 leading-none">
-                            {config.intervalHours.toString().padStart(2, '0')}:{config.intervalMinutes.toString().padStart(2, '0')}
-                        </div>
-                     </div>
-                     {/* Time */}
-                     <div className="px-4 py-1.5 flex flex-col items-center justify-center min-w-[200px]">
-                        <span className="text-[0.5em] text-slate-400 font-bold uppercase tracking-wider mb-1">CURRENT TIME</span>
-                        <div className="bg-white dark:bg-slate-700 w-full mx-2 text-slate-900 dark:text-white px-2 py-1 rounded shadow-sm font-mono font-black text-[1.5em] tracking-widest leading-none flex items-center justify-center transition-colors">
-                            {now.toLocaleTimeString('en-GB', { hour12: false })}
-                            <span className="text-[0.4em] ml-1 text-slate-500 font-bold self-end mb-1">s</span>
-                        </div>
-                     </div>
-              </div>
+               {/* Widget: Interval & Time */}
+               <div className="flex bg-slate-800 rounded-lg p-1 shadow-md">
+                      {/* Interval */}
+                      <div className="px-4 py-1.5 flex flex-col items-center justify-center border-r border-slate-700/50 min-w-[125px] relative overflow-hidden group">
+                         {/* Subtle pulsing bg */}
+                         <div className="absolute inset-0 bg-cyan-500/5 dark:bg-cyan-400/5 rounded-l-lg pointer-events-none"></div>
+                         
+                         <span className="text-[0.5em] text-cyan-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5 z-10">
+                            <Timer className="w-3 h-3 text-cyan-400 animate-pulse" />
+                            INTERVAL
+                         </span>
+                         <div className="text-[1.5em] font-mono font-black text-cyan-300 leading-none drop-shadow-[0_0_8px_rgba(34,211,238,0.25)] animate-[pulse_3s_ease-in-out_infinite] z-10">
+                             {config.intervalHours.toString().padStart(2, '0')}:{config.intervalMinutes.toString().padStart(2, '0')}
+                         </div>
+                      </div>
+                      {/* Time */}
+                      <div className="px-4 py-1.5 flex flex-col items-center justify-center min-w-[210px] relative overflow-hidden group">
+                         {/* Subtle background glow that pulses */}
+                         <div className="absolute inset-0 bg-blue-500/5 dark:bg-blue-400/5 rounded-r-lg animate-pulse pointer-events-none"></div>
+                         
+                         <span className="text-[0.5em] text-slate-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5 z-10">
+                            <ClockIcon className="w-3 h-3 text-cyan-400 animate-[spin_60s_linear_infinite]" />
+                            CURRENT TIME
+                         </span>
+                         <div className="bg-white dark:bg-slate-700 w-full mx-2 text-slate-900 dark:text-white px-2.5 py-1 rounded shadow-inner font-mono font-black text-[1.5em] tracking-widest leading-none flex items-center justify-center transition-all duration-300 border border-slate-200 dark:border-slate-600 hover:border-cyan-400/50 hover:shadow-cyan-500/10 dark:hover:shadow-cyan-400/10 z-10">
+                             {(() => {
+                                 const timeStr = now.toLocaleTimeString('en-GB', { hour12: false });
+                                 const parts = timeStr.split(':');
+                                 if (parts.length === 3) {
+                                     return (
+                                         <div className="flex items-center">
+                                             <span>{parts[0]}</span>
+                                             <span className="animate-pulse text-cyan-500 mx-0.5 font-bold">:</span>
+                                             <span>{parts[1]}</span>
+                                             <span className="animate-pulse text-cyan-500 mx-0.5 font-bold">:</span>
+                                             <span className="text-cyan-500 dark:text-cyan-400 font-bold">{parts[2]}</span>
+                                         </div>
+                                     );
+                                 }
+                                 return timeStr;
+                             })()}
+                             <span className="text-[0.45em] ml-1 text-cyan-500 dark:text-cyan-400 font-black animate-bounce">s</span>
+                         </div>
+                      </div>
+               </div>
           </div>
 
           {/* Center Section: Title */}
@@ -3596,6 +3633,7 @@ const App: React.FC = () => {
                                         >
                                             CYCLE TIME
                                         </th>
+
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -3668,43 +3706,36 @@ const App: React.FC = () => {
                                                         {cycleTime || '-'}
                                                     </div>
                                                 </td>
+
                                             </tr>
                                         );
                                     })}
                                 </tbody>
                             </table>
-                            <div className="flex gap-2 mt-1">
+                            <div className="flex justify-end mt-1">
                                 <button 
                                     onClick={() => {
-                                        setCycleTimeData(prev => {
-                                            const newData = [...prev, { id: Date.now(), ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }];
-                                            updateGlobalSetting({ cycle_time_data: newData });
-                                            return newData;
-                                        });
-                                    }}
-                                    className="flex-1 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 font-bold rounded-lg border border-dashed border-indigo-300 dark:border-indigo-700 hover:bg-indigo-200 dark:hover:bg-indigo-900/50 transition-colors flex items-center justify-center gap-1 text-[0.7em]"
-                                >
-                                    <LayoutGrid className="w-3 h-3" />
-                                    ADD ROW
-                                </button>
-                                <button 
-                                    onClick={() => {
-                                        if (window.confirm("Apakah Anda yakin ingin mengosongkan semua data cycle time dan kembali ke default?")) {
-                                            const defaultData = [
+                                        if (window.confirm("Apakah Anda yakin ingin mengosongkan semua data cycle time?")) {
+                                            const clearedData = [
                                                 { id: 1, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' },
-                                                { id: 2, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }
+                                                { id: 2, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' },
+                                                { id: 3, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' },
+                                                { id: 4, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' },
+                                                { id: 5, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }
                                             ];
-                                            setCycleTimeData(defaultData);
-                                            updateGlobalSetting({ cycle_time_data: defaultData });
+                                            lastCycleTimeUpdateRef.current = Date.now();
+                                            setCycleTimeData(clearedData);
+                                            updateGlobalSetting({ cycle_time_data: clearedData });
                                         }
                                     }}
-                                    className="px-4 py-1 bg-red-100 dark:bg-red-950/30 text-red-600 dark:text-red-400 font-bold rounded-lg border border-dashed border-red-300 dark:border-red-800 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center justify-center gap-1 text-[0.7em]"
-                                    title="Clear all data and reset to default 2 rows"
+                                    className="px-4 py-1.5 bg-red-100 dark:bg-red-950/30 text-red-600 dark:text-red-400 font-bold rounded-lg border border-dashed border-red-300 dark:border-red-800 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center justify-center gap-1 text-[0.75em]"
+                                    title="Kosongkan semua data cycle time"
                                 >
-                                    <Trash2 className="w-3 h-3" />
-                                    CLEAR
+                                    <Trash2 className="w-3.5 h-3.5" />
+                                    CLEAR DATA
                                 </button>
                             </div>
+
                         </div>
                    </div>
 
@@ -4256,14 +4287,57 @@ const App: React.FC = () => {
                       </div>
 
                       {/* Time Input */}
-                      <div className="space-y-2 bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700">
+                      <div className="space-y-2 bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
                           <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">Start Time Confirmation</label>
-                          <input 
-                              type="text" 
-                              value={startSiloData.startTime}
-                              onChange={(e) => setStartSiloData({...startSiloData, startTime: e.target.value})}
-                              className="w-full bg-transparent text-center font-mono font-bold text-xl outline-none border-b-2 border-slate-300 focus:border-emerald-500"
-                          />
+                          
+                          <div className="flex items-center justify-center gap-2 font-mono py-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-inner w-full">
+                              {(() => {
+                                  const timeString = startSiloData.startTime || '00:00';
+                                  const parts = timeString.split(':');
+                                  const hourVal = parts[0] ?? '00';
+                                  const minuteVal = parts[1] ?? '00';
+                                  
+                                  const updateTime = (h: string, m: string) => {
+                                      setStartSiloData({ ...startSiloData, startTime: `${h}:${m}` });
+                                  };
+
+                                  const handleBlur = () => {
+                                      const paddedH = (hourVal || '00').padStart(2, '0');
+                                      const paddedM = (minuteVal || '00').padStart(2, '0');
+                                      setStartSiloData({ ...startSiloData, startTime: `${paddedH}:${paddedM}` });
+                                  };
+
+                                  return (
+                                      <div className="flex items-center justify-center gap-1">
+                                          <input 
+                                              type="text"
+                                              maxLength={2}
+                                              value={hourVal}
+                                              onChange={(e) => {
+                                                  const val = e.target.value.replace(/\D/g, '');
+                                                  updateTime(val, minuteVal);
+                                              }}
+                                              onBlur={handleBlur}
+                                              className="w-12 bg-transparent text-center font-mono font-black text-3xl text-red-600 dark:text-red-500 focus:outline-none focus:ring-2 focus:ring-red-300 rounded"
+                                              placeholder="00"
+                                          />
+                                          <span className="text-red-600 dark:text-red-500 text-3xl font-bold animate-pulse">:</span>
+                                          <input 
+                                              type="text"
+                                              maxLength={2}
+                                              value={minuteVal}
+                                              onChange={(e) => {
+                                                  const val = e.target.value.replace(/\D/g, '');
+                                                  updateTime(hourVal, val);
+                                              }}
+                                              onBlur={handleBlur}
+                                              className="w-12 bg-transparent text-center font-mono font-black text-3xl text-red-600 dark:text-red-500 focus:outline-none focus:ring-2 focus:ring-red-300 rounded"
+                                              placeholder="00"
+                                          />
+                                      </div>
+                                  );
+                              })()}
+                          </div>
                       </div>
 
                   </div>
