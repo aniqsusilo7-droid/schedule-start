@@ -1,14 +1,14 @@
 
 import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { REACTORS, GRADE_COLORS } from './constants';
-import { AppState, ScheduleItem, ItemConfig, GradeType, SiloState, SiloData, DemonomerData, AlarmSoundType } from './types';
+import { AppState, ScheduleItem, ItemConfig, GradeType, SiloState, SiloData, DemonomerData, AlarmSoundType, AlertStyleType } from './types';
 import { addMinutes, formatDate, formatTime, getBatchDate } from './utils/dateUtils';
 import { Clock } from './components/Clock';
 import { Demonomer } from './components/Demonomer';
 import { Silo } from './components/Silo';
 import { Catatan } from './components/Catatan';
 import { Kesepakatan } from './components/Kesepakatan';
-import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders } from 'lucide-react';
+import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { Reorder } from 'framer-motion';
 
@@ -830,88 +830,94 @@ const SECTIONS = {
 
 const HEADER_COLOR_SCHEMES = [
   {
-    // Scheme 0: Blue/Indigo (Classic/Corporate)
-    schedule: "text-blue-600 dark:text-blue-400",
-    start: "text-slate-800 dark:text-slate-200",
-    reaktor: "text-blue-600 dark:text-blue-400 font-extrabold",
-    date: "text-blue-600 dark:text-blue-400",
-    headerBg: "bg-blue-50/70 dark:bg-blue-950/20",
-    headerBorder: "border-blue-200/50 dark:border-blue-800/50",
+    // Scheme 0: Blue Glow Pulse
+    schedule: "text-blue-600 dark:text-blue-400 font-black tracking-tight",
+    start: "text-slate-800 dark:text-slate-100 font-black drop-shadow-[0_0_12px_rgba(59,130,246,0.6)] animate-[pulse_2.5s_ease-in-out_infinite]",
+    reaktor: "text-blue-600 dark:text-blue-400 font-extrabold tracking-widest",
+    date: "text-blue-600 dark:text-blue-400 font-bold",
+    headerBg: "bg-blue-50/80 dark:bg-blue-950/30",
+    headerBorder: "border-blue-300/80 dark:border-blue-800/80 shadow-[0_0_15px_rgba(59,130,246,0.2)]",
     marqueeBg: "bg-blue-100 dark:bg-blue-900/50",
     marqueeText: "text-blue-900 dark:text-blue-100",
     marqueeBorder: "border-blue-200 dark:border-blue-800",
     marqueeGradientFrom: "from-blue-100 dark:from-slate-900/50",
-    icon: "text-blue-600 dark:text-blue-400"
+    icon: "text-blue-600 dark:text-blue-400 animate-pulse",
+    titleAnimClass: "animate-[pulse_3s_ease-in-out_infinite]"
   },
   {
-    // Scheme 1: Emerald/Teal (Fresh/Green)
-    schedule: "text-emerald-600 dark:text-emerald-400",
-    start: "text-slate-800 dark:text-slate-200",
-    reaktor: "text-emerald-600 dark:text-emerald-400 font-extrabold",
-    date: "text-emerald-600 dark:text-emerald-400",
-    headerBg: "bg-emerald-50/70 dark:bg-emerald-950/20",
-    headerBorder: "border-emerald-200/50 dark:border-emerald-800/50",
+    // Scheme 1: Emerald/Teal Shimmer Gradient
+    schedule: "bg-gradient-to-r from-emerald-600 via-teal-500 to-cyan-500 bg-clip-text text-transparent font-black animate-[pulse_2s_infinite]",
+    start: "bg-gradient-to-r from-teal-500 via-emerald-400 to-green-500 bg-clip-text text-transparent font-black animate-[pulse_2s_infinite]",
+    reaktor: "text-emerald-600 dark:text-emerald-400 font-extrabold tracking-widest uppercase",
+    date: "text-teal-600 dark:text-teal-400 font-bold",
+    headerBg: "bg-emerald-50/80 dark:bg-emerald-950/30",
+    headerBorder: "border-emerald-300/80 dark:border-emerald-800/80 shadow-[0_0_15px_rgba(16,185,129,0.2)]",
     marqueeBg: "bg-emerald-100 dark:bg-emerald-950/60",
     marqueeText: "text-emerald-900 dark:text-emerald-100",
     marqueeBorder: "border-emerald-200 dark:border-emerald-800",
     marqueeGradientFrom: "from-emerald-100 dark:from-slate-900/50",
-    icon: "text-emerald-600 dark:text-emerald-400"
+    icon: "text-emerald-600 dark:text-emerald-400 animate-bounce",
+    titleAnimClass: "animate-[pulse_2s_ease-in-out_infinite]"
   },
   {
-    // Scheme 2: Amber/Orange (Warm/Warning)
-    schedule: "text-amber-600 dark:text-amber-400",
-    start: "text-slate-800 dark:text-slate-200",
-    reaktor: "text-amber-600 dark:text-amber-400 font-extrabold",
-    date: "text-amber-600 dark:text-amber-400",
-    headerBg: "bg-amber-50/70 dark:bg-amber-950/20",
-    headerBorder: "border-amber-200/50 dark:border-amber-800/50",
+    // Scheme 2: Amber/Gold Luxury Sparkle
+    schedule: "bg-gradient-to-r from-amber-500 via-yellow-400 to-amber-600 bg-clip-text text-transparent font-black drop-shadow-sm",
+    start: "bg-gradient-to-r from-yellow-400 via-amber-300 to-orange-500 bg-clip-text text-transparent font-black animate-[pulse_2.5s_infinite]",
+    reaktor: "text-amber-600 dark:text-amber-400 font-black tracking-widest uppercase",
+    date: "text-amber-600 dark:text-amber-400 font-bold",
+    headerBg: "bg-amber-50/80 dark:bg-amber-950/30",
+    headerBorder: "border-amber-300/80 dark:border-amber-800/80 shadow-[0_0_15px_rgba(245,158,11,0.25)]",
     marqueeBg: "bg-amber-100 dark:bg-amber-950/60",
     marqueeText: "text-amber-900 dark:text-amber-100",
     marqueeBorder: "border-amber-200 dark:border-amber-800",
     marqueeGradientFrom: "from-amber-100 dark:from-slate-900/50",
-    icon: "text-amber-600 dark:text-amber-400"
+    icon: "text-amber-600 dark:text-amber-400 animate-pulse",
+    titleAnimClass: "animate-[pulse_2.5s_infinite]"
   },
   {
-    // Scheme 3: Rose/Pink (Vibrant/Urgent)
-    schedule: "text-rose-600 dark:text-rose-400",
-    start: "text-slate-800 dark:text-slate-200",
-    reaktor: "text-rose-600 dark:text-rose-400 font-extrabold",
-    date: "text-rose-600 dark:text-rose-400",
-    headerBg: "bg-rose-50/70 dark:bg-rose-950/20",
-    headerBorder: "border-rose-200/50 dark:border-rose-800/50",
+    // Scheme 3: Rose Sunset Radiant
+    schedule: "bg-gradient-to-r from-rose-600 via-pink-500 to-rose-400 bg-clip-text text-transparent font-black",
+    start: "text-rose-600 dark:text-rose-400 font-black drop-shadow-[0_0_10px_rgba(225,29,72,0.6)] animate-[pulse_1.8s_infinite]",
+    reaktor: "text-rose-600 dark:text-rose-400 font-black tracking-widest uppercase",
+    date: "text-pink-600 dark:text-pink-400 font-bold",
+    headerBg: "bg-rose-50/80 dark:bg-rose-950/30",
+    headerBorder: "border-rose-300/80 dark:border-rose-800/80 shadow-[0_0_15px_rgba(225,29,72,0.25)]",
     marqueeBg: "bg-rose-100 dark:bg-rose-950/60",
     marqueeText: "text-rose-900 dark:text-rose-100",
     marqueeBorder: "border-rose-200 dark:border-rose-800",
     marqueeGradientFrom: "from-rose-100 dark:from-slate-900/50",
-    icon: "text-rose-600 dark:text-rose-400"
+    icon: "text-rose-600 dark:text-rose-400 animate-pulse",
+    titleAnimClass: "animate-[pulse_1.8s_infinite]"
   },
   {
-    // Scheme 4: Purple/Violet (Cyber/Mystic)
-    schedule: "text-violet-600 dark:text-violet-400",
-    start: "text-slate-800 dark:text-slate-200",
-    reaktor: "text-violet-600 dark:text-violet-400 font-extrabold",
-    date: "text-violet-600 dark:text-violet-400",
-    headerBg: "bg-violet-50/70 dark:bg-violet-950/20",
-    headerBorder: "border-violet-200/50 dark:border-violet-800/50",
+    // Scheme 4: Purple Cyber Motion
+    schedule: "text-violet-600 dark:text-violet-400 font-black drop-shadow-[0_0_12px_rgba(139,92,246,0.7)]",
+    start: "bg-gradient-to-r from-violet-500 via-purple-400 to-indigo-500 bg-clip-text text-transparent font-black animate-[bounce_3s_infinite]",
+    reaktor: "text-violet-600 dark:text-violet-400 font-black tracking-widest uppercase",
+    date: "text-violet-600 dark:text-violet-400 font-bold",
+    headerBg: "bg-violet-50/80 dark:bg-violet-950/30",
+    headerBorder: "border-violet-300/80 dark:border-violet-800/80 shadow-[0_0_15px_rgba(139,92,246,0.25)]",
     marqueeBg: "bg-violet-100 dark:bg-violet-950/60",
     marqueeText: "text-violet-900 dark:text-violet-100",
     marqueeBorder: "border-violet-200 dark:border-violet-800",
     marqueeGradientFrom: "from-violet-100 dark:from-slate-900/50",
-    icon: "text-violet-600 dark:text-violet-400"
+    icon: "text-violet-600 dark:text-violet-400 animate-bounce",
+    titleAnimClass: "animate-[bounce_3s_infinite]"
   },
   {
-    // Scheme 5: Cyan/Lime (Neon/High Contrast)
-    schedule: "text-cyan-600 dark:text-cyan-400",
-    start: "text-slate-800 dark:text-slate-200",
-    reaktor: "text-cyan-600 dark:text-cyan-400 font-extrabold",
-    date: "text-cyan-600 dark:text-cyan-400",
-    headerBg: "bg-cyan-50/70 dark:bg-cyan-950/20",
-    headerBorder: "border-cyan-200/50 dark:border-cyan-800/50",
+    // Scheme 5: Cyan Neon Strobe
+    schedule: "bg-gradient-to-r from-cyan-500 via-teal-300 to-lime-400 bg-clip-text text-transparent font-black drop-shadow-[0_0_10px_rgba(6,182,212,0.8)]",
+    start: "text-cyan-500 dark:text-cyan-300 font-black drop-shadow-[0_0_12px_rgba(6,182,212,0.8)] animate-[pulse_1.5s_infinite]",
+    reaktor: "text-cyan-600 dark:text-cyan-300 font-black tracking-widest uppercase",
+    date: "text-cyan-600 dark:text-cyan-400 font-bold",
+    headerBg: "bg-cyan-50/80 dark:bg-cyan-950/30",
+    headerBorder: "border-cyan-300/80 dark:border-cyan-800/80 shadow-[0_0_18px_rgba(6,182,212,0.3)]",
     marqueeBg: "bg-cyan-100 dark:bg-cyan-950/60",
     marqueeText: "text-cyan-900 dark:text-cyan-100",
     marqueeBorder: "border-cyan-200 dark:border-cyan-800",
     marqueeGradientFrom: "from-cyan-100 dark:from-slate-900/50",
-    icon: "text-cyan-600 dark:text-cyan-400"
+    icon: "text-cyan-500 dark:text-cyan-400 animate-spin",
+    titleAnimClass: "animate-[pulse_1.5s_infinite]"
   }
 ];
 
@@ -919,13 +925,30 @@ const App: React.FC = () => {
   // --- State ---
   const [currentView, setCurrentView] = useState<'scheduler' | 'demonomer' | 'silo' | 'catatan'>('scheduler');
   const [isDemonomerPopupOpen, setIsDemonomerPopupOpen] = useState(false);
-  const [now, setNow] = useState(new Date());
   
-  // Determine current color scheme based on 1-minute intervals (modulus of schemes list)
-  const currentColorScheme = useMemo(() => {
-    const minutesSinceEpoch = Math.floor(now.getTime() / (60 * 1000));
-    const schemeIndex = minutesSinceEpoch % HEADER_COLOR_SCHEMES.length;
-    return HEADER_COLOR_SCHEMES[schemeIndex];
+  const [stoppedAt, setStoppedAt] = useState<number | null>(() => {
+    const saved = localStorage.getItem('app_stopped_at');
+    return saved ? Number(saved) : null;
+  });
+
+  const [now, setNow] = useState<Date>(() => {
+    const isStoppedSaved = localStorage.getItem('app_is_stopped') === 'true';
+    const savedStoppedAt = localStorage.getItem('app_stopped_at');
+    if (isStoppedSaved && savedStoppedAt && !isNaN(Number(savedStoppedAt))) {
+        return new Date(Number(savedStoppedAt));
+    }
+    return new Date();
+  });
+  
+  // Determine current color scheme & 30s cycle index for header animation rotation
+  const { currentColorScheme, cycle30s } = useMemo(() => {
+    const timeMs = now.getTime();
+    const cycle30s = Math.floor(timeMs / (30 * 1000));
+    const schemeIndex = cycle30s % HEADER_COLOR_SCHEMES.length;
+    return {
+      currentColorScheme: HEADER_COLOR_SCHEMES[schemeIndex],
+      cycle30s
+    };
   }, [now]);
   
   // State for dismissed alerts (to allow closing the full screen overlay)
@@ -1060,6 +1083,7 @@ const App: React.FC = () => {
     marqueeSpeed: 30, // Default 30s
     theme: 'light',
     alarmSound: 'siren',
+    alertStyle: 'classic',
     tableRowHeight: 40, 
     tableFontSize: 16,
     batchDurationMinutes: 120,
@@ -1069,6 +1093,8 @@ const App: React.FC = () => {
   });
 
   const [isSettingsOpen, setIsSettingsOpen] = useState(false); // Default closed to look cleaner on load
+  const [isAlertStyleSectionOpen, setIsAlertStyleSectionOpen] = useState(false); // Default closed as requested by user
+  const [testAlertStyle, setTestAlertStyle] = useState<AlertStyleType | null>(null);
   const announcedBatches = useRef<Set<string>>(new Set());
   const [audioAllowed, setAudioAllowed] = useState(false); // Track if audio is allowed
   const [dbSchemaError, setDbSchemaError] = useState<string | null>(null);
@@ -1104,6 +1130,40 @@ const App: React.FC = () => {
   const lastCycleTimeUpdateRef = useRef<number>(0);
 
   const activeDemonomerGrade = config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade;
+
+  // --- Auto-close Settings Panel Logic (2 Minutes Countdown) ---
+  const [settingsCountdown, setSettingsCountdown] = useState(120);
+
+  useEffect(() => {
+    if (!isSettingsOpen) {
+      setSettingsCountdown(120);
+      setIsAlertStyleSectionOpen(false);
+      setTestAlertStyle(null);
+      return;
+    }
+
+    setSettingsCountdown(120);
+    const interval = setInterval(() => {
+      setSettingsCountdown(prev => {
+        if (prev <= 1) {
+          clearInterval(interval);
+          setIsSettingsOpen(false);
+          setIsAlertStyleSectionOpen(false);
+          setTestAlertStyle(null);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, [isSettingsOpen]);
+
+  const formatCountdown = (seconds: number) => {
+    const m = Math.floor(seconds / 60);
+    const s = seconds % 60;
+    return `${m.toString().padStart(2, '0')}:${s.toString().padStart(2, '0')}`;
+  };
 
   // --- Auto-hide Settings Button Logic ---
   const [isSettingsButtonVisible, setIsSettingsButtonVisible] = useState(true);
@@ -1214,6 +1274,7 @@ const App: React.FC = () => {
         // Check for missing columns in Supabase app_settings table
         const missing: string[] = [];
         if (!columns.includes('alarm_sound')) missing.push('alarm_sound');
+        if (!columns.includes('alert_style')) missing.push('alert_style');
         if (!columns.includes('grade_mode')) missing.push('grade_mode');
         if (!columns.includes('cycle_time_data')) missing.push('cycle_time_data');
         
@@ -1273,6 +1334,30 @@ const App: React.FC = () => {
 
       // Apply to State
       if (settingsData) {
+          const isStoppedDb = Boolean(settingsData.is_stopped);
+          const stoppedAtDb = settingsData.stopped_at_time ? Number(settingsData.stopped_at_time) : null;
+
+          if (isStoppedDb) {
+              let freezeTs = stoppedAtDb || stoppedAt;
+              if (!freezeTs) {
+                  const savedLs = localStorage.getItem('app_stopped_at');
+                  if (savedLs && !isNaN(Number(savedLs))) {
+                      freezeTs = Number(savedLs);
+                  }
+              }
+              if (!freezeTs) {
+                  freezeTs = Date.now();
+              }
+              setStoppedAt(freezeTs);
+              localStorage.setItem('app_stopped_at', String(freezeTs));
+              localStorage.setItem('app_is_stopped', 'true');
+              setNow(new Date(freezeTs));
+          } else {
+              setStoppedAt(null);
+              localStorage.removeItem('app_stopped_at');
+              localStorage.setItem('app_is_stopped', 'false');
+          }
+
           setConfig({
               baseBatchNumber: settingsData.base_batch_number,
               baseStartTime: settingsData.base_start_time,
@@ -1288,6 +1373,7 @@ const App: React.FC = () => {
               marqueeSpeed: settingsData.marquee_speed || 30,
               theme: (settingsData.theme as 'light' | 'dark') || 'light',
               alarmSound: (settingsData.alarm_sound as AlarmSoundType) || 'siren',
+              alertStyle: (settingsData.alert_style as AlertStyleType) || 'classic',
               reactorNotes: notesMap,
               itemConfigs: itemConfigsMap,
               tableRowHeight: settingsData.table_row_height || 76,
@@ -1459,6 +1545,8 @@ const App: React.FC = () => {
                           console.warn("Database column 'grade_mode' is missing. Saved locally and to Firebase fallback.");
                       } else if (error.message.includes('alarm_sound')) {
                           console.warn("Database column 'alarm_sound' is missing. Saved locally and to Firebase fallback.");
+                      } else if (error.message.includes('alert_style')) {
+                          console.warn("Database column 'alert_style' is missing. Saved locally and to Firebase fallback.");
                       }
                       return;
                   }
@@ -1511,6 +1599,7 @@ const App: React.FC = () => {
         marqueeSpeed: 'marquee_speed',
         theme: 'theme',
         alarmSound: 'alarm_sound',
+        alertStyle: 'alert_style',
         tableRowHeight: 'table_row_height',
         tableFontSize: 'table_font_size',
         batchDurationMinutes: 'batch_duration_minutes',
@@ -1540,7 +1629,18 @@ const App: React.FC = () => {
 
   // Update "now" every second using Web Worker to prevent background throttling
   useEffect(() => {
-    if (config.isStopped) return; 
+    if (config.isStopped) {
+      if (stoppedAt) {
+        setNow(new Date(stoppedAt));
+      } else {
+        const freezeTs = Date.now();
+        setStoppedAt(freezeTs);
+        localStorage.setItem('app_stopped_at', String(freezeTs));
+        localStorage.setItem('app_is_stopped', 'true');
+        setNow(new Date(freezeTs));
+      }
+      return;
+    }
 
     const workerCode = `
       let timer;
@@ -1571,7 +1671,7 @@ const App: React.FC = () => {
       worker.terminate();
       URL.revokeObjectURL(workerUrl);
     };
-  }, [config.isStopped]);
+  }, [config.isStopped, stoppedAt]);
 
   const handleApply = async () => {
       try {
@@ -1614,7 +1714,27 @@ const App: React.FC = () => {
   };
   
   const toggleStop = () => {
-    handleConfigChange('isStopped', !config.isStopped);
+    const nextIsStopped = !config.isStopped;
+    if (nextIsStopped) {
+      const freezeTs = Date.now();
+      setStoppedAt(freezeTs);
+      localStorage.setItem('app_stopped_at', String(freezeTs));
+      localStorage.setItem('app_is_stopped', 'true');
+      setNow(new Date(freezeTs));
+
+      handleConfigChange('isStopped', true);
+      updateGlobalSetting({ is_stopped: true, stopped_at_time: freezeTs });
+    } else {
+      setStoppedAt(null);
+      localStorage.removeItem('app_stopped_at');
+      localStorage.setItem('app_is_stopped', 'false');
+
+      const freshNow = new Date();
+      setNow(freshNow);
+
+      handleConfigChange('isStopped', false);
+      updateGlobalSetting({ is_stopped: false, stopped_at_time: null });
+    }
   };
 
   // State for Reset Modal
@@ -1651,14 +1771,22 @@ const App: React.FC = () => {
       }
   };
 
-  const handleResetSequence = () => {
-      const n = new Date();
-      const coeff = 1000 * 60 * 5;
-      const rounded = new Date(Math.round(n.getTime() / coeff) * coeff);
-      const localIso = getLocalIsoString(rounded);
+  const handleResetSequence = (item?: ScheduleItem) => {
+      let batchVal = config.baseBatchNumber;
+      let localIso = '';
+
+      if (item && item.startTime) {
+          batchVal = item.batchNumber || config.baseBatchNumber;
+          localIso = getLocalIsoString(item.startTime);
+      } else {
+          const n = new Date();
+          const coeff = 1000 * 60 * 5;
+          const rounded = new Date(Math.round(n.getTime() / coeff) * coeff);
+          localIso = getLocalIsoString(rounded);
+      }
       
       setResetParams({
-          batch: config.baseBatchNumber,
+          batch: batchVal,
           time: localIso
       });
       setIsResetModalOpen(true);
@@ -1705,6 +1833,7 @@ const App: React.FC = () => {
           
           setDismissedAlerts(new Set());
           setIsResetModalOpen(false);
+          setSelectedItem(null);
       } catch (error) {
           console.error("Error resetting sequence:", error);
           setDbSchemaError("Gagal mereset sequence. Silakan periksa koneksi atau console.");
@@ -1927,6 +2056,14 @@ const App: React.FC = () => {
     
     // Calculate local ISO string for input
     const localIso = new Date(item.startTime.getTime() - (item.startTime.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+
+    // If Reaktor S Cycle 1, sync resetParams for INPUT FOR RE-S
+    if (item.reactorId === 'S' && item.cycleIndex === 0) {
+      setResetParams({
+        batch: item.batchNumber || config.baseBatchNumber,
+        time: localIso
+      });
+    }
 
     setEditForm({
       timeValue: localIso,
@@ -2561,19 +2698,29 @@ const App: React.FC = () => {
                </div>
           </div>
 
-          {/* Center Section: Title */}
-          <div className={`flex flex-col items-center justify-center shrink-0 p-1.5 rounded-xl backdrop-blur-sm border shadow-sm mx-4 transition-all duration-1000 ${currentColorScheme.headerBg} ${currentColorScheme.headerBorder}`}>
-            <h1 className="text-[2.0em] font-black tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm">
-               <span className={`transition-colors duration-1000 ${currentColorScheme.schedule}`}>SCHEDULE</span> 
-               <span className={`transition-colors duration-1000 ${currentColorScheme.start}`}>START</span>
+          {/* Center Section: Title with 30-Second Dynamic Animation Rotation */}
+          <div 
+            key={cycle30s}
+            className={`flex flex-col items-center justify-center shrink-0 px-5 py-2 rounded-2xl backdrop-blur-md border shadow-md mx-4 transition-all duration-700 animate-in fade-in zoom-in-95 relative overflow-hidden group ${currentColorScheme.headerBg} ${currentColorScheme.headerBorder}`}
+          >
+            {/* 30-Second Animation Indicator */}
+            <div className="absolute top-1 right-2 flex items-center gap-1 text-[8px] font-mono font-black text-slate-400 dark:text-slate-500 opacity-65">
+               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
+               <span>30S ANIM</span>
+            </div>
+
+            <h1 className={`text-[2.0em] font-black tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm transition-all duration-700 ${currentColorScheme.titleAnimClass || ''}`}>
+               <span className={`transition-all duration-700 ${currentColorScheme.schedule}`}>SCHEDULE</span> 
+               <span className={`transition-all duration-700 ${currentColorScheme.start}`}>START</span>
             </h1>
-            <div className="flex items-center gap-4 mt-1 border-t-2 border-slate-200 dark:border-slate-700 pt-1 w-full justify-center">
-                <span className={`text-[0.8em] font-black tracking-widest uppercase transition-colors duration-1000 ${currentColorScheme.reaktor}`}>
+
+            <div className="flex items-center gap-4 mt-1 border-t-2 border-slate-200/80 dark:border-slate-700/80 pt-1 w-full justify-center">
+                <span className={`text-[0.85em] font-black tracking-widest uppercase transition-colors duration-700 ${currentColorScheme.reaktor}`}>
                     REAKTOR PVC 5
                 </span>
-                <div className="h-3 w-px bg-slate-300 dark:bg-slate-600"></div>
-                <span className={`text-[0.8em] font-black tracking-widest uppercase flex items-center gap-2 transition-colors duration-1000 ${currentColorScheme.date}`}>
-                    <Calendar className={`w-[1.2em] h-[1.2em] transition-colors duration-1000 ${currentColorScheme.icon}`} />
+                <div className="h-3.5 w-px bg-slate-300 dark:bg-slate-600"></div>
+                <span className={`text-[0.85em] font-black tracking-widest uppercase flex items-center gap-2 transition-colors duration-700 ${currentColorScheme.date}`}>
+                    <Calendar className={`w-[1.2em] h-[1.2em] transition-all duration-700 ${currentColorScheme.icon}`} />
                     {formatDate(now)}
                 </span>
             </div>
@@ -2617,6 +2764,27 @@ const App: React.FC = () => {
             {isSettingsOpen && (
               <div className="border-t border-slate-200 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200 transition-colors bg-slate-50 dark:bg-slate-900/50 py-6 mt-3">
                 <div className="w-full px-6 mx-auto">
+                  {/* Settings Header with Auto-Close Countdown */}
+                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 mb-5 border-b border-slate-200 dark:border-slate-800">
+                      <div className="flex items-center gap-2">
+                          <Settings className="w-5 h-5 text-blue-600 dark:text-blue-400" />
+                          <span className="font-extrabold text-sm text-slate-800 dark:text-slate-100 uppercase tracking-wider">
+                              Pengaturan System
+                          </span>
+                      </div>
+                      <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">
+                          <ClockIcon className="w-4 h-4 text-amber-600 dark:text-amber-400 animate-pulse" />
+                          <span>Menutup otomatis dalam: <span className="font-mono font-black text-sm text-amber-800 dark:text-amber-200">{formatCountdown(settingsCountdown)}</span></span>
+                          <button 
+                              onClick={() => setSettingsCountdown(120)}
+                              className="ml-2 text-[10px] px-2 py-0.5 bg-amber-200/80 dark:bg-amber-800/60 hover:bg-amber-300 dark:hover:bg-amber-700 text-amber-900 dark:text-amber-100 rounded font-black uppercase transition-colors"
+                              title="Reset timer ke 2 menit"
+                          >
+                              Reset Waktu
+                          </button>
+                      </div>
+                  </div>
+
                   {/* DB Schema Error Alert */}
                   {dbSchemaError && (
                       <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-200 text-sm flex items-start gap-3 animate-pulse max-w-4xl mx-auto">
@@ -2633,6 +2801,9 @@ const App: React.FC = () => {
                                           if (dbSchemaError.includes('alarm_sound')) {
                                               sql += "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS alarm_sound TEXT DEFAULT 'siren';\n";
                                           }
+                                          if (dbSchemaError.includes('alert_style')) {
+                                              sql += "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS alert_style TEXT DEFAULT 'classic';\n";
+                                          }
                                           if (dbSchemaError.includes('grade_mode')) {
                                               sql += "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS grade_mode TEXT DEFAULT 'normal';\n";
                                           }
@@ -2645,6 +2816,7 @@ const App: React.FC = () => {
                                           }
                                           if (!sql) {
                                               sql = "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS alarm_sound TEXT DEFAULT 'siren';\n" +
+                                                    "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS alert_style TEXT DEFAULT 'classic';\n" +
                                                     "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS grade_mode TEXT DEFAULT 'normal';\n" +
                                                     "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS cycle_time_data JSONB DEFAULT '[{\"id\": 1, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}, {\"id\": 2, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}]'::jsonb;\n" +
                                                     "ALTER TABLE schedule_overrides ADD COLUMN IF NOT EXISTS custom_interval_hours INT DEFAULT NULL;\n" +
@@ -2670,30 +2842,18 @@ const App: React.FC = () => {
                   
                   <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
                   
-                  {/* Appearance & Sound Controls */}
+                  {/* Sound & Zoom Controls */}
                   <div className="md:col-span-1 flex flex-col gap-4">
-                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Appearance & Sound</label>
-                      <div className="grid grid-cols-2 gap-3">
-                          <button 
-                            onClick={toggleTheme} 
-                            className={`flex flex-col items-center justify-center gap-2 p-3 rounded-xl border transition-all shadow-sm ${config.theme === 'dark' ? 'bg-slate-700 text-yellow-400 border-slate-600' : 'bg-white text-blue-600 border-slate-200 hover:border-blue-300'}`}
-                          >
-                              {config.theme === 'dark' ? <Moon className="w-5 h-5" /> : <Sun className="w-5 h-5" />}
-                              <span className="font-black text-[10px] uppercase tracking-tighter">
-                                {config.theme === 'dark' ? 'DARK MODE' : 'LIGHT MODE'}
-                              </span>
-                          </button>
-
-                          <button 
-                            onClick={toggleAudio} 
-                            className={`flex flex-col items-center justify-center gap-2 p-3 rounded-xl border transition-all shadow-sm ${config.audioEnabled ? 'bg-green-500 text-white border-green-600' : 'bg-white text-slate-400 border-slate-200 hover:border-slate-300'}`}
-                          >
-                              {config.audioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-                              <span className="font-black text-[10px] uppercase tracking-tighter">
-                                AUDIO: {config.audioEnabled ? 'ON' : 'OFF'}
-                              </span>
-                          </button>
-                      </div>
+                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Sound & Zoom</label>
+                      <button 
+                        onClick={toggleAudio} 
+                        className={`flex items-center justify-center gap-2.5 p-3 rounded-xl border transition-all shadow-sm ${config.audioEnabled ? 'bg-green-500 text-white border-green-600' : 'bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-slate-300'}`}
+                      >
+                          {config.audioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
+                          <span className="font-black text-xs uppercase tracking-tight">
+                            AUDIO ALARM: {config.audioEnabled ? 'AKTIF (ON)' : 'MATI (OFF)'}
+                          </span>
+                      </button>
 
                       {/* Zoom Control */}
                       <div className="flex items-center bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 p-1 shadow-sm">
@@ -2779,11 +2939,206 @@ const App: React.FC = () => {
                       </div>
                   </div>
 
-                  {/* ALERT SYSTEM CONTROLS */}
-                  <div className="md:col-span-4 grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="flex flex-col gap-2">
-                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Alert System</label>
-                          <div className="flex flex-col gap-2">
+                  {/* ALERT SYSTEM CONTROLS & STYLE SELECTION */}
+                  <div className="md:col-span-4 flex flex-col gap-5">
+                      {/* PILIHAN TAMPILAN FULL ALERT ALARM & PREVIEW */}
+                      <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col gap-4">
+                          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-700 pb-3">
+                              <div className="flex-1">
+                                  <div className="flex items-center gap-2 flex-wrap">
+                                      <label className="text-sm font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
+                                          <Palette className="w-5 h-5 text-amber-500" /> PILIHAN GAYA TAMPILAN FULL ALERT ALARM
+                                      </label>
+                                      <span className="bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 text-[11px] font-black px-2.5 py-1 rounded-full border border-amber-300 dark:border-amber-700/80 flex items-center gap-1 uppercase">
+                                          <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> GAYA AKTIF: {
+                                              {
+                                                  classic: '1. Klasik Reaktor',
+                                                  neon: '2. Cyber Neon',
+                                                  emergency: '3. Emergency Sirens',
+                                                  glass: '4. Modern Glass HUD',
+                                                  industrial: '5. Industrial Safety',
+                                                  holo: '6. Hologram Sci-Fi',
+                                                  matrix: '7. Terminal Matrix',
+                                                  minimal: '8. Minimalist Bold',
+                                                  warning_stripe: '9. Caution Tag Hazard'
+                                              }[config.alertStyle || 'classic']
+                                          }
+                                      </span>
+                                  </div>
+                                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
+                                      Pilihan gaya tertutup secara default. Klik tombol <span className="font-bold text-amber-600 dark:text-amber-400">"BUKA / GANTI GAYA"</span> jika ingin melihat dan memilih dari 9 tema tampilan alarm layar penuh!
+                                  </p>
+                              </div>
+                              <div className="flex items-center gap-2 flex-wrap">
+                                  <button 
+                                      onClick={() => setTestAlertStyle(config.alertStyle || 'classic')}
+                                      className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-black text-xs rounded-xl shadow-md flex items-center gap-1.5 transition-transform active:scale-95 uppercase tracking-wider"
+                                      title="Test gaya alarm yang sedang aktif"
+                                  >
+                                      <Eye className="w-4 h-4 text-black" /> TEST PREVIEW
+                                  </button>
+                                  <button 
+                                      onClick={() => setIsAlertStyleSectionOpen(prev => !prev)}
+                                      className={`px-4 py-2 font-black text-xs rounded-xl shadow-md flex items-center gap-2 transition-all uppercase tracking-wider ${
+                                          isAlertStyleSectionOpen 
+                                              ? 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600' 
+                                              : 'bg-blue-600 hover:bg-blue-700 text-white border border-blue-500'
+                                      }`}
+                                  >
+                                      <Sliders className="w-4 h-4" />
+                                      {isAlertStyleSectionOpen ? (
+                                          <>SEMBUNYIKAN GAYA <ChevronUp className="w-4 h-4" /></>
+                                      ) : (
+                                          <>BUKA / GANTI GAYA (9 TEMA) <ChevronDown className="w-4 h-4" /></>
+                                      )}
+                                  </button>
+                              </div>
+                          </div>
+
+                          {!isAlertStyleSectionOpen && (
+                              <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 font-medium">
+                                  <div className="flex items-center gap-2">
+                                      <Info className="w-4 h-4 text-blue-500 shrink-0" />
+                                      <span>Pilihan 9 tema gaya alarm tertutup. Gaya aktif saat ini: <strong className="text-slate-800 dark:text-slate-200 font-bold uppercase">{config.alertStyle || 'classic'}</strong>.</span>
+                                  </div>
+                                  <button 
+                                      onClick={() => setIsAlertStyleSectionOpen(true)}
+                                      className="text-blue-600 dark:text-blue-400 font-bold hover:underline shrink-0 ml-2 uppercase text-[11px]"
+                                  >
+                                      Buka Pilihan &rarr;
+                                  </button>
+                              </div>
+                          )}
+
+                          {isAlertStyleSectionOpen && (
+                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 animate-in fade-in duration-200">
+                                  {[
+                                      {
+                                          key: 'classic' as const,
+                                          title: '1. Klasik Reaktor',
+                                          badge: '🔴 Klasik',
+                                          bgClass: 'bg-red-600 text-white',
+                                          desc: 'Tampilan kontras tinggi dengan warna khas reaktor & badge countdown.'
+                                      },
+                                      {
+                                          key: 'neon' as const,
+                                          title: '2. Cyber Neon',
+                                          badge: '⚡ Cyber Neon',
+                                          bgClass: 'bg-slate-950 text-amber-300 border-2 border-amber-400',
+                                          desc: 'Tema futuristik gelap dengan border neon, hazard tape, & font digital.'
+                                      },
+                                      {
+                                          key: 'emergency' as const,
+                                          title: '3. Emergency Sirens',
+                                          badge: '🚨 Sirene',
+                                          bgClass: 'bg-red-950 text-yellow-300 border-2 border-red-500',
+                                          desc: 'Tema darurat pabrik dengan efek strobe berkedip & lampu sirene.'
+                                      },
+                                      {
+                                          key: 'glass' as const,
+                                          title: '4. Modern Glass HUD',
+                                          badge: '💎 Glass HUD',
+                                          bgClass: 'bg-slate-900/90 text-slate-100 border border-white/30 backdrop-blur-md',
+                                          desc: 'Desain berkaca transparan dengan lingkaran neon halus & badge modern.'
+                                      },
+                                      {
+                                          key: 'industrial' as const,
+                                          title: '5. Industrial Safety',
+                                          badge: '🚧 Safety Gate',
+                                          bgClass: 'bg-amber-500 text-black border-2 border-black',
+                                          desc: 'Strip keselamatan pabrik industri dengan strip hazard kuning-hitam tebal.'
+                                      },
+                                      {
+                                          key: 'holo' as const,
+                                          title: '6. Hologram Sci-Fi',
+                                          badge: '🌐 Hologram',
+                                          bgClass: 'bg-slate-950 text-cyan-300 border-2 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.5)]',
+                                          desc: 'Konsol hologram futuristik warna cyan neon dengan lingkaran pulsing 3D.'
+                                      },
+                                      {
+                                          key: 'matrix' as const,
+                                          title: '7. Terminal Matrix',
+                                          badge: '📟 Terminal',
+                                          bgClass: 'bg-black text-emerald-400 border-2 border-emerald-500 font-mono',
+                                          desc: 'Tampilan terminal industri hijau matrix berkedip dengan huruf monospaced.'
+                                      },
+                                      {
+                                          key: 'minimal' as const,
+                                          title: '8. Minimalist Bold',
+                                          badge: '🔲 Minimalist',
+                                          bgClass: 'bg-slate-100 text-slate-900 border-2 border-slate-900',
+                                          desc: 'Kontras ultra tinggi bersih, fungsional dengan angka raksasa yang sangat jelas.'
+                                      },
+                                      {
+                                          key: 'warning_stripe' as const,
+                                          title: '9. Caution Tag Hazard',
+                                          badge: '⚠️ Caution Tag',
+                                          bgClass: 'bg-yellow-400 text-slate-950 border-2 border-black',
+                                          desc: 'Papan peringatan hazard kuning pabrik dengan banner garis keselamatan bergelombang.'
+                                      }
+                                  ].map((item) => {
+                                      const isSelected = (config.alertStyle || 'classic') === item.key;
+                                      return (
+                                          <div 
+                                              key={item.key} 
+                                              className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all ${
+                                                  isSelected 
+                                                      ? 'border-amber-500 ring-2 ring-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 shadow-md' 
+                                                      : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 hover:border-slate-300 dark:hover:border-slate-600'
+                                              }`}
+                                          >
+                                              <div>
+                                                  <div className="flex items-center justify-between mb-2">
+                                                      <span className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase">{item.title}</span>
+                                                      {isSelected && (
+                                                          <span className="bg-emerald-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
+                                                              <Check className="w-2.5 h-2.5" /> AKTIF
+                                                          </span>
+                                                      )}
+                                                  </div>
+
+                                                  {/* Mini Visual Badge Preview */}
+                                                  <div className={`p-2.5 rounded-lg text-center font-black text-xs mb-2 shadow-inner flex flex-col items-center justify-center gap-1 min-h-[64px] ${item.bgClass}`}>
+                                                      <span className="text-[10px] opacity-80 uppercase tracking-widest">{item.badge}</span>
+                                                      <span className="text-xs font-extrabold tracking-tight">PREPARE START</span>
+                                                  </div>
+
+                                                  <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-tight mb-3">
+                                                      {item.desc}
+                                                  </p>
+                                              </div>
+
+                                              <div className="flex gap-1.5 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
+                                                  <button 
+                                                      onClick={() => setTestAlertStyle(item.key)}
+                                                      className="flex-1 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 font-bold text-[10px] rounded-lg transition-colors flex items-center justify-center gap-1 uppercase"
+                                                      title="Lihat preview layar penuh"
+                                                  >
+                                                      <Eye className="w-3 h-3 text-amber-500" /> UJI COBA
+                                                  </button>
+                                                  <button 
+                                                      onClick={() => handleConfigChange('alertStyle', item.key)}
+                                                      className={`flex-1 py-1.5 font-black text-[10px] rounded-lg transition-colors flex items-center justify-center gap-1 uppercase ${
+                                                          isSelected 
+                                                              ? 'bg-emerald-600 text-white cursor-default' 
+                                                              : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
+                                                      }`}
+                                                  >
+                                                      {isSelected ? 'TERAPKAN ✓' : 'TERAPKAN'}
+                                                  </button>
+                                              </div>
+                                          </div>
+                                      );
+                                  })}
+                              </div>
+                          )}
+                      </div>
+
+                      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-slate-100 dark:bg-slate-800/80 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                          <span className="text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2">
+                              <Bell className="w-4 h-4 text-blue-500" /> Notifikasi Sistem Browser
+                          </span>
+                          <div className="flex gap-2">
                               <button 
                                  onClick={() => {
                                     if ('Notification' in window) {
@@ -2794,23 +3149,20 @@ const App: React.FC = () => {
                                         });
                                     }
                                 }}
-                                className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold bg-slate-200 dark:bg-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-700 transition-all text-xs"
+                                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 transition-all text-xs uppercase"
                               >
-                                  <Bell className="w-4 h-4" /> ENABLE NOTIFICATIONS
+                                  <Bell className="w-3.5 h-3.5" /> ENABLE BROWSER NOTIFICATION
                               </button>
                               <button 
                                 onClick={() => {
-                                    // Just log for testing now that popups are disabled
-                                    console.log("Test alert triggered (popups disabled)");
+                                    setTestAlertStyle(config.alertStyle || 'classic');
                                 }}
-                                className="flex items-center justify-center gap-2 px-4 py-2 rounded-lg font-bold bg-yellow-500 text-black hover:bg-yellow-600 transition-all text-xs"
+                                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg font-bold bg-yellow-500 text-black hover:bg-yellow-600 transition-all text-xs uppercase"
                               >
-                                  <AlertTriangle className="w-4 h-4" /> TEST PRIORITY ALERT
+                                  <AlertTriangle className="w-3.5 h-3.5" /> TEST ALERT OVERLAY
                               </button>
                           </div>
                       </div>
-
-
                   </div>
 
                   {/* NEXT PREDICTION START INFO */}
@@ -3793,44 +4145,530 @@ const App: React.FC = () => {
         style={{ zoom: zoomLevel }}
     >
       
-      {/* ... [Full Screen Alert Overlay] ... */}
-      {fullScreenAlertItem && (
-          <div className={`fixed inset-0 z-[9999] flex flex-col items-center justify-center text-white animate-in fade-in duration-300 ${REACTORS.find(r => r.id === fullScreenAlertItem.reactorId)?.color || 'bg-red-600'} ${REACTORS.find(r => r.id === fullScreenAlertItem.reactorId)?.textColor || 'text-white'}`}>
-              <button 
-                  onClick={() => setDismissedAlerts(prev => new Set(prev).add(fullScreenAlertItem.id))}
-                  className="absolute top-6 right-6 p-2 bg-white/10 hover:bg-white/30 rounded-full transition-colors backdrop-blur-sm group"
-              >
-                  <X className="w-8 h-8 opacity-70 group-hover:opacity-100" />
-              </button>
-              <div className="animate-pulse flex flex-col items-center">
-                  <AlertTriangle className={`w-32 h-32 mb-8 ${REACTORS.find(r => r.id === fullScreenAlertItem.reactorId)?.id === 'U' ? 'text-black' : 'text-yellow-300'}`} />
-                  <h1 className="text-6xl font-black tracking-tighter mb-4">PREPARE TO START</h1>
-                  <div className="bg-white text-red-600 px-12 py-6 rounded-2xl shadow-xl flex flex-col items-center mb-8">
-                      <span className="text-2xl font-bold uppercase tracking-widest text-slate-500">REAKTOR</span>
-                      <span className="text-9xl font-black">{fullScreenAlertItem.reactorId}</span>
-                  </div>
-                  <div className="flex gap-12">
-                      <div className="flex flex-col items-center">
-                          <span className="text-xl font-bold opacity-80">BATCH</span>
-                          <span className="text-5xl font-mono font-black">{fullScreenAlertItem.batchNumber}</span>
+      {/* ... [Full Screen Alert Overlay with Multi-Style Support] ... */}
+      {((fullScreenAlertItem && !dismissedAlerts.has(fullScreenAlertItem.id)) || testAlertStyle !== null) && (() => {
+          const isTesting = testAlertStyle !== null;
+          const alertStyle = testAlertStyle || config.alertStyle || 'classic';
+          const activeItem = isTesting ? {
+              id: 'test-alert-item',
+              reactorId: 'A',
+              batchNumber: config.baseBatchNumber || 5165,
+              startTime: new Date(now.getTime() + 45000),
+              isToday: true,
+              status: 'future' as const,
+              grade: 'SM' as GradeType,
+              deltaMinutes: 0
+          } : fullScreenAlertItem;
+
+          if (!activeItem) return null;
+
+          const reactorObj = REACTORS.find(r => r.id === activeItem.reactorId);
+          const secondsLeft = Math.max(0, Math.ceil((activeItem.startTime.getTime() - now.getTime()) / 1000));
+
+          const handleDismiss = () => {
+              if (isTesting) {
+                  setTestAlertStyle(null);
+              } else {
+                  setDismissedAlerts(prev => new Set(prev).add(activeItem.id));
+              }
+          };
+
+          return (
+              <div className="fixed inset-0 z-[9999] overflow-hidden select-none">
+                  {/* Top Control Floating Header in Test Preview Mode */}
+                  {isTesting && (
+                      <div className="absolute top-4 left-1/2 -translate-x-1/2 bg-amber-400 text-slate-950 px-5 py-2 rounded-full font-black text-xs uppercase tracking-wider flex items-center gap-3 shadow-2xl border-2 border-black z-[10000]">
+                          <Eye className="w-4 h-4 text-black shrink-0" />
+                          <span className="whitespace-nowrap">MODE TEST PREVIEW: {alertStyle.toUpperCase()}</span>
+                          <button 
+                              onClick={() => playAlarmSound(config.alarmSound)}
+                              className="px-2.5 py-1 bg-slate-900 text-amber-300 hover:bg-slate-800 rounded-lg font-bold text-[10px] transition-colors whitespace-nowrap"
+                          >
+                              🔊 TES SUARA
+                          </button>
+                          <button 
+                              onClick={() => {
+                                  handleConfigChange('alertStyle', alertStyle);
+                                  setTestAlertStyle(null);
+                              }}
+                              className="px-2.5 py-1 bg-emerald-700 text-white hover:bg-emerald-800 rounded-lg font-bold text-[10px] transition-colors whitespace-nowrap"
+                          >
+                              ✓ APPLIKASIKAN GAYA INI
+                          </button>
+                          <button 
+                              onClick={() => setTestAlertStyle(null)}
+                              className="px-2.5 py-1 bg-red-700 text-white hover:bg-red-800 rounded-lg font-bold text-[10px] transition-colors whitespace-nowrap"
+                          >
+                              ✕ TUTUP PREVIEW
+                          </button>
                       </div>
-                      <div className="flex flex-col items-center">
-                          <span className="text-xl font-bold opacity-80">TIME</span>
-                          <span className="text-5xl font-mono font-black">{formatTime(fullScreenAlertItem.startTime)}</span>
+                  )}
+
+                  {/* STYLE 1: CLASSIC (Klasik Warna Reaktor) */}
+                  {alertStyle === 'classic' && (
+                      <div className={`w-full h-full flex flex-col items-center justify-center text-white animate-in fade-in duration-300 ${reactorObj?.color || 'bg-red-600'} ${reactorObj?.textColor || 'text-white'} p-6 text-center relative`}>
+                          <button 
+                              onClick={handleDismiss}
+                              className="absolute top-6 right-6 p-3 bg-white/20 hover:bg-white/40 rounded-full transition-colors backdrop-blur-sm group z-10"
+                              title="Tutup Alert"
+                          >
+                              <X className="w-8 h-8 opacity-80 group-hover:opacity-100" />
+                          </button>
+                          <div className="animate-pulse flex flex-col items-center my-auto max-w-2xl w-full">
+                              <AlertTriangle className={`w-24 h-24 mb-3 ${reactorObj?.id === 'U' ? 'text-black' : 'text-yellow-300'}`} />
+                              <h2 className="text-xl sm:text-2xl font-black tracking-widest uppercase mb-4 bg-black/30 px-8 py-2 rounded-full border border-white/30 text-yellow-300 shadow-lg">
+                                  SEGERA START REAKTOR RE-{activeItem.reactorId}
+                              </h2>
+                              
+                              {/* KOTAK REAKTOR DENGAN WARNA BACKGROUND TABEL CYCLE */}
+                              <div className={`${reactorObj?.color || 'bg-red-600'} ${reactorObj?.textColor || 'text-white'} px-12 py-8 rounded-3xl shadow-2xl flex flex-col items-center mb-6 border-4 border-white/80 min-w-[320px] sm:min-w-[420px]`}>
+                                  <span className="text-xs sm:text-sm font-black uppercase tracking-widest opacity-80">NAMA REAKTOR</span>
+                                  <span className="text-[100px] sm:text-[130px] leading-none font-black tracking-tight my-1 drop-shadow-2xl">
+                                      RE-{activeItem.reactorId}
+                                  </span>
+                              </div>
+
+                              <div className="flex flex-wrap justify-center gap-6 sm:gap-10 mb-6 bg-black/40 backdrop-blur-md px-8 py-4 rounded-2xl border border-white/30 w-full">
+                                  <div className="flex flex-col items-center">
+                                      <span className="text-xs font-bold uppercase tracking-widest text-yellow-300">NO BATCH</span>
+                                      <span className="text-3xl sm:text-4xl font-mono font-black text-white">#{activeItem.batchNumber}</span>
+                                  </div>
+                                  <div className="w-0.5 h-10 bg-white/30 my-auto"></div>
+                                  <div className="flex flex-col items-center">
+                                      <span className="text-xs font-bold uppercase tracking-widest text-yellow-300">JAM START</span>
+                                      <span className="text-3xl sm:text-4xl font-mono font-black text-white">{formatTime(activeItem.startTime)}</span>
+                                  </div>
+                              </div>
+
+                              <div className={`text-2xl font-black animate-bounce px-8 py-3 rounded-full mb-6 shadow-2xl ${reactorObj?.id === 'U' ? 'bg-black/40 text-yellow-300 border-2 border-yellow-300' : 'text-yellow-300 bg-black/60 border-2 border-yellow-300'}`}>
+                                  ⏳ SISA WAKTU: {secondsLeft} DETIK
+                              </div>
+
+                              <button 
+                                  onClick={handleDismiss}
+                                  className="px-8 py-3.5 bg-white text-slate-900 rounded-full font-black hover:bg-slate-100 transition-all shadow-xl flex items-center gap-2 transform hover:scale-105 active:scale-95 text-sm uppercase tracking-wider"
+                              >
+                                  <X className="w-5 h-5" /> {isTesting ? 'TUTUP PREVIEW' : 'MATIKAN ALARM'}
+                              </button>
+                          </div>
                       </div>
-                  </div>
-                  <div className={`mt-12 text-2xl font-bold animate-bounce px-6 py-2 rounded-full mb-8 ${REACTORS.find(r => r.id === fullScreenAlertItem.reactorId)?.id === 'U' ? 'bg-black/20 text-black' : 'text-yellow-300 bg-red-800/50'}`}>
-                      STARTING IN {Math.ceil((fullScreenAlertItem.startTime.getTime() - now.getTime()) / 1000)} SECONDS
-                  </div>
-                  <button 
-                    onClick={() => setDismissedAlerts(prev => new Set(prev).add(fullScreenAlertItem.id))}
-                    className="px-8 py-3 bg-white text-red-600 rounded-full font-black hover:bg-red-50 transition-colors shadow-lg flex items-center gap-2 transform hover:scale-105 active:scale-95 animate-none"
-                  >
-                      <X className="w-5 h-5" /> DISMISS ALERT
-                  </button>
+                  )}
+
+                  {/* STYLE 2: NEON CYBER HAZARD */}
+                  {alertStyle === 'neon' && (
+                      <div className="w-full h-full flex flex-col justify-between items-center bg-slate-950 text-amber-300 font-mono animate-in fade-in duration-300 border-[12px] border-amber-400 shadow-[0_0_80px_rgba(251,191,36,0.6)] relative p-0">
+                          <button 
+                              onClick={handleDismiss}
+                              className="absolute top-8 right-8 p-3 bg-amber-400 text-black hover:bg-amber-300 rounded-full transition-all shadow-lg z-20"
+                              title="Tutup Alert"
+                          >
+                              <X className="w-8 h-8 font-black" />
+                          </button>
+                          <div className="w-full bg-[repeating-linear-gradient(45deg,#f59e0b,#f59e0b_20px,#000_20px,#000_40px)] py-3 text-center text-black font-extrabold text-sm uppercase tracking-widest border-b-2 border-amber-400">
+                              ⚡ PERINTAH CYBER CONTROL: SIAPKAN OPERASI START REAKTOR ⚡
+                          </div>
+
+                          <div className="flex flex-col items-center my-auto p-6 text-center max-w-2xl w-full">
+                              <div className="flex items-center gap-2 text-amber-400 mb-2 animate-pulse">
+                                  <Sparkles className="w-8 h-8 text-amber-400" />
+                                  <span className="text-lg font-black uppercase tracking-widest">PERINTAH UTAMA START</span>
+                              </div>
+                              <h1 className="text-2xl sm:text-3xl font-black text-amber-400 tracking-wider mb-4 drop-shadow-[0_0_20px_rgba(251,191,36,0.8)]">
+                                  SEGERA START REAKTOR RE-{activeItem.reactorId}
+                              </h1>
+
+                              {/* KOTAK REAKTOR DENGAN WARNA BACKGROUND TABEL CYCLE */}
+                              <div className={`${reactorObj?.color || 'bg-red-600'} ${reactorObj?.textColor || 'text-white'} border-4 border-amber-400 rounded-3xl p-8 shadow-[0_0_50px_rgba(251,191,36,0.5)] my-2 flex flex-col items-center w-full`}>
+                                  <span className="text-xs font-bold tracking-widest uppercase opacity-90">TARGET REAKTOR</span>
+                                  <span className="text-8xl sm:text-9xl font-black my-2 drop-shadow-2xl">RE-{activeItem.reactorId}</span>
+                              </div>
+
+                              <div className="flex justify-around items-center w-full bg-slate-900 border-2 border-amber-400 rounded-2xl p-4 my-4 text-cyan-300 font-bold text-lg sm:text-2xl shadow-inner">
+                                  <span>NO BATCH: #{activeItem.batchNumber}</span>
+                                  <span className="opacity-40">|</span>
+                                  <span>JAM START: {formatTime(activeItem.startTime)}</span>
+                              </div>
+
+                              <div className="mt-2 bg-cyan-950/90 border-2 border-cyan-400 text-cyan-300 px-8 py-3 rounded-xl font-mono font-extrabold text-2xl shadow-[0_0_30px_rgba(34,211,238,0.5)] animate-pulse mb-6">
+                                  ⏳ SISA WAKTU: {secondsLeft} DETIK
+                              </div>
+
+                              <button 
+                                  onClick={handleDismiss}
+                                  className="px-8 py-3 bg-amber-400 text-slate-950 font-black text-sm rounded-xl hover:bg-amber-300 transition-all shadow-[0_0_20px_rgba(251,191,36,0.6)] flex items-center gap-2 uppercase tracking-wider"
+                              >
+                                  <X className="w-5 h-5" /> {isTesting ? 'TUTUP PREVIEW' : 'DISMISS ALERT'}
+                              </button>
+                          </div>
+
+                          <div className="w-full bg-[repeating-linear-gradient(-45deg,#f59e0b,#f59e0b_20px,#000_20px,#000_40px)] py-3 text-center text-black font-extrabold text-sm uppercase tracking-widest border-t-2 border-amber-400">
+                              ⚡ PERINTAH CYBER CONTROL: SIAPKAN OPERASI START REAKTOR ⚡
+                          </div>
+                      </div>
+                  )}
+
+                  {/* STYLE 3: EMERGENCY STROBE & SIRENS */}
+                  {alertStyle === 'emergency' && (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-red-950 text-white animate-pulse transition-colors p-6 text-center relative">
+                          <button 
+                              onClick={handleDismiss}
+                              className="absolute top-6 right-6 p-3 bg-yellow-400 text-black hover:bg-yellow-300 rounded-full transition-colors shadow-2xl z-10"
+                              title="Tutup Alert"
+                          >
+                              <X className="w-8 h-8 font-black" />
+                          </button>
+                          
+                          <div className="flex justify-between w-full max-w-4xl absolute top-8 px-12 pointer-events-none">
+                              <Bell className="w-16 h-16 text-yellow-300 animate-bounce" />
+                              <Bell className="w-16 h-16 text-yellow-300 animate-bounce" />
+                          </div>
+
+                          <div className="flex flex-col items-center my-auto max-w-2xl w-full">
+                              <AlertTriangle className="w-24 h-24 text-yellow-300 mb-2 animate-ping" />
+                              <p className="text-lg sm:text-2xl font-black text-yellow-300 uppercase tracking-widest mb-6">
+                                  SEGERA START REAKTOR RE-{activeItem.reactorId}
+                              </p>
+
+                              {/* KOTAK REAKTOR DENGAN WARNA BACKGROUND TABEL CYCLE */}
+                              <div className={`${reactorObj?.color || 'bg-red-600'} ${reactorObj?.textColor || 'text-white'} border-4 border-yellow-300 rounded-3xl p-8 shadow-2xl flex flex-col items-center w-full mb-6`}>
+                                  <span className="text-xs font-black uppercase tracking-widest opacity-90">UNIT KONTROL</span>
+                                  <span className="text-8xl sm:text-9xl font-black my-1 drop-shadow-2xl">RE-{activeItem.reactorId}</span>
+                              </div>
+
+                              <div className="flex justify-around items-center w-full bg-red-900 border-2 border-yellow-300 rounded-2xl p-4 mb-6 text-white font-mono text-xl font-black">
+                                  <span>NO BATCH: #{activeItem.batchNumber}</span>
+                                  <span className="opacity-40">|</span>
+                                  <span>JAM START: {formatTime(activeItem.startTime)}</span>
+                              </div>
+
+                              <div className="bg-yellow-400 text-red-950 font-black text-2xl px-10 py-3.5 rounded-full border-4 border-white shadow-2xl mb-6 animate-bounce">
+                                  ⏳ SISA WAKTU: {secondsLeft} DETIK
+                              </div>
+
+                              <button 
+                                  onClick={handleDismiss}
+                                  className="px-10 py-4 bg-white text-red-700 hover:bg-yellow-100 rounded-full font-black text-base transition-transform shadow-2xl flex items-center gap-3 transform active:scale-95 uppercase tracking-wider"
+                              >
+                                  <X className="w-6 h-6" /> {isTesting ? 'TUTUP PREVIEW' : 'MATIKAN SIRENE & ALARM'}
+                              </button>
+                          </div>
+                      </div>
+                  )}
+
+                  {/* STYLE 4: MODERN GLASS HUD */}
+                  {alertStyle === 'glass' && (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950/80 backdrop-blur-2xl text-slate-100 p-6 relative">
+                          <button 
+                              onClick={handleDismiss}
+                              className="absolute top-8 right-8 p-3 bg-white/10 hover:bg-white/20 text-white rounded-full transition-colors border border-white/20 backdrop-blur-md z-10"
+                              title="Tutup Alert"
+                          >
+                              <X className="w-8 h-8" />
+                          </button>
+
+                          <div className="bg-slate-900/80 border border-white/20 rounded-3xl p-8 max-w-xl w-full flex flex-col items-center text-center shadow-[0_25px_60px_rgba(0,0,0,0.8)] backdrop-blur-3xl relative overflow-hidden my-auto">
+                              <div className="absolute -top-20 -left-20 w-48 h-48 bg-blue-500/30 rounded-full blur-3xl pointer-events-none"></div>
+                              <div className="absolute -bottom-20 -right-20 w-48 h-48 bg-amber-500/30 rounded-full blur-3xl pointer-events-none"></div>
+
+                              <AlertTriangle className="w-16 h-16 text-amber-400 mb-2 animate-pulse" />
+                              <span className="text-xs font-black uppercase tracking-widest text-blue-400 mb-1">PLANT COMMAND NOTIFICATION</span>
+                              <h2 className="text-2xl font-extrabold text-white mb-4 tracking-tight uppercase">
+                                  SEGERA START REAKTOR RE-{activeItem.reactorId}
+                              </h2>
+
+                              {/* KOTAK REAKTOR DENGAN WARNA BACKGROUND TABEL CYCLE */}
+                              <div className={`${reactorObj?.color || 'bg-red-600'} ${reactorObj?.textColor || 'text-white'} px-8 py-6 rounded-3xl border-4 border-white/60 flex flex-col items-center justify-center mb-6 shadow-2xl w-full`}>
+                                  <span className="text-xs font-bold uppercase tracking-widest opacity-80">REAKTOR ID</span>
+                                  <span className="text-7xl sm:text-8xl font-black mt-1">RE-{activeItem.reactorId}</span>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4 w-full bg-white/5 border border-white/10 rounded-2xl p-4 mb-6">
+                                  <div>
+                                      <span className="text-[11px] uppercase font-bold text-slate-400 block">No Batch</span>
+                                      <span className="text-2xl font-mono font-bold text-white">#{activeItem.batchNumber}</span>
+                                  </div>
+                                  <div>
+                                      <span className="text-[11px] uppercase font-bold text-slate-400 block">Jam Start</span>
+                                      <span className="text-2xl font-mono font-bold text-white">{formatTime(activeItem.startTime)}</span>
+                                  </div>
+                              </div>
+
+                              <div className="bg-gradient-to-r from-blue-600 to-indigo-600 text-white font-black text-lg px-8 py-3 rounded-full shadow-lg mb-6 border border-white/20 animate-pulse">
+                                  ⏳ SISA WAKTU: {secondsLeft} DETIK
+                              </div>
+
+                              <button 
+                                  onClick={handleDismiss}
+                                  className="px-8 py-3 bg-white/10 hover:bg-white/20 text-white border border-white/30 rounded-full font-bold text-sm transition-all flex items-center gap-2"
+                              >
+                                  <X className="w-4 h-4" /> {isTesting ? 'TUTUP PREVIEW' : 'MATIKAN ALARM'}
+                              </button>
+                          </div>
+                      </div>
+                  )}
+
+                  {/* STYLE 5: INDUSTRIAL SAFETY GATE */}
+                  {alertStyle === 'industrial' && (
+                      <div className="w-full h-full flex flex-col justify-between items-center bg-slate-900 text-amber-400 p-0 relative">
+                          <button 
+                              onClick={handleDismiss}
+                              className="absolute top-8 right-8 p-3 bg-amber-500 text-black hover:bg-amber-400 rounded-full transition-all border-2 border-black z-20"
+                              title="Tutup Alert"
+                          >
+                              <X className="w-8 h-8 font-black" />
+                          </button>
+
+                          <div className="w-full h-14 bg-[repeating-linear-gradient(-45deg,#f59e0b,#f59e0b_25px,#000_25px,#000_50px)] border-b-4 border-amber-500 shadow-lg"></div>
+
+                          <div className="flex flex-col items-center my-auto p-6 text-center max-w-2xl w-full">
+                              <div className="bg-amber-500 text-black px-6 py-2 rounded-lg font-black text-base uppercase tracking-widest mb-4 flex items-center gap-2 shadow-2xl border-2 border-black">
+                                  <Wrench className="w-5 h-5" /> SEGERA START REAKTOR RE-{activeItem.reactorId}
+                              </div>
+
+                              {/* KOTAK REAKTOR DENGAN WARNA BACKGROUND TABEL CYCLE */}
+                              <div className={`${reactorObj?.color || 'bg-red-600'} ${reactorObj?.textColor || 'text-white'} border-4 border-amber-500 rounded-2xl p-8 shadow-2xl flex flex-col items-center w-full my-2`}>
+                                  <span className="text-xs font-bold uppercase tracking-widest opacity-80">UNIT REAKTOR KONTROL</span>
+                                  <span className="text-8xl sm:text-9xl font-black my-2">RE-{activeItem.reactorId}</span>
+                              </div>
+
+                              <div className="flex justify-around items-center w-full bg-black border-2 border-amber-500 rounded-xl p-4 my-3 text-white font-mono text-xl font-black">
+                                  <span>NO BATCH: #{activeItem.batchNumber}</span>
+                                  <span className="opacity-40">|</span>
+                                  <span>JAM START: {formatTime(activeItem.startTime)}</span>
+                              </div>
+
+                              <div className="mt-3 bg-amber-500 text-black font-black text-2xl px-10 py-3.5 rounded-xl border-4 border-black shadow-2xl animate-bounce mb-6">
+                                  ⏳ SISA WAKTU: {secondsLeft} DETIK
+                              </div>
+
+                              <button 
+                                  onClick={handleDismiss}
+                                  className="px-8 py-3 bg-black text-amber-400 border-2 border-amber-500 font-black text-sm rounded-xl hover:bg-slate-800 transition-all shadow-xl flex items-center gap-2 uppercase tracking-wider"
+                              >
+                                  <X className="w-5 h-5" /> {isTesting ? 'TUTUP PREVIEW' : 'DISMISS SAFETY ALERT'}
+                              </button>
+                          </div>
+
+                          <div className="w-full h-14 bg-[repeating-linear-gradient(-45deg,#f59e0b,#f59e0b_25px,#000_25px,#000_50px)] border-t-4 border-amber-500 shadow-lg"></div>
+                      </div>
+                  )}
+
+                  {/* STYLE 6: HOLOGRAM SCI-FI CONSOLE */}
+                  {alertStyle === 'holo' && (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-950 text-cyan-300 p-6 relative font-sans overflow-hidden">
+                          <button 
+                              onClick={handleDismiss}
+                              className="absolute top-8 right-8 p-3 bg-cyan-500/20 text-cyan-300 border border-cyan-400 hover:bg-cyan-500/40 rounded-full transition-all backdrop-blur-md z-20 shadow-[0_0_20px_rgba(34,211,238,0.5)]"
+                              title="Tutup Alert"
+                          >
+                              <X className="w-8 h-8 font-black" />
+                          </button>
+
+                          {/* Holographic Glowing Orbs */}
+                          <div className="absolute w-[500px] h-[500px] rounded-full border border-cyan-500/20 animate-spin duration-10000 pointer-events-none"></div>
+                          <div className="absolute w-[350px] h-[350px] rounded-full border-2 border-dashed border-cyan-400/40 animate-ping duration-3000 pointer-events-none"></div>
+
+                          <div className="bg-slate-900/90 border-2 border-cyan-400/80 rounded-3xl p-8 max-w-xl w-full flex flex-col items-center text-center shadow-[0_0_80px_rgba(34,211,238,0.4)] backdrop-blur-3xl relative z-10 my-auto">
+                              <Sparkles className="w-14 h-14 text-cyan-400 mb-2 animate-pulse" />
+                              <div className="bg-cyan-950/80 text-cyan-300 border border-cyan-400 px-5 py-1.5 rounded-full font-black text-xs uppercase tracking-widest mb-3 shadow-[0_0_15px_rgba(34,211,238,0.3)]">
+                                  SYSTEM COMMAND: EXECUTE OPERASI
+                              </div>
+                              <h1 className="text-2xl sm:text-3xl font-black text-white tracking-wide uppercase mb-4 drop-shadow-[0_0_15px_rgba(34,211,238,0.8)]">
+                                  SEGERA START REAKTOR RE-{activeItem.reactorId}
+                              </h1>
+
+                              {/* KOTAK REAKTOR DENGAN WARNA BACKGROUND TABEL CYCLE */}
+                              <div className={`${reactorObj?.color || 'bg-red-600'} ${reactorObj?.textColor || 'text-white'} border-2 border-white/60 rounded-2xl p-6 w-full mb-6 shadow-2xl`}>
+                                  <span className="text-xs font-bold uppercase tracking-widest block mb-1 opacity-80">TARGET UNIT CONTROL</span>
+                                  <span className="text-7xl sm:text-8xl font-black tracking-tight block">
+                                      RE-{activeItem.reactorId}
+                                  </span>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4 w-full bg-slate-950/80 border border-cyan-500/40 rounded-xl p-4 mb-6 text-left">
+                                  <div className="border-r border-cyan-500/30 pr-2">
+                                      <span className="text-[10px] font-extrabold text-cyan-400/80 uppercase block">NO BATCH</span>
+                                      <span className="text-2xl font-mono font-black text-white">#{activeItem.batchNumber}</span>
+                                  </div>
+                                  <div className="pl-2">
+                                      <span className="text-[10px] font-extrabold text-cyan-400/80 uppercase block">JAM START</span>
+                                      <span className="text-2xl font-mono font-black text-white">{formatTime(activeItem.startTime)}</span>
+                                  </div>
+                              </div>
+
+                              <div className="w-full bg-cyan-950/80 border border-cyan-400 text-cyan-300 py-3 rounded-xl font-mono font-black text-xl shadow-[0_0_25px_rgba(34,211,238,0.4)] animate-pulse mb-6">
+                                  ⏳ SISA WAKTU: {secondsLeft} DETIK
+                              </div>
+
+                              <button 
+                                  onClick={handleDismiss}
+                                  className="px-8 py-3 bg-cyan-400 text-slate-950 font-black text-sm rounded-xl hover:bg-cyan-300 transition-all shadow-[0_0_30px_rgba(34,211,238,0.6)] flex items-center gap-2 uppercase tracking-wider"
+                              >
+                                  <X className="w-5 h-5" /> {isTesting ? 'TUTUP PREVIEW' : 'DISMISS HOLO ALERT'}
+                              </button>
+                          </div>
+                      </div>
+                  )}
+
+                  {/* STYLE 7: TERMINAL MATRIX */}
+                  {alertStyle === 'matrix' && (
+                      <div className="w-full h-full flex flex-col justify-between items-center bg-black text-emerald-400 font-mono p-6 relative animate-in fade-in duration-300">
+                          <button 
+                              onClick={handleDismiss}
+                              className="absolute top-8 right-8 p-3 bg-emerald-500 text-black hover:bg-emerald-400 rounded-full transition-all z-20"
+                              title="Tutup Alert"
+                          >
+                              <X className="w-8 h-8 font-black" />
+                          </button>
+
+                          <div className="w-full text-left text-xs text-emerald-500 border-b border-emerald-800 pb-2 flex justify-between">
+                              <span>[SYSTEM_CONTROL_PLANT_V2]</span>
+                              <span className="animate-pulse">● ONLINE MONITORING</span>
+                          </div>
+
+                          <div className="flex flex-col items-center my-auto text-center max-w-2xl w-full">
+                              <div className="text-sm font-bold text-emerald-300 border border-emerald-500 px-4 py-1 rounded mb-4 animate-pulse">
+                                  [PERINTAH OPERATOR]: RUN START_SEQUENCE.EXE
+                              </div>
+                              <h1 className="text-2xl sm:text-3xl font-black text-emerald-300 uppercase tracking-tight mb-6">
+                                  SEGERA START REAKTOR RE-{activeItem.reactorId}
+                              </h1>
+
+                              {/* KOTAK REAKTOR DENGAN WARNA BACKGROUND TABEL CYCLE */}
+                              <div className={`${reactorObj?.color || 'bg-red-600'} ${reactorObj?.textColor || 'text-white'} border-2 border-emerald-400 p-8 rounded-2xl w-full mb-6 shadow-2xl`}>
+                                  <span className="text-xs uppercase tracking-widest block mb-1 opacity-80">// TARGET UNIT</span>
+                                  <span className="text-8xl sm:text-9xl font-black tracking-tight block">
+                                      RE-{activeItem.reactorId}
+                                  </span>
+                              </div>
+
+                              <div className="flex justify-around items-center w-full bg-emerald-950/60 border border-emerald-500 rounded-xl p-4 mb-6 text-lg font-bold text-white">
+                                  <span>NO BATCH: #{activeItem.batchNumber}</span>
+                                  <span className="opacity-40">|</span>
+                                  <span>JAM START: {formatTime(activeItem.startTime)}</span>
+                              </div>
+
+                              <div className="bg-emerald-900/60 text-emerald-200 border border-emerald-400 px-8 py-3 rounded-lg font-black text-2xl mb-6 animate-bounce">
+                                  ⏳ SISA WAKTU: {secondsLeft} DETIK
+                              </div>
+
+                              <button 
+                                  onClick={handleDismiss}
+                                  className="px-8 py-3 bg-emerald-500 text-black font-black text-sm rounded hover:bg-emerald-400 transition-all shadow-[0_0_20px_rgba(52,211,153,0.5)] flex items-center gap-2 uppercase"
+                              >
+                                  <X className="w-5 h-5" /> {isTesting ? 'TUTUP PREVIEW' : 'TERMINATE ALARM'}
+                              </button>
+                          </div>
+
+                          <div className="w-full text-center text-xs text-emerald-600 border-t border-emerald-800 pt-2">
+                              STATUS: REAKTOR_RE-{activeItem.reactorId}_READY_FOR_START
+                          </div>
+                      </div>
+                  )}
+
+                  {/* STYLE 8: MINIMALIST BOLD */}
+                  {alertStyle === 'minimal' && (
+                      <div className="w-full h-full flex flex-col items-center justify-center bg-slate-900 text-white p-6 text-center relative font-sans">
+                          <button 
+                              onClick={handleDismiss}
+                              className="absolute top-8 right-8 p-3 bg-slate-800 hover:bg-slate-700 text-white rounded-full transition-colors border border-slate-700 z-10"
+                              title="Tutup Alert"
+                          >
+                              <X className="w-8 h-8" />
+                          </button>
+
+                          <div className="flex flex-col items-center my-auto max-w-2xl w-full">
+                              <span className="text-sm font-black tracking-widest uppercase text-amber-400 bg-amber-950/80 px-6 py-2 rounded-full border border-amber-500/50 mb-6">
+                                  SEGERA START REAKTOR RE-{activeItem.reactorId}
+                              </span>
+
+                              {/* KOTAK REAKTOR DENGAN WARNA BACKGROUND TABEL CYCLE */}
+                              <div className={`${reactorObj?.color || 'bg-red-600'} ${reactorObj?.textColor || 'text-white'} p-10 rounded-3xl w-full shadow-2xl mb-8 border-4 border-white/40`}>
+                                  <span className="text-sm font-extrabold uppercase tracking-widest block mb-1 opacity-80">REAKTOR SCHEDULE</span>
+                                  <span className="text-[90px] sm:text-[120px] leading-none font-black tracking-tighter block my-2 drop-shadow-xl">
+                                      RE-{activeItem.reactorId}
+                                  </span>
+                              </div>
+
+                              <div className="grid grid-cols-2 gap-4 text-center w-full bg-slate-800 border border-slate-700 rounded-2xl p-4 mb-6">
+                                  <div>
+                                      <span className="text-xs font-bold text-slate-400 uppercase block">NO BATCH</span>
+                                      <span className="text-2xl sm:text-3xl font-mono font-black text-white">#{activeItem.batchNumber}</span>
+                                  </div>
+                                  <div>
+                                      <span className="text-xs font-bold text-slate-400 uppercase block">JAM START</span>
+                                      <span className="text-2xl sm:text-3xl font-mono font-black text-white">{formatTime(activeItem.startTime)}</span>
+                                  </div>
+                              </div>
+
+                              <div className="bg-amber-400 text-slate-950 font-black text-2xl sm:text-3xl px-10 py-3.5 rounded-2xl shadow-xl mb-8 animate-pulse">
+                                  ⏳ SISA WAKTU: {secondsLeft} DETIK
+                              </div>
+
+                              <button 
+                                  onClick={handleDismiss}
+                                  className="px-8 py-3.5 bg-slate-800 hover:bg-slate-700 text-white font-black text-sm rounded-xl transition-all shadow-lg flex items-center gap-2 uppercase tracking-wider border border-slate-700"
+                              >
+                                  <X className="w-5 h-5" /> {isTesting ? 'TUTUP PREVIEW' : 'DISMISS ALERT'}
+                              </button>
+                          </div>
+                      </div>
+                  )}
+
+                  {/* STYLE 9: CAUTION TAG HAZARD */}
+                  {alertStyle === 'warning_stripe' && (
+                      <div className="w-full h-full flex flex-col justify-between items-center bg-yellow-400 text-slate-950 p-0 relative font-sans border-[16px] border-black">
+                          <button 
+                              onClick={handleDismiss}
+                              className="absolute top-8 right-8 p-3 bg-black text-yellow-400 hover:bg-slate-900 rounded-full transition-all shadow-2xl z-20"
+                              title="Tutup Alert"
+                          >
+                              <X className="w-8 h-8 font-black" />
+                          </button>
+
+                          <div className="w-full bg-black text-yellow-400 py-3 text-center font-black text-base uppercase tracking-widest flex items-center justify-center gap-3">
+                              <ShieldAlert className="w-6 h-6 animate-pulse text-red-500" />
+                              ⚠️ SEGERA START REAKTOR RE-{activeItem.reactorId} ⚠️
+                              <ShieldAlert className="w-6 h-6 animate-pulse text-red-500" />
+                          </div>
+
+                          <div className="flex flex-col items-center my-auto p-6 text-center max-w-2xl w-full">
+                              <div className="bg-black text-yellow-400 px-8 py-2.5 rounded-2xl font-black text-lg uppercase tracking-widest mb-6 border-2 border-yellow-500 shadow-2xl">
+                                  SEGERA START REAKTOR RE-{activeItem.reactorId}
+                              </div>
+
+                              {/* KOTAK REAKTOR DENGAN WARNA BACKGROUND TABEL CYCLE */}
+                              <div className={`${reactorObj?.color || 'bg-red-600'} ${reactorObj?.textColor || 'text-white'} border-8 border-black rounded-3xl p-10 shadow-2xl flex flex-col items-center w-full mb-6`}>
+                                  <span className="text-sm font-black uppercase tracking-widest opacity-80">NAMA REAKTOR</span>
+                                  <span className="text-8xl sm:text-9xl font-black my-2 drop-shadow-2xl">RE-{activeItem.reactorId}</span>
+                              </div>
+
+                              <div className="flex justify-around items-center w-full bg-black text-white rounded-2xl p-4 mb-6 font-mono text-xl sm:text-2xl font-black">
+                                  <span className="text-yellow-400">NO BATCH: #{activeItem.batchNumber}</span>
+                                  <span className="opacity-40">|</span>
+                                  <span className="text-yellow-400">JAM START: {formatTime(activeItem.startTime)}</span>
+                              </div>
+
+                              <div className="bg-red-600 text-white font-black text-2xl sm:text-3xl px-10 py-4 rounded-2xl border-4 border-black shadow-2xl animate-bounce mb-6">
+                                  ⏳ SISA WAKTU: {secondsLeft} DETIK
+                              </div>
+
+                              <button 
+                                  onClick={handleDismiss}
+                                  className="px-10 py-4 bg-black text-yellow-400 hover:bg-slate-900 font-black text-sm rounded-2xl transition-all shadow-2xl flex items-center gap-2 uppercase tracking-wider border-2 border-yellow-400"
+                              >
+                                  <X className="w-6 h-6" /> {isTesting ? 'TUTUP PREVIEW' : 'DISMISS CAUTION ALERT'}
+                              </button>
+                          </div>
+
+                          <div className="w-full bg-black text-yellow-400 py-3 text-center font-black text-sm uppercase tracking-widest">
+                              PERINGATAN SAFETY OPERASI PLANT CHEMICAL REAKTOR
+                          </div>
+                      </div>
+                  )}
               </div>
-          </div>
-      )}
+          );
+      })()}
 
       {/* ... [Cycle Completed Banner] ... */}
        {isScheduleCompleted && !config.isStopped && currentView === 'scheduler' && (
@@ -4383,6 +5221,26 @@ const App: React.FC = () => {
                 </div>
                 
                 <div className="p-6 space-y-6 overflow-y-auto">
+                    
+                    {/* FITUR KHUSUS: INPUT FOR RE-S (Hanya untuk Reaktor S Cycle Pertama) */}
+                    {selectedItem.reactorId === 'S' && selectedItem.cycleIndex === 0 && (
+                        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/60 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
+                            <div>
+                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 block">Sequence Control</label>
+                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                    Update No Batch & Start Time Reaktor S
+                                </p>
+                            </div>
+                            <button 
+                                type="button"
+                                onClick={() => handleResetSequence(selectedItem)} 
+                                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-black bg-red-600 text-white hover:bg-red-700 border border-red-700 transition-all shadow-lg transform active:scale-95 text-xs uppercase tracking-wider shrink-0 w-full sm:w-auto`}
+                            >
+                                <RotateCcw className="w-5 h-5" />
+                                INPUT FOR RE-S
+                            </button>
+                        </div>
+                    )}
                     
                     {/* Notes */}
                     <div className="mb-6">

@@ -39,6 +39,8 @@ export interface ScheduleItem {
   deltaMinutes: number; // Difference from original scheduled time
 }
 
+export type AlertStyleType = 'classic' | 'neon' | 'emergency' | 'glass' | 'industrial' | 'holo' | 'matrix' | 'minimal' | 'warning_stripe';
+
 export interface AppState {
   baseBatchNumber: number;
   baseStartTime: string; // ISO string
@@ -56,6 +58,7 @@ export interface AppState {
   marqueeSpeed: number; // Duration in seconds for marquee animation
   theme: 'light' | 'dark'; // UI Theme
   alarmSound: AlarmSoundType; // Selected alarm sound
+  alertStyle?: AlertStyleType; // Visual style for full screen alert overlay
   
   // Design / Layout Props
   tableRowHeight: number; // pixel height
