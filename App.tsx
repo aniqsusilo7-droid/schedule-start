@@ -12,6 +12,7 @@ import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, E
 import { supabase } from './supabaseClient';
 import { Reorder } from 'framer-motion';
 import { Fie2002TrendModal, Fie2002TrendEntry } from './components/Fie2002TrendModal';
+import { DraggableModal } from './components/DraggableModal';
 
 const GRADES: GradeType[] = ['SM', 'SLK', 'SLP', 'SE', 'SR'];
 const STAGE_OPTIONS = ['Sample Blowing', 'Sample Washing', 'Sample Air Slurry'];
@@ -1268,6 +1269,10 @@ const App: React.FC = () => {
 
   const lastCycleTimeUpdateRef = useRef<number>(0);
 
+  // --- Auto-scroll Reaktor Cycle Timeline to LIVE (NOW) position ---
+  const cycleTimelineContainerRef = useRef<HTMLDivElement>(null);
+  const hasInitialScrolledTimelineRef = useRef(false);
+
   const activeDemonomerGrade = config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade;
 
   // --- Auto-close Settings Panel Logic (2 Minutes Countdown) ---
@@ -2509,6 +2514,74 @@ const App: React.FC = () => {
     if (allItems.length === 0) return false;
     return allItems.every(item => item.status === 'past' || item.status === 'skipped');
   }, [scheduleMatrix]);
+
+  // --- Auto-scroll Reaktor Cycle Timeline to LIVE (NOW) position ---
+  const scrollInactivityTimerRef = useRef<NodeJS.Timeout | null>(null);
+  const [isUserScrollingTimeline, setIsUserScrollingTimeline] = useState(false);
+
+  const scrollToNowPosition = useCallback((smooth = true) => {
+    if (!cycleTimelineContainerRef.current) return;
+    const container = cycleTimelineContainerRef.current;
+    const scrollWidth = container.scrollWidth;
+    const clientWidth = container.clientWidth;
+    if (scrollWidth <= clientWidth) return;
+
+    // Calculate start time & slots total minutes same as renderConflictTimeline
+    const allItems = (Object.values(scheduleMatrix).flat() as ScheduleItem[])
+      .filter(item => item.status !== 'skipped');
+    const timelineTimes = [now.getTime()];
+    if (allItems.length > 0) {
+      allItems.forEach(item => {
+        timelineTimes.push(item.startTime.getTime());
+        timelineTimes.push(item.startTime.getTime() + (config.batchDurationMinutes || 240) * 60000);
+      });
+    } else {
+      timelineTimes.push(now.getTime() + 12 * 3600000);
+    }
+    const earliestTime = new Date(Math.min(...timelineTimes));
+    const startTime = new Date(earliestTime);
+    startTime.setMinutes(startTime.getMinutes() < 30 ? 0 : 30, 0, 0);
+
+    const latestTime = new Date(Math.max(...timelineTimes));
+    const totalMinutesNeeded = (latestTime.getTime() - startTime.getTime()) / 60000;
+    const slotsCount = Math.max(24, Math.ceil(totalMinutesNeeded / 30));
+    const totalMinutes = slotsCount * 30;
+
+    const nowMinutes = (now.getTime() - startTime.getTime()) / 60000;
+    const nowPosRatio = Math.max(0, Math.min(1, nowMinutes / totalMinutes));
+
+    const nowPx = 80 + (scrollWidth - 80) * nowPosRatio;
+    const targetScrollLeft = Math.max(0, nowPx - clientWidth / 2);
+
+    container.scrollTo({
+      left: targetScrollLeft,
+      behavior: smooth ? 'smooth' : 'auto'
+    });
+  }, [now, scheduleMatrix, config.batchDurationMinutes]);
+
+  const handleTimelineScroll = useCallback(() => {
+    setIsUserScrollingTimeline(true);
+    if (scrollInactivityTimerRef.current) {
+      clearTimeout(scrollInactivityTimerRef.current);
+    }
+    scrollInactivityTimerRef.current = setTimeout(() => {
+      setIsUserScrollingTimeline(false);
+      scrollToNowPosition(true);
+    }, 6000); // Auto-return to LIVE NOW position after 6s of inactivity
+  }, [scrollToNowPosition]);
+
+  useEffect(() => {
+    if (currentView === 'scheduler') {
+      const isFirst = !hasInitialScrolledTimelineRef.current;
+      const timer = setTimeout(() => {
+        scrollToNowPosition(!isFirst);
+        hasInitialScrolledTimelineRef.current = true;
+      }, 150);
+      return () => clearTimeout(timer);
+    } else {
+      hasInitialScrolledTimelineRef.current = false;
+    }
+  }, [currentView, scrollToNowPosition]);
 
   // --- Auto-calculated Running Text for Polymer ---
   const autoRunningText = useMemo(() => {
@@ -3970,7 +4043,7 @@ const App: React.FC = () => {
     return (
       <div className="flex flex-col shadow-xl rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 overflow-hidden">
         {/* Header */}
-        <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between">
+        <div className="bg-slate-50 dark:bg-slate-800/50 px-4 py-3 border-b border-slate-200 dark:border-slate-800 flex items-center justify-between flex-wrap gap-2">
           <div className="flex items-center gap-3">
             <div className="p-2 bg-indigo-500 rounded-xl text-white">
               <Activity className="w-4 h-4" />
@@ -3979,7 +4052,24 @@ const App: React.FC = () => {
               <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Reaktor Cycle Timeline</h3>
             </div>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-3">
+            {isUserScrollingTimeline && (
+              <span className="text-[10px] font-extrabold text-amber-500 bg-amber-500/10 px-2 py-0.5 rounded-md border border-amber-500/30 animate-pulse hidden sm:inline-block">
+                Mode Scroll Manual (Kembali Otomatis ke Live)
+              </span>
+            )}
+            <button
+              onClick={() => {
+                if (scrollInactivityTimerRef.current) clearTimeout(scrollInactivityTimerRef.current);
+                setIsUserScrollingTimeline(false);
+                scrollToNowPosition(true);
+              }}
+              className="px-2.5 py-1 bg-red-500 hover:bg-red-600 active:scale-95 text-white font-black text-[10px] rounded-lg shadow-sm flex items-center gap-1.5 transition-all uppercase tracking-wider cursor-pointer"
+              title="Fokuskan tampilan ke posisi jam saat ini (NOW)"
+            >
+              <div className="w-2 h-2 rounded-full bg-white animate-ping"></div>
+              FOKUS LIVE NOW
+            </button>
             <div className="flex items-center gap-2">
               <div className="w-2.5 h-2.5 rounded-full bg-red-500"></div>
               <span className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">Conflict</span>
@@ -3991,15 +4081,18 @@ const App: React.FC = () => {
           </div>
         </div>
 
-        <div className="p-0 overflow-x-auto">
+        <div className="p-0 overflow-x-auto scroll-smooth" ref={cycleTimelineContainerRef} onScroll={handleTimelineScroll}>
           <div className="relative inline-block min-w-full">
             {/* Current Time Indicator Line */}
             {nowPos >= 0 && nowPos <= 100 && (
               <div 
-                className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-30 pointer-events-none transition-all duration-1000 ease-linear"
+                className="absolute top-0 bottom-0 w-0.5 bg-red-500 z-30 pointer-events-none transition-all duration-1000 ease-linear shadow-[0_0_8px_rgba(239,68,68,0.8)]"
                 style={{ left: `calc(80px + (100% - 80px) * ${nowPos / 100})` }}
               >
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-red-500 text-white text-[8px] font-black px-1 rounded shadow-sm">NOW</div>
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 bg-red-600 text-white text-[8px] font-black px-1.5 py-0.5 rounded shadow-md flex items-center gap-1 whitespace-nowrap z-40 uppercase tracking-wider">
+                  <span className="w-1.5 h-1.5 rounded-full bg-white animate-ping"></span>
+                  NOW ({formatTime(now)})
+                </div>
               </div>
             )}
 
@@ -4911,51 +5004,60 @@ const App: React.FC = () => {
 
       {/* --- DEMONOMER POPUP --- */}
       {isDemonomerPopupOpen && (
-          <div className="fixed inset-0 bg-black/60 z-[80] flex items-center justify-center p-4 animate-in fade-in duration-200">
-              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-7xl h-[90vh] overflow-hidden flex flex-col ring-4 ring-teal-500/50">
-                  <div className="bg-teal-600 text-white p-4 flex items-center justify-between shrink-0">
-                      <h3 className="text-2xl font-black flex items-center gap-2">
-                          <Activity className="w-6 h-6" />
-                          ADJUST STEAM (DEMONOMER)
-                      </h3>
-                      <button onClick={() => setIsDemonomerPopupOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
-                          <X className="w-6 h-6" />
-                      </button>
+          <div className="fixed inset-0 pointer-events-none z-[80] flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <DraggableModal className="w-full max-w-7xl h-[90vh] flex flex-col">
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full h-full overflow-hidden flex flex-col ring-4 ring-teal-500/50">
+                      <div className="bg-teal-600 text-white p-4 flex items-center justify-between shrink-0 cursor-grab active:cursor-grabbing">
+                          <h3 className="text-2xl font-black flex items-center gap-2">
+                              <Activity className="w-6 h-6" />
+                              ADJUST STEAM (DEMONOMER)
+                              <span className="px-2 py-0.5 text-xs bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
+                                  ✋ Tahan &amp; Drag
+                              </span>
+                          </h3>
+                          <button onClick={() => setIsDemonomerPopupOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                              <X className="w-6 h-6" />
+                          </button>
+                      </div>
+                      <div className="flex-1 overflow-y-auto p-4">
+                          <Demonomer 
+                              currentGrade={config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade} 
+                              onGradeChange={(g) => {
+                                  if (config.gradeMode === 'normal') {
+                                      handleConfigChange('currentGrade', g);
+                                  } else {
+                                      setDemonomerGrade(g);
+                                  }
+                              }}
+                              data={demonomerData}
+                              onDataChange={handleDemonomerChange}
+                              gradeMode={config.gradeMode}
+                              onGradeModeChange={(m) => handleConfigChange('gradeMode', m)}
+                              onOpenFieTrend={() => setIsFie2002TrendOpen(true)}
+                          />
+                      </div>
                   </div>
-                  <div className="flex-1 overflow-y-auto p-4">
-                      <Demonomer 
-                          currentGrade={config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade} 
-                          onGradeChange={(g) => {
-                              if (config.gradeMode === 'normal') {
-                                  handleConfigChange('currentGrade', g);
-                              } else {
-                                  setDemonomerGrade(g);
-                              }
-                          }}
-                          data={demonomerData}
-                          onDataChange={handleDemonomerChange}
-                          gradeMode={config.gradeMode}
-                          onGradeModeChange={(m) => handleConfigChange('gradeMode', m)}
-                          onOpenFieTrend={() => setIsFie2002TrendOpen(true)}
-                      />
-                  </div>
-              </div>
+              </DraggableModal>
           </div>
       )}
 
       {/* --- CATALYST PRESETS MODAL --- */}
       {isCatalystModalOpen && (
-          <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
-              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden transform transition-all scale-100 ring-4 ring-indigo-500/50 catalyst-modal-container">
-                  <div className="bg-indigo-600 text-white p-5 flex items-center justify-between">
-                      <h3 className="text-xl font-black flex items-center gap-2">
-                          <Sliders className="w-6 h-6 text-yellow-300 animate-pulse" />
-                          PRESET CATALYST PER GRADE
-                      </h3>
-                      <button onClick={() => setIsCatalystModalOpen(false)} className="p-1.5 hover:bg-white/20 rounded-full transition-colors">
-                          <X className="w-5 h-5" />
-                      </button>
-                  </div>
+          <div className="fixed inset-0 pointer-events-none z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <DraggableModal className="w-full max-w-xl">
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden transform transition-all scale-100 ring-4 ring-indigo-500/50 catalyst-modal-container">
+                      <div className="bg-indigo-600 text-white p-5 flex items-center justify-between cursor-grab active:cursor-grabbing">
+                          <h3 className="text-xl font-black flex items-center gap-2">
+                              <Sliders className="w-6 h-6 text-yellow-300 animate-pulse" />
+                              PRESET CATALYST PER GRADE
+                              <span className="px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
+                                  ✋ Tahan &amp; Drag
+                              </span>
+                          </h3>
+                          <button onClick={() => setIsCatalystModalOpen(false)} className="p-1.5 hover:bg-white/20 rounded-full transition-colors">
+                              <X className="w-5 h-5" />
+                          </button>
+                      </div>
                   <div className="p-5 space-y-4">
                       <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
                           Atur jumlah catalyst untuk setiap grade di bawah ini. Anda dapat meng-apply langsung ke tabel polymer atau menyimpan preset ke database.
@@ -5176,79 +5278,89 @@ const App: React.FC = () => {
                       </div>
                   </div>
               </div>
-          </div>
-      )}
+          </DraggableModal>
+      </div>
+  )}
 
-      {/* --- START SILO CONFIRMATION MODAL --- */}
+      {/* --- EDIT RUMUS MODAL --- */}
       {isFormulaModalOpen && (
-          <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
-              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 ring-4 ring-blue-500/50">
-                  <div className="bg-blue-600 text-white p-6 flex items-center justify-between">
-                      <h3 className="text-2xl font-black flex items-center gap-2">
-                          <Calculator className="w-8 h-8 text-yellow-300" />
-                          EDIT RUMUS
-                      </h3>
-                      <button onClick={() => setIsFormulaModalOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
-                          <X className="w-6 h-6" />
-                      </button>
-                  </div>
-                  <div className="p-6 space-y-4">
-                      <div className="space-y-2">
-                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">RUMUS CYCLE TIME</label>
-                          <input 
-                              type="text"
-                              value={tempFormula}
-                              onChange={(e) => setTempFormula(e.target.value)}
-                              className="w-full font-mono text-lg font-bold text-blue-600 dark:text-blue-400 bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl p-4 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all"
-                              placeholder="(COMP - HOLD) + 2"
-                          />
-                      </div>
-                      <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/50">
-                          <h4 className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase mb-2">Variabel yang tersedia:</h4>
-                          <ul className="text-[11px] text-slate-600 dark:text-slate-400 space-y-1 font-bold">
-                              <li><span className="text-blue-600 dark:text-blue-400">COMP</span> : Total durasi dari NS START ke BLOWING COMPLETE (menit)</li>
-                              <li><span className="text-blue-600 dark:text-blue-400">HOLD</span> : Durasi BLOWING HOLD (menit)</li>
-                          </ul>
-                      </div>
-                      <div className="flex gap-3 pt-2">
-                          <button 
-                              onClick={() => setIsFormulaModalOpen(false)}
-                              className="flex-1 px-6 py-3 rounded-xl font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all uppercase tracking-widest"
-                          >
-                              BATAL
-                          </button>
-                          <button 
-                              onClick={() => {
-                                  handleDemonomerChange('cycleTimeFormula', tempFormula);
-                                  setIsFormulaModalOpen(false);
-                              }}
-                              className="flex-1 px-6 py-3 rounded-xl font-black text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all uppercase tracking-widest"
-                          >
-                              SIMPAN
+          <div className="fixed inset-0 pointer-events-none z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <DraggableModal className="w-full max-w-md">
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 ring-4 ring-blue-500/50">
+                      <div className="bg-blue-600 text-white p-6 flex items-center justify-between cursor-grab active:cursor-grabbing">
+                          <h3 className="text-2xl font-black flex items-center gap-2">
+                              <Calculator className="w-8 h-8 text-yellow-300" />
+                              EDIT RUMUS
+                              <span className="px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
+                                  ✋ Tahan &amp; Drag
+                              </span>
+                          </h3>
+                          <button onClick={() => setIsFormulaModalOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                              <X className="w-6 h-6" />
                           </button>
                       </div>
+                      <div className="p-6 space-y-4">
+                          <div className="space-y-2">
+                              <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">RUMUS CYCLE TIME</label>
+                              <input 
+                                  type="text"
+                                  value={tempFormula}
+                                  onChange={(e) => setTempFormula(e.target.value)}
+                                  className="w-full font-mono text-lg font-bold text-blue-600 dark:text-blue-400 bg-slate-50 dark:bg-slate-800 border-2 border-slate-200 dark:border-slate-700 rounded-xl p-4 focus:ring-4 focus:ring-blue-500/20 outline-none transition-all"
+                                  placeholder="(COMP - HOLD) + 2"
+                              />
+                          </div>
+                          <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-xl border border-blue-100 dark:border-blue-800/50">
+                              <h4 className="text-[10px] font-black text-blue-600 dark:text-blue-400 uppercase mb-2">Variabel yang tersedia:</h4>
+                              <ul className="text-[11px] text-slate-600 dark:text-slate-400 space-y-1 font-bold">
+                                  <li><span className="text-blue-600 dark:text-blue-400">COMP</span> : Total durasi dari NS START ke BLOWING COMPLETE (menit)</li>
+                                  <li><span className="text-blue-600 dark:text-blue-400">HOLD</span> : Durasi BLOWING HOLD (menit)</li>
+                              </ul>
+                          </div>
+                          <div className="flex gap-3 pt-2">
+                              <button 
+                                  onClick={() => setIsFormulaModalOpen(false)}
+                                  className="flex-1 px-6 py-3 rounded-xl font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all uppercase tracking-widest"
+                              >
+                                  BATAL
+                              </button>
+                              <button 
+                                  onClick={() => {
+                                      handleDemonomerChange('cycleTimeFormula', tempFormula);
+                                      setIsFormulaModalOpen(false);
+                                  }}
+                                  className="flex-1 px-6 py-3 rounded-xl font-black text-white bg-blue-600 hover:bg-blue-700 shadow-lg shadow-blue-500/30 transition-all uppercase tracking-widest"
+                              >
+                                  SIMPAN
+                              </button>
+                          </div>
+                      </div>
                   </div>
-              </div>
+              </DraggableModal>
           </div>
       )}
 
       {/* --- START SILO CONFIRMATION MODAL --- */}
       {startSiloData && (
-          <div className="fixed inset-0 bg-black/60 z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
-              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 ring-4 ring-emerald-500/50">
-                  {/* Header */}
-                  <div className="bg-emerald-600 text-white p-6 flex items-center justify-between">
-                      <div>
-                          <h3 className="text-2xl font-black flex items-center gap-2">
-                              <PlayCircle className="w-8 h-8 text-yellow-300" />
-                              START SILO {startSiloData.id}
-                          </h3>
-                          <p className="text-emerald-100 font-bold text-sm mt-1">Please confirm start details.</p>
+          <div className="fixed inset-0 pointer-events-none z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <DraggableModal className="w-full max-w-md">
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 ring-4 ring-emerald-500/50">
+                      {/* Header */}
+                      <div className="bg-emerald-600 text-white p-6 flex items-center justify-between cursor-grab active:cursor-grabbing">
+                          <div>
+                              <h3 className="text-2xl font-black flex items-center gap-2">
+                                  <PlayCircle className="w-8 h-8 text-yellow-300" />
+                                  START SILO {startSiloData.id}
+                                  <span className="px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
+                                      ✋ Tahan &amp; Drag
+                                  </span>
+                              </h3>
+                              <p className="text-emerald-100 font-bold text-sm mt-1">Please confirm start details.</p>
+                          </div>
+                          <button onClick={() => setStartSiloData(null)} className="bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors">
+                              <X className="w-6 h-6" />
+                          </button>
                       </div>
-                      <button onClick={() => setStartSiloData(null)} className="bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors">
-                          <X className="w-6 h-6" />
-                      </button>
-                  </div>
 
                   {/* Body */}
                   <div className="p-6 space-y-6">
@@ -5352,305 +5464,320 @@ const App: React.FC = () => {
                       </button>
                   </div>
               </div>
-          </div>
-      )}
+          </DraggableModal>
+      </div>
+  )}
 
       {/* ... [Reschedule Modal] ... */}
       {selectedItem && (
-        <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-            <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-                <div className="bg-slate-800 dark:bg-slate-950 text-white p-6 flex justify-between items-center shrink-0">
-                    <div>
-                        <h3 className="text-2xl font-black flex items-center gap-2">
-                            <Edit3 className="w-6 h-6 text-blue-400" />
-                            Adjust Schedule
-                        </h3>
-                        <p className="text-sm font-bold text-slate-400">
-                            Reaktor {selectedItem.reactorId} &bull; Batch {selectedItem.batchNumber || '---'}
-                        </p>
-                    </div>
-                    <button onClick={closeRescheduleModal} className="text-slate-400 hover:text-white transition-colors">
-                        <X className="w-6 h-6" />
-                    </button>
-                </div>
-                
-                <div className="p-6 space-y-6 overflow-y-auto">
-                    
-                    {/* FITUR KHUSUS: INPUT FOR RE-S (Hanya untuk Reaktor S Cycle Pertama) */}
-                    {selectedItem.reactorId === 'S' && selectedItem.cycleIndex === 0 && (
-                        <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/60 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
-                            <div>
-                                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 block">Sequence Control</label>
-                                <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
-                                    Update No Batch & Start Time Reaktor S
-                                </p>
-                            </div>
-                            <button 
-                                type="button"
-                                onClick={() => handleResetSequence(selectedItem)} 
-                                className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-black bg-red-600 text-white hover:bg-red-700 border border-red-700 transition-all shadow-lg transform active:scale-95 text-xs uppercase tracking-wider shrink-0 w-full sm:w-auto`}
-                            >
-                                <RotateCcw className="w-5 h-5" />
-                                INPUT FOR RE-S
-                            </button>
+        <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center p-4">
+            <DraggableModal className="w-full max-w-lg">
+                <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+                    <div className="bg-slate-800 dark:bg-slate-950 text-white p-6 flex justify-between items-center shrink-0 cursor-grab active:cursor-grabbing">
+                        <div>
+                            <h3 className="text-2xl font-black flex items-center gap-2">
+                                <Edit3 className="w-6 h-6 text-blue-400" />
+                                Adjust Schedule
+                                <span className="px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
+                                    ✋ Tahan &amp; Drag
+                                </span>
+                            </h3>
+                            <p className="text-sm font-bold text-slate-400">
+                                Reaktor {selectedItem.reactorId} &bull; Batch {selectedItem.batchNumber || '---'}
+                            </p>
                         </div>
-                    )}
-                    
-                    {/* Notes */}
-                    <div className="mb-6">
-                        <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-3 block">Operator Notes</label>
-                        <textarea 
-                            value={editForm.note} 
-                            onChange={(e) => {
-                                setEditForm(prev => ({...prev, note: e.target.value}));
-                                if (!shouldBlinkNote) {
-                                    setShouldBlinkNote(true);
-                                    setTimeout(() => setShouldBlinkNote(false), 5000);
-                                }
-                            }} 
-                            onFocus={() => setIsNoteFocused(true)}
-                            onBlur={() => setIsNoteFocused(false)}
-                            placeholder="Add information for DCS operator..." 
-                            className={`w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl p-4 text-base font-bold focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px] ${editForm.note && !isNoteFocused && shouldBlinkNote ? 'animate-blink border-red-500 ring-2 ring-red-500/20' : ''}`} 
-                        />
+                        <button onClick={closeRescheduleModal} className="text-slate-400 hover:text-white transition-colors">
+                            <X className="w-6 h-6" />
+                        </button>
                     </div>
-
-                    {/* Mode, Grade & Skip Controls */}
-                    <div className="grid grid-cols-2 gap-6">
-                         <div className="flex flex-col gap-3">
-                            <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase">Status</label>
-                            <select 
-                                value={editForm.isSkipped ? editForm.skipReason : 'ACTIVE'} 
+                    
+                    <div className="p-6 space-y-6 overflow-y-auto">
+                        
+                        {/* FITUR KHUSUS: INPUT FOR RE-S (Hanya untuk Reaktor S Cycle Pertama) */}
+                        {selectedItem.reactorId === 'S' && selectedItem.cycleIndex === 0 && (
+                            <div className="bg-red-50 dark:bg-red-950/30 border border-red-200 dark:border-red-900/60 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-3 shadow-sm">
+                                <div>
+                                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-1 block">Sequence Control</label>
+                                    <p className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                                        Update No Batch & Start Time Reaktor S
+                                    </p>
+                                </div>
+                                <button 
+                                    type="button"
+                                    onClick={() => handleResetSequence(selectedItem)} 
+                                    className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-black bg-red-600 text-white hover:bg-red-700 border border-red-700 transition-all shadow-lg transform active:scale-95 text-xs uppercase tracking-wider shrink-0 w-full sm:w-auto`}
+                                >
+                                    <RotateCcw className="w-5 h-5" />
+                                    INPUT FOR RE-S
+                                </button>
+                            </div>
+                        )}
+                        
+                        {/* Notes */}
+                        <div className="mb-6">
+                            <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-3 block">Operator Notes</label>
+                            <textarea 
+                                value={editForm.note} 
                                 onChange={(e) => {
-                                    const val = e.target.value;
-                                    if (val === 'ACTIVE') {
-                                        setEditForm(prev => ({ ...prev, isSkipped: false, skipReason: 'PASS' }));
-                                    } else {
-                                        setEditForm(prev => ({ ...prev, isSkipped: true, skipReason: val as any }));
+                                    setEditForm(prev => ({...prev, note: e.target.value}));
+                                    if (!shouldBlinkNote) {
+                                        setShouldBlinkNote(true);
+                                        setTimeout(() => setShouldBlinkNote(false), 5000);
                                     }
                                 }} 
-                                className={`w-full p-4 rounded-xl border-2 font-black transition-colors text-lg appearance-none outline-none ${editForm.isSkipped ? 'bg-stone-200 text-stone-700 border-stone-300' : 'bg-white dark:bg-slate-700 text-gray-600 dark:text-gray-200 border-gray-200 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'}`}
-                            >
-                                <option value="ACTIVE">ACTIVE</option>
-                                <option value="PASS">PASS</option>
-                                <option value="CLEANING_ROBOT">CLEANING ROBOT</option>
-                                <option value="ABNORMAL_REAKSI">ABNORMAL REAKSI</option>
-                                <option value="MAINTENANCE">MAINTENANCE</option>
-                                <option value="POISON_CHARGE">POISON CHARGE</option>
-                            </select>
-                         </div>
-                         <div className="flex flex-col gap-3">
-                            <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase">Mode</label>
-                            <div className="flex bg-slate-100 dark:bg-slate-700 rounded-xl p-1.5 border-2 border-slate-200 dark:border-slate-600 gap-1.5">
-                                <button onClick={() => handleModeChange('CLOSE')} className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${editForm.mode === 'CLOSE' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
-                                    CLOSE
-                                </button>
-                                <button onClick={() => handleModeChange('OPEN')} className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${editForm.mode === 'OPEN' ? 'bg-cyan-500 text-white shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
-                                    OPEN
-                                </button>
-                                <button onClick={() => handleModeChange('CLOSE TO OPEN')} className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${editForm.mode === 'CLOSE TO OPEN' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
-                                    C TO O
-                                </button>
-                            </div>
-                         </div>
-                    </div>
-
-                    {/* Grade Selector (Override) */}
-                    <div>
-                        <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-3 block">Change Grade (Override)</label>
-                        <div className="flex gap-3 flex-wrap">
-                            {GRADES.map(g => (
-                                <button key={g} onClick={() => setEditForm(prev => ({...prev, grade: g}))} className={`px-5 py-3 text-base font-black rounded-lg border-2 transition-all ${editForm.grade === g ? `${GRADE_COLORS[g]} text-white border-slate-800 shadow-md` : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-slate-300'}`}>
-                                    {g}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    {!editForm.isSkipped && (
-                        <>
-                            {/* Time Input */}
-                            <div className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700">
-                                <label className="block text-base font-black text-slate-600 dark:text-slate-300 mb-3 flex justify-between">
-                                    <span>Start Time</span>
-                                    {editForm.mode === 'OPEN' && <span className="text-cyan-600 dark:text-cyan-400 text-sm italic font-bold">-30 mins adjusted</span>}
-                                </label>
-                                <input type="datetime-local" value={editForm.timeValue} onChange={(e) => setEditForm(prev => ({...prev, timeValue: e.target.value}))} className="w-full border-2 border-slate-300 dark:border-slate-600 rounded-xl p-4 text-2xl font-mono font-black text-slate-800 dark:text-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900 outline-none transition-all bg-white dark:bg-slate-800" />
-                                
-                                <div className="mt-6 pt-6 border-t-2 border-slate-200 dark:border-slate-600">
-                                    <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-3 block">Quick Delay Adjustment</label>
-                                    <div className="flex items-end gap-3">
-                                        <div className="flex-1">
-                                            <span className="text-xs text-slate-400 font-black block mb-1">HOURS</span>
-                                            <input type="number" min="0" value={editForm.delayHours} onChange={(e) => setEditForm(prev => ({...prev, delayHours: parseInt(e.target.value) || 0}))} className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center" />
-                                        </div>
-                                        <div className="flex-1">
-                                            <span className="text-xs text-slate-400 font-black block mb-1">MINUTES</span>
-                                            <input type="number" min="0" value={editForm.delayMinutes} onChange={(e) => setEditForm(prev => ({...prev, delayMinutes: parseInt(e.target.value) || 0}))} className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center" />
-                                        </div>
-                                        <button onClick={applyManualDelay} className="bg-blue-600 hover:bg-blue-700 text-white font-black px-6 py-3 rounded-lg h-[60px] text-sm transition-all shadow-md active:scale-95">
-                                            APPLY (+{editForm.manualDelayMinutes}m)
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-
-                            {/* Shift Toggle */}
-                            <div className="flex items-center gap-4 bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border-2 border-orange-100 dark:border-orange-900/40 cursor-pointer" onClick={() => setEditForm(prev => ({...prev, shiftSubsequent: !prev.shiftSubsequent}))}>
-                                <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${editForm.shiftSubsequent ? 'bg-orange-500 border-orange-600' : 'bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600'}`}>
-                                    {editForm.shiftSubsequent && <div className="w-3 h-3 bg-white dark:bg-white rounded-sm" />}
-                                </div>
-                                <div className="flex-1">
-                                    <span className="block text-base font-black text-slate-700 dark:text-slate-300">
-                                        {editForm.shiftSubsequent ? 'Continue Interval (Shift Active)' : 'Stop Running Interval (Shift Schedule)'}
-                                    </span>
-                                    <span className="block text-xs font-bold text-slate-500 dark:text-slate-500">Delay will push all subsequent batches forward</span>
-                                </div>
-                                <PauseCircle className="w-6 h-6 text-orange-400" />
-                            </div>
-
-                            {/* Custom Subsequent Interval Adjuster */}
-                            <div className="bg-blue-50 dark:bg-blue-900/10 p-6 rounded-xl border-2 border-blue-200 dark:border-blue-900/40">
-                                <div 
-                                    className="flex items-center gap-4 cursor-pointer mb-4 select-none" 
-                                    onClick={() => setEditForm(prev => ({ ...prev, hasCustomInterval: !prev.hasCustomInterval }))}
-                                >
-                                    <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${editForm.hasCustomInterval ? 'bg-blue-600 border-blue-700' : 'bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600'}`}>
-                                        {editForm.hasCustomInterval && <div className="w-3 h-3 bg-white dark:bg-white rounded-sm" />}
-                                    </div>
-                                    <div className="flex-1">
-                                        <span className="block text-base font-black text-blue-800 dark:text-blue-300">
-                                            Adjust Subsequent Cycle Interval
-                                        </span>
-                                        <span className="block text-xs font-bold text-blue-600 dark:text-blue-400">
-                                            Ubah interval cycle berikutnya mulai dari reaktor ini
-                                        </span>
-                                    </div>
-                                </div>
-
-                                <div className="pt-4 border-t-2 border-blue-100 dark:border-blue-900/30 transition-all">
-                                    <label className="text-sm font-black text-blue-700 dark:text-blue-300 uppercase mb-3 block">New Interval Value</label>
-                                    <div className="flex items-center gap-4">
-                                        <div className="flex-1">
-                                            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-black block mb-1">HOURS</span>
-                                            <input 
-                                                type="number" 
-                                                min="0" 
-                                                disabled={!editForm.hasCustomInterval}
-                                                value={editForm.customIntervalHours} 
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, customIntervalHours: Math.max(0, parseInt(e.target.value) || 0) }))} 
-                                                className={`w-full border-2 border-blue-200 dark:border-blue-800 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all ${!editForm.hasCustomInterval ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-900/40' : ''}`} 
-                                            />
-                                        </div>
-                                        <div className="flex-1">
-                                            <span className="text-[10px] text-blue-600 dark:text-blue-400 font-black block mb-1">MINUTES</span>
-                                            <input 
-                                                type="number" 
-                                                min="0" 
-                                                max="59" 
-                                                disabled={!editForm.hasCustomInterval}
-                                                value={editForm.customIntervalMinutes} 
-                                                onChange={(e) => setEditForm(prev => ({ ...prev, customIntervalMinutes: Math.min(59, Math.max(0, parseInt(e.target.value) || 0)) }))} 
-                                                className={`w-full border-2 border-blue-200 dark:border-blue-800 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all ${!editForm.hasCustomInterval ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-900/40' : ''}`} 
-                                            />
-                                        </div>
-                                    </div>
-                                    <span className="block text-xs font-bold text-amber-600 dark:text-amber-400 mt-3 bg-amber-500/10 p-2.5 rounded-lg border border-amber-500/20">
-                                        ℹ️ Interval baru ({editForm.customIntervalHours} jam {editForm.customIntervalMinutes} menit) akan berlaku untuk semua reaktor berikutnya dalam cycle yang belum start.
-                                    </span>
-                                </div>
-                            </div>
-                        </>
-                    )}
-
-                    {/* Stage Info (Sort Info) Selector */}
-                    <div className="bg-fuchsia-50 dark:bg-fuchsia-900/20 p-6 rounded-xl border border-fuchsia-100 dark:border-fuchsia-800">
-                        <label className="text-sm font-black text-fuchsia-700 dark:text-fuchsia-300 uppercase mb-3 flex items-center gap-1">
-                            <Tag className="w-4 h-4" /> Stage Info (Label)
-                        </label>
-                        <div className="flex flex-wrap gap-3">
-                            {STAGE_OPTIONS.map(opt => (
-                                <button key={opt} onClick={() => setEditForm(prev => ({...prev, stageInfo: opt}))} className={`px-4 py-3 text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === opt ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-sm' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:bg-fuchsia-100 dark:hover:bg-slate-600'}`}>
-                                    {opt}
-                                </button>
-                            ))}
-                            <button onClick={() => setEditForm(prev => ({...prev, stageInfo: ''}))} className={`px-4 py-3 text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === '' ? 'bg-slate-200 text-slate-500 border-slate-300 dark:bg-slate-600 dark:text-slate-300 dark:border-slate-500' : 'bg-white dark:bg-slate-700 text-slate-400 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
-                                Clear
-                            </button>
-                        </div>
-                        <div className="mt-4">
-                            <input 
-                                type="text" 
-                                value={editForm.stageInfo} 
-                                onChange={(e) => setEditForm(prev => ({...prev, stageInfo: e.target.value}))}
-                                placeholder="Or type custom label..."
-                                className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-base font-black focus:ring-2 focus:ring-fuchsia-500 outline-none"
+                                onFocus={() => setIsNoteFocused(true)}
+                                onBlur={() => setIsNoteFocused(false)}
+                                placeholder="Add information for DCS operator..." 
+                                className={`w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl p-4 text-base font-bold focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px] ${editForm.note && !isNoteFocused && shouldBlinkNote ? 'animate-blink border-red-500 ring-2 ring-red-500/20' : ''}`} 
                             />
                         </div>
+
+                        {/* Mode, Grade & Skip Controls */}
+                        <div className="grid grid-cols-2 gap-6">
+                             <div className="flex flex-col gap-3">
+                                <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase">Status</label>
+                                <select 
+                                    value={editForm.isSkipped ? editForm.skipReason : 'ACTIVE'} 
+                                    onChange={(e) => {
+                                        const val = e.target.value;
+                                        if (val === 'ACTIVE') {
+                                            setEditForm(prev => ({ ...prev, isSkipped: false, skipReason: 'PASS' }));
+                                        } else {
+                                            setEditForm(prev => ({ ...prev, isSkipped: true, skipReason: val as any }));
+                                        }
+                                    }} 
+                                    className={`w-full p-4 rounded-xl border-2 font-black transition-colors text-lg appearance-none outline-none ${editForm.isSkipped ? 'bg-stone-200 text-stone-700 border-stone-300' : 'bg-white dark:bg-slate-700 text-gray-600 dark:text-gray-200 border-gray-200 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'}`}
+                                >
+                                    <option value="ACTIVE">ACTIVE</option>
+                                    <option value="PASS">PASS</option>
+                                    <option value="CLEANING_ROBOT">CLEANING ROBOT</option>
+                                    <option value="ABNORMAL_REAKSI">ABNORMAL REAKSI</option>
+                                    <option value="MAINTENANCE">MAINTENANCE</option>
+                                    <option value="POISON_CHARGE">POISON CHARGE</option>
+                                </select>
+                             </div>
+                             <div className="flex flex-col gap-3">
+                                <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase">Mode</label>
+                                <div className="flex bg-slate-100 dark:bg-slate-700 rounded-xl p-1.5 border-2 border-slate-200 dark:border-slate-600 gap-1.5">
+                                    <button onClick={() => handleModeChange('CLOSE')} className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${editForm.mode === 'CLOSE' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
+                                        CLOSE
+                                    </button>
+                                    <button onClick={() => handleModeChange('OPEN')} className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${editForm.mode === 'OPEN' ? 'bg-cyan-500 text-white shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
+                                        OPEN
+                                    </button>
+                                    <button onClick={() => handleModeChange('CLOSE TO OPEN')} className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${editForm.mode === 'CLOSE TO OPEN' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
+                                        C TO O
+                                    </button>
+                                </div>
+                             </div>
+                        </div>
+
+                        {/* Grade Selector (Override) */}
+                        <div>
+                            <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-3 block">Change Grade (Override)</label>
+                            <div className="flex gap-3 flex-wrap">
+                                {GRADES.map(g => (
+                                    <button key={g} onClick={() => setEditForm(prev => ({...prev, grade: g}))} className={`px-5 py-3 text-base font-black rounded-lg border-2 transition-all ${editForm.grade === g ? `${GRADE_COLORS[g]} text-white border-slate-800 shadow-md` : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-slate-300'}`}>
+                                        {g}
+                                    </button>
+                                ))}
+                            </div>
+                        </div>
+
+                        {!editForm.isSkipped && (
+                            <>
+                                {/* Time Input */}
+                                <div className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700">
+                                    <label className="block text-base font-black text-slate-600 dark:text-slate-300 mb-3 flex justify-between">
+                                        <span>Start Time</span>
+                                        {editForm.mode === 'OPEN' && <span className="text-cyan-600 dark:text-cyan-400 text-sm italic font-bold">-30 mins adjusted</span>}
+                                    </label>
+                                    <input type="datetime-local" value={editForm.timeValue} onChange={(e) => setEditForm(prev => ({...prev, timeValue: e.target.value}))} className="w-full border-2 border-slate-300 dark:border-slate-600 rounded-xl p-4 text-2xl font-mono font-black text-slate-800 dark:text-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900 outline-none transition-all bg-white dark:bg-slate-800" />
+                                    
+                                    <div className="mt-6 pt-6 border-t-2 border-slate-200 dark:border-slate-600">
+                                        <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-3 block">Quick Delay Adjustment</label>
+                                        <div className="flex items-end gap-3">
+                                            <div className="flex-1">
+                                                <span className="text-xs text-slate-400 font-black block mb-1">HOURS</span>
+                                                <input type="number" min="0" value={editForm.delayHours} onChange={(e) => setEditForm(prev => ({...prev, delayHours: parseInt(e.target.value) || 0}))} className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center" />
+                                            </div>
+                                            <div className="flex-1">
+                                                <span className="text-xs text-slate-400 font-black block mb-1">MINUTES</span>
+                                                <input type="number" min="0" value={editForm.delayMinutes} onChange={(e) => setEditForm(prev => ({...prev, delayMinutes: parseInt(e.target.value) || 0}))} className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center" />
+                                            </div>
+                                            <button onClick={applyManualDelay} className="bg-blue-600 hover:bg-blue-700 text-white font-black px-6 py-3 rounded-lg h-[60px] text-sm transition-all shadow-md active:scale-95">
+                                                APPLY (+{editForm.manualDelayMinutes}m)
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+
+                                {/* Shift Toggle */}
+                                <div className="flex items-center gap-4 bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border-2 border-orange-100 dark:border-orange-900/40 cursor-pointer" onClick={() => setEditForm(prev => ({...prev, shiftSubsequent: !prev.shiftSubsequent}))}>
+                                    <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${editForm.shiftSubsequent ? 'bg-orange-500 border-orange-600' : 'bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600'}`}>
+                                        {editForm.shiftSubsequent && <div className="w-3 h-3 bg-white dark:bg-white rounded-sm" />}
+                                    </div>
+                                    <div className="flex-1">
+                                        <span className="block text-base font-black text-slate-700 dark:text-slate-300">
+                                            {editForm.shiftSubsequent ? 'Continue Interval (Shift Active)' : 'Stop Running Interval (Shift Schedule)'}
+                                        </span>
+                                        <span className="block text-xs font-bold text-slate-500 dark:text-slate-500">Delay will push all subsequent batches forward</span>
+                                    </div>
+                                    <PauseCircle className="w-6 h-6 text-orange-400" />
+                                </div>
+
+                                {/* Custom Subsequent Interval Adjuster */}
+                                <div className="bg-blue-50 dark:bg-blue-900/10 p-6 rounded-xl border-2 border-blue-200 dark:border-blue-900/40">
+                                    <div 
+                                        className="flex items-center gap-4 cursor-pointer mb-4 select-none" 
+                                        onClick={() => setEditForm(prev => ({ ...prev, hasCustomInterval: !prev.hasCustomInterval }))}
+                                    >
+                                        <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${editForm.hasCustomInterval ? 'bg-blue-600 border-blue-700' : 'bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600'}`}>
+                                            {editForm.hasCustomInterval && <div className="w-3 h-3 bg-white dark:bg-white rounded-sm" />}
+                                        </div>
+                                        <div className="flex-1">
+                                            <span className="block text-base font-black text-blue-800 dark:text-blue-300">
+                                                Adjust Subsequent Cycle Interval
+                                            </span>
+                                            <span className="block text-xs font-bold text-blue-600 dark:text-blue-400">
+                                                Ubah interval cycle berikutnya mulai dari reaktor ini
+                                            </span>
+                                        </div>
+                                    </div>
+
+                                    <div className="pt-4 border-t-2 border-blue-100 dark:border-blue-900/30 transition-all">
+                                        <label className="text-sm font-black text-blue-700 dark:text-blue-300 uppercase mb-3 block">New Interval Value</label>
+                                        <div className="flex items-center gap-4">
+                                            <div className="flex-1">
+                                                <span className="text-[10px] text-blue-600 dark:text-blue-400 font-black block mb-1">HOURS</span>
+                                                <input 
+                                                    type="number" 
+                                                    min="0" 
+                                                    disabled={!editForm.hasCustomInterval}
+                                                    value={editForm.customIntervalHours} 
+                                                    onChange={(e) => setEditForm(prev => ({ ...prev, customIntervalHours: Math.max(0, parseInt(e.target.value) || 0) }))} 
+                                                    className={`w-full border-2 border-blue-200 dark:border-blue-800 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all ${!editForm.hasCustomInterval ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-900/40' : ''}`} 
+                                                />
+                                            </div>
+                                            <div className="flex-1">
+                                                <span className="text-[10px] text-blue-600 dark:text-blue-400 font-black block mb-1">MINUTES</span>
+                                                <input 
+                                                    type="number" 
+                                                    min="0" 
+                                                    max="59" 
+                                                    disabled={!editForm.hasCustomInterval}
+                                                    value={editForm.customIntervalMinutes} 
+                                                    onChange={(e) => setEditForm(prev => ({ ...prev, customIntervalMinutes: Math.min(59, Math.max(0, parseInt(e.target.value) || 0)) }))} 
+                                                    className={`w-full border-2 border-blue-200 dark:border-blue-800 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all ${!editForm.hasCustomInterval ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-900/40' : ''}`} 
+                                                />
+                                            </div>
+                                        </div>
+                                        <span className="block text-xs font-bold text-amber-600 dark:text-amber-400 mt-3 bg-amber-500/10 p-2.5 rounded-lg border border-amber-500/20">
+                                            ℹ️ Interval baru ({editForm.customIntervalHours} jam {editForm.customIntervalMinutes} menit) akan berlaku untuk semua reaktor berikutnya dalam cycle yang belum start.
+                                        </span>
+                                    </div>
+                                </div>
+                            </>
+                        )}
+
+                        {/* Stage Info (Sort Info) Selector */}
+                        <div className="bg-fuchsia-50 dark:bg-fuchsia-900/20 p-6 rounded-xl border border-fuchsia-100 dark:border-fuchsia-800">
+                            <label className="text-sm font-black text-fuchsia-700 dark:text-fuchsia-300 uppercase mb-3 flex items-center gap-1">
+                                <Tag className="w-4 h-4" /> Stage Info (Label)
+                            </label>
+                            <div className="flex flex-wrap gap-3">
+                                {STAGE_OPTIONS.map(opt => (
+                                    <button key={opt} onClick={() => setEditForm(prev => ({...prev, stageInfo: opt}))} className={`px-4 py-3 text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === opt ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-sm' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:bg-fuchsia-100 dark:hover:bg-slate-600'}`}>
+                                        {opt}
+                                    </button>
+                                ))}
+                                <button onClick={() => setEditForm(prev => ({...prev, stageInfo: ''}))} className={`px-4 py-3 text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === '' ? 'bg-slate-200 text-slate-500 border-slate-300 dark:bg-slate-600 dark:text-slate-300 dark:border-slate-500' : 'bg-white dark:bg-slate-700 text-slate-400 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
+                                    Clear
+                                </button>
+                            </div>
+                            <div className="mt-4">
+                                <input 
+                                    type="text" 
+                                    value={editForm.stageInfo} 
+                                    onChange={(e) => setEditForm(prev => ({...prev, stageInfo: e.target.value}))}
+                                    placeholder="Or type custom label..."
+                                    className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-base font-black focus:ring-2 focus:ring-fuchsia-500 outline-none"
+                                />
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="bg-slate-50 dark:bg-slate-900 p-6 border-t-2 border-slate-200 dark:border-slate-800 flex gap-4 justify-end shrink-0">
+                        {config.itemConfigs[selectedItem.id] && (
+                            <button onClick={clearOverride} className="px-6 py-3 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl font-black text-base transition-colors mr-auto border-2 border-transparent hover:border-red-200">
+                                Reset
+                            </button>
+                        )}
+                        <button onClick={closeRescheduleModal} className="px-6 py-3 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-black text-base">
+                            Cancel
+                        </button>
+                        <button onClick={saveReschedule} className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 active:scale-95">
+                            Save Changes
+                        </button>
                     </div>
                 </div>
-
-                <div className="bg-slate-50 dark:bg-slate-900 p-6 border-t-2 border-slate-200 dark:border-slate-800 flex gap-4 justify-end shrink-0">
-                    {config.itemConfigs[selectedItem.id] && (
-                        <button onClick={clearOverride} className="px-6 py-3 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl font-black text-base transition-colors mr-auto border-2 border-transparent hover:border-red-200">
-                            Reset
-                        </button>
-                    )}
-                    <button onClick={closeRescheduleModal} className="px-6 py-3 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-black text-base">
-                        Cancel
-                    </button>
-                    <button onClick={saveReschedule} className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 active:scale-95">
-                        Save Changes
-                    </button>
-                </div>
-            </div>
+            </DraggableModal>
         </div>
       )}
 
       {/* --- Edit Reactor Note Modal --- */}
       {editingReactorNote && (
-          <div className="fixed inset-0 bg-black/60 z-50 flex items-center justify-center p-4">
-              <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-sm p-6 animate-in zoom-in-95">
-                  <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4">Edit Note untuk Reaktor {editingReactorNote}</h3>
-                  <div className="flex justify-center mb-4">
-                      <textarea
-                        value={tempReactorNote}
-                        onChange={(e) => setTempReactorNote(e.target.value)}
-                        placeholder="Enter note..."
-                        className="w-[220px] border-2 border-red-600 bg-yellow-400 text-black rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none font-bold text-left resize-none shadow-sm leading-tight text-sm"
-                        rows={3}
-                        autoFocus
-                      />
+          <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center p-4">
+              <DraggableModal className="w-full max-w-sm">
+                  <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-sm p-6 animate-in zoom-in-95 cursor-grab active:cursor-grabbing">
+                      <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center justify-between">
+                          <span>Edit Note untuk Reaktor {editingReactorNote}</span>
+                          <span className="text-[10px] bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded font-normal select-none">✋ Drag</span>
+                      </h3>
+                      <div className="flex justify-center mb-4">
+                          <textarea
+                            value={tempReactorNote}
+                            onChange={(e) => setTempReactorNote(e.target.value)}
+                            placeholder="Enter note..."
+                            className="w-[220px] border-2 border-red-600 bg-yellow-400 text-black rounded px-2 py-1 focus:ring-2 focus:ring-blue-500 outline-none font-bold text-left resize-none shadow-sm leading-tight text-sm"
+                            rows={3}
+                            autoFocus
+                          />
+                      </div>
+                      <div className="flex gap-2 justify-end">
+                          <button onClick={() => setEditingReactorNote(null)} className="px-4 py-2 text-slate-500 font-bold hover:bg-slate-100 dark:hover:bg-slate-700 rounded">
+                              Cancel
+                          </button>
+                          <button onClick={saveReactorNote} className="px-4 py-2 bg-blue-600 text-white font-bold rounded hover:bg-blue-700">
+                              Save
+                          </button>
+                      </div>
                   </div>
-                  <div className="flex gap-2 justify-end">
-                      <button onClick={() => setEditingReactorNote(null)} className="px-4 py-2 text-slate-500 font-bold hover:bg-slate-100 dark:hover:bg-slate-700 rounded">
-                          Cancel
-                      </button>
-                      <button onClick={saveReactorNote} className="px-4 py-2 bg-blue-600 text-white font-bold rounded hover:bg-blue-700">
-                          Save
-                      </button>
-                  </div>
-              </div>
+              </DraggableModal>
           </div>
       )}
 
       {/* --- Reset Sequence Modal --- */}
       {isResetModalOpen && (
-          <div className="fixed inset-0 bg-black/60 z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
-              <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 ring-4 ring-red-500/50">
-                  {/* Header */}
-                  <div className="bg-red-600 text-white p-6 flex items-center justify-between">
-                      <div>
-                          <h3 className="text-2xl font-black flex items-center gap-2">
-                              <RotateCcw className="w-8 h-8 text-yellow-300" />
-                              RESET SEQUENCE
-                          </h3>
-                          <p className="text-red-100 font-bold text-sm mt-1">Start new cycle & reset status.</p>
+          <div className="fixed inset-0 pointer-events-none z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <DraggableModal className="w-full max-w-md">
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 ring-4 ring-red-500/50">
+                      {/* Header */}
+                      <div className="bg-red-600 text-white p-6 flex items-center justify-between cursor-grab active:cursor-grabbing">
+                          <div>
+                              <h3 className="text-2xl font-black flex items-center gap-2">
+                                  <RotateCcw className="w-8 h-8 text-yellow-300" />
+                                  RESET SEQUENCE
+                                  <span className="px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
+                                      ✋ Tahan &amp; Drag
+                                  </span>
+                              </h3>
+                              <p className="text-red-100 font-bold text-sm mt-1">Start new cycle & reset status.</p>
+                          </div>
+                          <button onClick={() => setIsResetModalOpen(false)} className="bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors">
+                              <X className="w-6 h-6" />
+                          </button>
                       </div>
-                      <button onClick={() => setIsResetModalOpen(false)} className="bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors">
-                          <X className="w-6 h-6" />
-                      </button>
-                  </div>
 
                   {/* Body */}
                   <div className="p-6 space-y-6">
@@ -5741,8 +5868,9 @@ const App: React.FC = () => {
                       </button>
                   </div>
               </div>
-          </div>
-      )}
+          </DraggableModal>
+      </div>
+  )}
 
       {/* --- FIE2002 HOURLY TREND MODAL --- */}
       <Fie2002TrendModal 

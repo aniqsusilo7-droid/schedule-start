@@ -1,12 +1,13 @@
 import React, { useState, useMemo } from 'react';
 import { 
   X, TrendingUp, TrendingDown, Clock, Calendar, RefreshCw, 
-  Plus, Trash2, Download, Activity, Sparkles, Database, Check, AlertCircle, CheckCircle2, ShieldCheck, Zap
+  Plus, Trash2, Activity, Sparkles, Database, AlertCircle, Zap
 } from 'lucide-react';
 import { 
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, 
   ResponsiveContainer, ReferenceLine 
 } from 'recharts';
+import { DraggableModal } from './DraggableModal';
 
 export interface Fie2002TrendEntry {
   id: string;
@@ -78,79 +79,6 @@ export const Fie2002TrendModal: React.FC<Fie2002TrendModalProps> = ({
     return { avg, min, max, count: list.length, delta, deltaPercent };
   }, [filteredHistory, history, currentValue]);
 
-  // 3. Compute Current Trend Condition / Status
-  const trendCondition = useMemo(() => {
-    const list = history.length > 0 ? history : filteredHistory;
-    if (!list || list.length === 0) {
-      return {
-        status: 'STABIL',
-        color: 'cyan',
-        bgClass: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-400',
-        badgeBg: 'bg-cyan-500 text-slate-950',
-        icon: CheckCircle2,
-        title: 'KONDISI TREND: STABIL',
-        description: 'Nilai FIE2002 saat ini dalam batas normal & relatif konstan.'
-      };
-    }
-
-    // Examine recent points (last 10 points or last 1 hour)
-    const recent = list.slice(-Math.min(12, list.length));
-    const firstRecent = recent[0].value;
-    const lastRecent = currentValue;
-    const diff = lastRecent - firstRecent;
-
-    // Standard deviation or variance in recent entries
-    const recentAvg = recent.reduce((a, b) => a + b.value, 0) / recent.length;
-    const variance = recent.reduce((a, b) => a + Math.pow(b.value - recentAvg, 2), 0) / recent.length;
-    const stdDev = Math.sqrt(variance);
-
-    if (stdDev > 4.5) {
-      return {
-        status: 'FLUKTUATIF',
-        color: 'purple',
-        bgClass: 'bg-purple-500/10 border-purple-500/30 text-purple-300 dark:text-purple-300',
-        badgeBg: 'bg-purple-500 text-white',
-        icon: Activity,
-        title: 'KONDISI TREND: FLUKTUATIF (VARIAL SANGAT TINGGI)',
-        description: `Terjadi fluktuasi/lonjakan variasi nilai FIE2002 dalam beberapa log terakhir (StdDev: ${stdDev.toFixed(1)}).`
-      };
-    }
-
-    if (diff >= 0.5) {
-      return {
-        status: 'NAIK (RISING)',
-        color: 'emerald',
-        bgClass: 'bg-emerald-500/10 border-emerald-500/30 text-emerald-700 dark:text-emerald-300',
-        badgeBg: 'bg-emerald-500 text-slate-950',
-        icon: TrendingUp,
-        title: 'KONDISI TREND: CENDERUNG MENINGKAT (NAIK)',
-        description: `Terjadi tren kenaikan sebesar +${diff.toFixed(1)} unit (+${((diff/firstRecent)*100).toFixed(1)}%) dalam beberapa pencatatan terakhir.`
-      };
-    }
-
-    if (diff <= -0.5) {
-      return {
-        status: 'TURUN (FALLING)',
-        color: 'rose',
-        bgClass: 'bg-rose-500/10 border-rose-500/30 text-rose-700 dark:text-rose-300',
-        badgeBg: 'bg-rose-500 text-white',
-        icon: TrendingDown,
-        title: 'KONDISI TREND: CENDERUNG MENURUN (TURUN)',
-        description: `Terjadi tren penurunan sebesar ${diff.toFixed(1)} unit (${((diff/firstRecent)*100).toFixed(1)}%) dalam beberapa pencatatan terakhir.`
-      };
-    }
-
-    return {
-      status: 'STABIL (STABLE)',
-      color: 'cyan',
-      bgClass: 'bg-cyan-500/10 border-cyan-500/30 text-cyan-700 dark:text-cyan-300',
-      badgeBg: 'bg-cyan-500 text-slate-950',
-      icon: CheckCircle2,
-      title: 'KONDISI TREND: STABIL & KONSTAN',
-      description: `Nilai FIE2002 relatif konstan dengan variasi kecil (< ±0.5 unit).`
-    };
-  }, [history, filteredHistory, currentValue]);
-
   if (!isOpen) return null;
 
   // Handle Manual Add
@@ -162,22 +90,6 @@ export const Fie2002TrendModal: React.FC<Fie2002TrendModalProps> = ({
       setManualValue('');
       setManualHour('');
     }
-  };
-
-  // Export CSV
-  const handleExportCSV = () => {
-    const list = filteredHistory.length > 0 ? filteredHistory : history;
-    if (!list || list.length === 0) return;
-    const headers = "ID,Timestamp,TimeString,HourKey,Value,Note\n";
-    const rows = list.map(h => `"${h.id}","${new Date(h.timestamp).toISOString()}","${h.timeString}","${h.hourKey}",${h.value},"${h.note || ''}"`).join("\n");
-    const blob = new Blob([headers + rows], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const link = document.createElement('a');
-    link.href = url;
-    link.setAttribute('download', `fie2002_trend_7hari_${new Date().toISOString().slice(0, 10)}.csv`);
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
   };
 
   // Custom Chart Tooltip
@@ -205,30 +117,32 @@ export const Fie2002TrendModal: React.FC<Fie2002TrendModalProps> = ({
     return null;
   };
 
-  const TrendIcon = trendCondition.icon;
-
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-5 bg-slate-950/80 backdrop-blur-md animate-in fade-in duration-200">
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-5xl max-h-[94vh] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
-        
-        {/* Modal Header */}
-        <div className="px-6 py-4 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-700 text-white flex items-center justify-between shrink-0 shadow-md">
-          <div className="flex items-center gap-3">
-            <div className="p-2.5 bg-white/10 dark:bg-black/20 rounded-2xl border border-white/20 shadow-inner">
-              <Activity className="w-6 h-6 text-cyan-200 animate-pulse" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-lg font-black tracking-wide uppercase">GRAFIK TREND FIE2002</h3>
-                <span className="px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-200 text-[10px] font-black uppercase tracking-wider border border-emerald-300/30 flex items-center gap-1">
-                  <Zap className="w-3 h-3 text-emerald-300 animate-bounce" /> LIVE RECORDING PER MENIT (7 HARI)
-                </span>
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-3 md:p-5 pointer-events-none animate-in fade-in duration-200">
+      <DraggableModal className="w-full max-w-5xl max-h-[94vh] flex flex-col">
+        <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-3xl shadow-2xl w-full max-w-5xl max-h-[94vh] flex flex-col overflow-hidden text-slate-900 dark:text-slate-100">
+          
+          {/* Modal Header */}
+          <div className="px-6 py-4 bg-gradient-to-r from-cyan-600 via-blue-600 to-indigo-700 text-white flex items-center justify-between shrink-0 shadow-md cursor-grab active:cursor-grabbing">
+            <div className="flex items-center gap-3">
+              <div className="p-2.5 bg-white/10 dark:bg-black/20 rounded-2xl border border-white/20 shadow-inner">
+                <Activity className="w-6 h-6 text-cyan-200 animate-pulse" />
               </div>
-              <p className="text-xs text-cyan-100/90 font-medium">
-                Pencatatan waktu real-time per menit &amp; riwayat trend hingga 1 minggu (7 hari) ke belakang
-              </p>
+              <div>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <h3 className="text-lg font-black tracking-wide uppercase">GRAFIK TREND FIE2002</h3>
+                  <span className="px-2.5 py-0.5 rounded-full bg-emerald-400/20 text-emerald-200 text-[10px] font-black uppercase tracking-wider border border-emerald-300/30 flex items-center gap-1">
+                    <Zap className="w-3 h-3 text-emerald-300 animate-bounce" /> LIVE RECORDING PER MENIT (7 HARI)
+                  </span>
+                  <span className="px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none">
+                    ✋ Tahan &amp; Drag
+                  </span>
+                </div>
+                <p className="text-xs text-cyan-100/90 font-medium">
+                  Pencatatan waktu real-time per menit &amp; riwayat trend hingga 1 minggu (7 hari) ke belakang
+                </p>
+              </div>
             </div>
-          </div>
           <button 
             onClick={onClose}
             className="p-2 text-white/80 hover:text-white bg-white/10 hover:bg-white/20 rounded-xl transition-all"
@@ -240,36 +154,6 @@ export const Fie2002TrendModal: React.FC<Fie2002TrendModalProps> = ({
 
         {/* Modal Body - Scrollable */}
         <div className="p-5 md:p-6 overflow-y-auto space-y-5 flex-1">
-
-          {/* Banner Status Kondisi Trend Saat Ini */}
-          <div className={`p-4 rounded-2xl border ${trendCondition.bgClass} shadow-sm flex items-start justify-between gap-4 flex-wrap`}>
-            <div className="flex items-start gap-3 flex-1 min-w-[260px]">
-              <div className={`p-2.5 rounded-2xl ${trendCondition.badgeBg} shrink-0 shadow-md`}>
-                <TrendIcon className="w-6 h-6" />
-              </div>
-              <div>
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-xs font-black uppercase tracking-wider">KONDISI TREND SAAT INI</span>
-                  <span className={`px-2.5 py-0.5 text-[10px] font-black rounded-full uppercase tracking-wider ${trendCondition.badgeBg}`}>
-                    {trendCondition.status}
-                  </span>
-                </div>
-                <h4 className="text-sm font-extrabold mt-0.5">{trendCondition.title}</h4>
-                <p className="text-xs opacity-90 mt-1 leading-relaxed">
-                  {trendCondition.description} Rata-rata 7 hari terkahir adalah <strong className="font-black text-amber-500 dark:text-amber-300">{stats.avg}</strong>.
-                </p>
-              </div>
-            </div>
-
-            <div className="flex items-center gap-3 shrink-0 bg-white/50 dark:bg-slate-900/50 p-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-xs">
-              <div className="text-right">
-                <div className="text-[10px] font-bold text-slate-500 uppercase">Delta Periode</div>
-                <div className={`font-black ${stats.delta >= 0 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-600 dark:text-rose-400'}`}>
-                  {stats.delta >= 0 ? `+${stats.delta}` : stats.delta} ({stats.deltaPercent >= 0 ? `+${stats.deltaPercent}%` : `${stats.deltaPercent}%`})
-                </div>
-              </div>
-            </div>
-          </div>
 
           {/* Time Range Filter Tabs */}
           <div className="flex items-center justify-between gap-3 flex-wrap bg-slate-100 dark:bg-slate-800/60 p-2 rounded-2xl border border-slate-200 dark:border-slate-700">
@@ -460,14 +344,6 @@ export const Fie2002TrendModal: React.FC<Fie2002TrendModalProps> = ({
                 <Database className="w-4 h-4 text-cyan-500" />
                 {showTable ? 'SEMBUNYIKAN TABEL LOG' : 'LIHAT TABEL RIWAYAT LOG'}
               </button>
-              
-              <button 
-                onClick={handleExportCSV}
-                className="px-3.5 py-2 bg-slate-200 hover:bg-slate-300 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 font-bold text-xs rounded-xl transition-all uppercase tracking-wider flex items-center gap-1.5"
-                title="Unduh Data CSV"
-              >
-                <Download className="w-4 h-4 text-indigo-500" /> EXPORT CSV
-              </button>
             </div>
 
             <div className="flex items-center gap-2">
@@ -589,6 +465,7 @@ export const Fie2002TrendModal: React.FC<Fie2002TrendModalProps> = ({
         </div>
 
       </div>
+      </DraggableModal>
     </div>
   );
 };
