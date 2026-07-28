@@ -1,6 +1,6 @@
 
 import React, { useMemo } from 'react';
-import { ArrowRight, Settings2, Activity, RotateCcw, Calculator, Info, Database } from 'lucide-react';
+import { ArrowRight, Settings2, Activity, RotateCcw, Calculator, Info, Database, TrendingUp } from 'lucide-react';
 import { GradeType, DemonomerData } from '../types';
 import { GRADE_COLORS } from '../constants';
 
@@ -11,6 +11,7 @@ interface DemonomerProps {
   onDataChange: (field: keyof DemonomerData, value: any) => void;
   gradeMode: 'normal' | 'gradeChange';
   onGradeModeChange: (mode: 'normal' | 'gradeChange') => void;
+  onOpenFieTrend?: () => void;
 }
 
 type GradeKey = 'SM' | 'SLP' | 'SLK' | 'SE' | 'SR';
@@ -18,7 +19,7 @@ type GradeKey = 'SM' | 'SLP' | 'SLK' | 'SE' | 'SR';
 const DEFAULT_PVC_FORMULA = "F2002*AI2802/1000*%PVC";
 const DEFAULT_STEAM_FORMULA = "PVC * Steam Rasio";
 
-export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChange, data, onDataChange, gradeMode, onGradeModeChange }) => {
+export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChange, data, onDataChange, gradeMode, onGradeModeChange, onOpenFieTrend }) => {
   
   // --- Handlers ---
   const handleResetFormulas = () => {
@@ -131,7 +132,16 @@ export const Demonomer: React.FC<DemonomerProps> = ({ currentGrade, onGradeChang
               <table className="w-full border-collapse text-center">
                   <thead>
                       <tr>
-                          <th className="border-b-2 border-slate-100 dark:border-slate-800 p-4 bg-slate-50/50 dark:bg-slate-800/30 text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] text-xs font-bold">FIE2002</th>
+                          <th 
+                            className="border-b-2 border-slate-100 dark:border-slate-800 p-4 bg-slate-50/50 dark:bg-slate-800/30 text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] text-xs font-bold cursor-pointer hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors group"
+                            onClick={onOpenFieTrend}
+                            title="Klik tulisan FIE2002 untuk melihat Grafik Trend Perjam"
+                          >
+                            <div className="flex items-center justify-center gap-1.5">
+                              <span>FIE2002</span>
+                              <TrendingUp className="w-4 h-4 text-cyan-500 animate-pulse group-hover:scale-125 transition-transform" />
+                            </div>
+                          </th>
                           <th className="border-b-2 border-slate-100 dark:border-slate-800 p-4 bg-slate-50/50 dark:bg-slate-800/30 text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] text-xs font-bold">AI2802</th>
                           <th className="border-b-2 border-slate-100 dark:border-slate-800 p-4 bg-slate-50/50 dark:bg-slate-800/30 text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] text-xs font-bold">%PVC</th>
                           <th className="border-b-2 border-slate-100 dark:border-slate-800 p-4 bg-slate-50/50 dark:bg-slate-800/30 text-slate-500 dark:text-slate-400 uppercase tracking-[0.2em] text-xs font-bold">PVC RESULT</th>

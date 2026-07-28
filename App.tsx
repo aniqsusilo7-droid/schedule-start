@@ -8,12 +8,38 @@ import { Demonomer } from './components/Demonomer';
 import { Silo } from './components/Silo';
 import { Catatan } from './components/Catatan';
 import { Kesepakatan } from './components/Kesepakatan';
-import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert } from 'lucide-react';
+import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { Reorder } from 'framer-motion';
+import { Fie2002TrendModal, Fie2002TrendEntry } from './components/Fie2002TrendModal';
 
 const GRADES: GradeType[] = ['SM', 'SLK', 'SLP', 'SE', 'SR'];
 const STAGE_OPTIONS = ['Sample Blowing', 'Sample Washing', 'Sample Air Slurry'];
+
+// Helper to generate 7-day default sample trend history for FIE2002 (168 hours)
+const generateDefaultFie2002History = (baseVal: number = 125): Fie2002TrendEntry[] => {
+  const history: Fie2002TrendEntry[] = [];
+  const now = new Date();
+  const totalHours = 168; // 7 days = 168 hours
+  for (let i = totalHours; i >= 0; i--) {
+    const d = new Date(now.getTime() - i * 3600 * 1000);
+    const dateStr = `${d.getDate().toString().padStart(2, '0')}/${(d.getMonth() + 1).toString().padStart(2, '0')}`;
+    const timeStr = `${d.getHours().toString().padStart(2, '0')}:00`;
+    const fullTimeStr = `${dateStr} ${timeStr}`;
+    const minuteKey = `${d.getFullYear()}-${(d.getMonth()+1).toString().padStart(2, '0')}-${d.getDate().toString().padStart(2, '0')} ${d.getHours().toString().padStart(2, '0')}:00`;
+    const wave = Math.sin(i * 0.25) * 8 + (Math.cos(i * 0.5) * 4);
+    const val = Number((baseVal + wave).toFixed(1));
+    history.push({
+      id: `fie_sample_${i}_${d.getTime()}`,
+      timestamp: d.getTime(),
+      timeString: fullTimeStr,
+      hourKey: minuteKey,
+      value: val,
+      note: i === 0 ? 'Nilai Terkini' : undefined
+    });
+  }
+  return history;
+};
 
 // Global AudioContext to prevent autoplay issues in background tabs
 let globalAudioCtx: AudioContext | null = null;
@@ -1008,6 +1034,119 @@ const App: React.FC = () => {
       cycleTimeFormula: "(COMP - HOLD) + 2"
   });
   const [demonomerGrade, setDemonomerGrade] = useState<GradeType>('SM');
+
+  // --- FIE2002 Hourly Trend State & Persistence ---
+  const [isFie2002TrendOpen, setIsFie2002TrendOpen] = useState(false);
+  const [fie2002TrendHistory, setFie2002TrendHistory] = useState<Fie2002TrendEntry[]>(() => {
+    try {
+      const saved = localStorage.getItem('fie2002_trend_history');
+      if (saved) {
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) return parsed;
+      }
+    } catch (e) {
+      console.warn("Failed to read fie2002_trend_history from localStorage", e);
+    }
+    return generateDefaultFie2002History(125);
+  });
+
+  const updateFie2002TrendEntry = useCallback((val: number) => {
+    const now = new Date();
+    const dateStr = `${now.getDate().toString().padStart(2, '0')}/${(now.getMonth() + 1).toString().padStart(2, '0')}`;
+    const timeStr = `${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}:${now.getSeconds().toString().padStart(2, '0')}`;
+    const fullTimeString = `${dateStr} ${timeStr}`;
+    const minuteKey = `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')} ${now.getHours().toString().padStart(2, '0')}:${now.getMinutes().toString().padStart(2, '0')}`;
+
+    setFie2002TrendHistory(prev => {
+      let updated = [...prev];
+      const sevenDaysAgoMs = now.getTime() - (7 * 24 * 3600 * 1000);
+      // Prune data older than 7 days
+      updated = updated.filter(entry => entry.timestamp >= sevenDaysAgoMs);
+
+      if (updated.length === 0) {
+        updated = generateDefaultFie2002History(val);
+      }
+      
+      const lastIdx = updated.length - 1;
+      // If recorded within the exact same minute key, update value in place
+      if (lastIdx >= 0 && updated[lastIdx].hourKey === minuteKey) {
+        updated[lastIdx] = {
+          ...updated[lastIdx],
+          value: val,
+          timestamp: now.getTime(),
+          timeString: fullTimeString,
+          note: 'Live update per menit'
+        };
+      } else {
+        updated.push({
+          id: `fie_live_${now.getTime()}`,
+          timestamp: now.getTime(),
+          timeString: fullTimeString,
+          hourKey: minuteKey,
+          value: val,
+          note: 'Live log per menit'
+        });
+      }
+
+      // Limit max array size to 10000 points (~7 days of minute sampling)
+      if (updated.length > 10000) {
+        updated = updated.slice(updated.length - 10000);
+      }
+
+      try {
+        localStorage.setItem('fie2002_trend_history', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  }, []);
+
+  // Automatic interval to record live FIE2002 trend every minute
+  useEffect(() => {
+    const interval = setInterval(() => {
+      if (demonomerData?.f2002 !== undefined && demonomerData?.f2002 !== null) {
+        updateFie2002TrendEntry(demonomerData.f2002);
+      }
+    }, 60000); // 1 minute interval
+    return () => clearInterval(interval);
+  }, [demonomerData?.f2002, updateFie2002TrendEntry]);
+
+  const handleAddManualFieTrend = (val: number, customHour?: string) => {
+    const now = new Date();
+    const hourStr = customHour || `${now.getHours().toString().padStart(2, '0')}:00`;
+    const hourKey = `${now.getFullYear()}-${(now.getMonth()+1).toString().padStart(2, '0')}-${now.getDate().toString().padStart(2, '0')} ${hourStr}`;
+    
+    const newEntry: Fie2002TrendEntry = {
+      id: `fie_manual_${now.getTime()}`,
+      timestamp: now.getTime(),
+      timeString: hourStr,
+      hourKey: hourKey,
+      value: val,
+      note: 'Entry manual'
+    };
+
+    setFie2002TrendHistory(prev => {
+      const updated = [...prev, newEntry];
+      try {
+        localStorage.setItem('fie2002_trend_history', JSON.stringify(updated));
+      } catch (e) {}
+      return updated;
+    });
+  };
+
+  const handleResetDefaultFieTrend = () => {
+    const defaultHist = generateDefaultFie2002History(demonomerData.f2002);
+    setFie2002TrendHistory(defaultHist);
+    try {
+      localStorage.setItem('fie2002_trend_history', JSON.stringify(defaultHist));
+    } catch (e) {}
+  };
+
+  const handleClearFieTrend = () => {
+    setFie2002TrendHistory([]);
+    try {
+      localStorage.removeItem('fie2002_trend_history');
+    } catch (e) {}
+  };
 
   const [isFormulaModalOpen, setIsFormulaModalOpen] = useState(false);
   const [tempFormula, setTempFormula] = useState("");
@@ -2010,6 +2149,11 @@ const App: React.FC = () => {
       const newData = { ...demonomerData, [field]: value };
       setDemonomerData(newData);
       updateGlobalSetting({ demonomer_data: newData });
+
+      if (field === 'f2002') {
+          const numVal = typeof value === 'number' ? value : parseFloat(value) || 0;
+          updateFie2002TrendEntry(numVal);
+      }
   };
 
   // --- Reactor Note Handlers ---
@@ -3379,7 +3523,14 @@ const App: React.FC = () => {
               </button>
               <div className="bg-white dark:bg-slate-800 rounded-b-xl p-1.5 flex flex-col gap-1.5 justify-center">
                   <div className="bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white p-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-inner flex flex-col justify-center">
-                      <label className="text-[0.85em] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block text-center mb-0.5">FIE2002</label>
+                      <label 
+                          onClick={() => setIsFie2002TrendOpen(true)}
+                          className="text-[0.85em] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-center gap-1 mb-0.5 cursor-pointer hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors group"
+                          title="Klik tulisan FIE2002 untuk melihat Grafik Trend Perjam"
+                      >
+                          FIE2002
+                          <TrendingUp className="w-3.5 h-3.5 text-cyan-500 animate-pulse group-hover:scale-125 transition-transform" />
+                      </label>
                       <input 
                           type="number"
                           step="0.1"
@@ -4121,6 +4272,7 @@ const App: React.FC = () => {
                 onDataChange={handleDemonomerChange}
                 gradeMode={config.gradeMode}
                 onGradeModeChange={(m) => handleConfigChange('gradeMode', m)}
+                onOpenFieTrend={() => setIsFie2002TrendOpen(true)}
             />
           ); break;
           case 'silo': content = (
@@ -4732,6 +4884,7 @@ const App: React.FC = () => {
                     onDataChange={handleDemonomerChange}
                     gradeMode={config.gradeMode}
                     onGradeModeChange={(m) => handleConfigChange('gradeMode', m)}
+                    onOpenFieTrend={() => setIsFie2002TrendOpen(true)}
                 />
               )}
 
@@ -4783,6 +4936,7 @@ const App: React.FC = () => {
                           onDataChange={handleDemonomerChange}
                           gradeMode={config.gradeMode}
                           onGradeModeChange={(m) => handleConfigChange('gradeMode', m)}
+                          onOpenFieTrend={() => setIsFie2002TrendOpen(true)}
                       />
                   </div>
               </div>
@@ -5589,6 +5743,17 @@ const App: React.FC = () => {
               </div>
           </div>
       )}
+
+      {/* --- FIE2002 HOURLY TREND MODAL --- */}
+      <Fie2002TrendModal 
+          isOpen={isFie2002TrendOpen}
+          onClose={() => setIsFie2002TrendOpen(false)}
+          currentValue={demonomerData.f2002}
+          history={fie2002TrendHistory}
+          onAddManualEntry={handleAddManualFieTrend}
+          onClearHistory={handleClearFieTrend}
+          onResetDefaultHistory={handleResetDefaultFieTrend}
+      />
 
     </div>
   );
