@@ -1,5 +1,8 @@
 {
   "name": "Schedule Start",
   "description": "A digital reactor scheduling dashboard to manage start times, intervals, and delays for reactors S-T-U-V-W, replacing manual Excel sheets.",
-  "requestFramePermissions": []
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
 }

@@ -8,6 +8,7 @@ import { Demonomer } from './components/Demonomer';
 import { Silo } from './components/Silo';
 import { Catatan } from './components/Catatan';
 import { Kesepakatan } from './components/Kesepakatan';
+import { Jadwal } from './components/Jadwal';
 import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { Reorder } from 'framer-motion';
@@ -950,7 +951,7 @@ const HEADER_COLOR_SCHEMES = [
 
 const App: React.FC = () => {
   // --- State ---
-  const [currentView, setCurrentView] = useState<'scheduler' | 'demonomer' | 'silo' | 'catatan'>('scheduler');
+  const [currentView, setCurrentView] = useState<'scheduler' | 'demonomer' | 'silo' | 'catatan' | 'jadwal'>('scheduler');
   const [isDemonomerPopupOpen, setIsDemonomerPopupOpen] = useState(false);
   
   const [stoppedAt, setStoppedAt] = useState<number | null>(() => {
@@ -1035,6 +1036,19 @@ const App: React.FC = () => {
       cycleTimeFormula: "(COMP - HOLD) + 2"
   });
   const [demonomerGrade, setDemonomerGrade] = useState<GradeType>('SM');
+  const [isGradeChangeModalOpen, setIsGradeChangeModalOpen] = useState(false);
+  const [tempSelectedGradeForChange, setTempSelectedGradeForChange] = useState<GradeType>('SM');
+
+  const openGradeChangeModal = () => {
+    setTempSelectedGradeForChange(config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade);
+    setIsGradeChangeModalOpen(true);
+  };
+
+  const handleConfirmGradeChange = () => {
+    setDemonomerGrade(tempSelectedGradeForChange);
+    handleConfigChange('gradeMode', 'gradeChange');
+    setIsGradeChangeModalOpen(false);
+  };
 
   // --- FIE2002 Hourly Trend State & Persistence ---
   const [isFie2002TrendOpen, setIsFie2002TrendOpen] = useState(false);
@@ -1237,6 +1251,12 @@ const App: React.FC = () => {
   const [testAlertStyle, setTestAlertStyle] = useState<AlertStyleType | null>(null);
   const announcedBatches = useRef<Set<string>>(new Set());
   const [audioAllowed, setAudioAllowed] = useState(false); // Track if audio is allowed
+  const [audioNotification, setAudioNotification] = useState<{
+    show: boolean;
+    message: string;
+    subMessage?: string;
+    type?: 'info' | 'success' | 'warning';
+  } | null>(null);
   const [dbSchemaError, setDbSchemaError] = useState<string | null>(null);
   const supabaseColumnsRef = useRef<Set<string>>(new Set());
   const isCatalystModalOpenRef = useRef(false);
@@ -1248,13 +1268,45 @@ const App: React.FC = () => {
       alarmSoundRef.current = config.alarmSound;
   }, [config.alarmSound]);
 
-  // Play the loaded alarm sound once on initial app load for confirmation
-  const hasPlayedInitialSoundRef = useRef(false);
+  // Track load timestamp to prevent alarm sound from firing on initial website load / refresh
+  const appMountedTimestampRef = useRef<number>(Date.now());
+  const hasInitializedAudioNoticeRef = useRef(false);
+  const initialGracePeriodOverRef = useRef(false);
+
+  // When app finishes loading: initialize audio context silently & request desktop notification permission (No sound on initial load/refresh)
   useEffect(() => {
-    if (!isLoading && config.alarmSound) {
-        if (!hasPlayedInitialSoundRef.current) {
-            hasPlayedInitialSoundRef.current = true;
-            playAlarmSound(config.alarmSound);
+    if (!isLoading) {
+        initAudioContext();
+        setAudioAllowed(true);
+
+        if (!hasInitializedAudioNoticeRef.current) {
+            hasInitializedAudioNoticeRef.current = true;
+            appMountedTimestampRef.current = Date.now();
+            
+            // Set a timer to end the initial grace period (no sounds during this time)
+            setTimeout(() => {
+                initialGracePeriodOverRef.current = true;
+            }, 8000);
+
+            // Show non-intrusive confirmation toast on load / refresh
+            setAudioNotification({
+                show: true,
+                message: "Suara Alarm Diaktifkan",
+                subMessage: `Audio alarm (${config.alarmSound.toUpperCase()}) siap berbunyi otomatis saat jadwal reaktor start.`,
+                type: 'success'
+            });
+
+            // Request browser Notification permission for background tab / minimize alerts
+            if (typeof window !== 'undefined' && 'Notification' in window) {
+                if (Notification.permission === 'default') {
+                    Notification.requestPermission().catch(() => {});
+                }
+            }
+
+            const timer = setTimeout(() => {
+                setAudioNotification(prev => prev ? { ...prev, show: false } : null);
+            }, 6000);
+            return () => clearTimeout(timer);
         }
     }
   }, [isLoading, config.alarmSound]);
@@ -1282,7 +1334,6 @@ const App: React.FC = () => {
     if (!isSettingsOpen) {
       setSettingsCountdown(120);
       setIsAlertStyleSectionOpen(false);
-      setTestAlertStyle(null);
       return;
     }
 
@@ -1293,7 +1344,6 @@ const App: React.FC = () => {
           clearInterval(interval);
           setIsSettingsOpen(false);
           setIsAlertStyleSectionOpen(false);
-          setTestAlertStyle(null);
           return 0;
         }
         return prev - 1;
@@ -2786,13 +2836,20 @@ const App: React.FC = () => {
   }, [isScheduleCompleted, nextStartParams, config.isStopped, isLoading]);
 
   // Audio Logic
-   useEffect(() => {
+  useEffect(() => {
     if (!config.audioEnabled || config.isStopped) return;
 
+    // Don't play alarm sound in the first seconds of page load to prevent noisy refresh
+    const isInitialGracePeriod = !initialGracePeriodOverRef.current;
+
     (Object.values(scheduleMatrix).flat() as ScheduleItem[]).forEach(item => {
-        if (item.status === 'active' && !announcedBatches.current.has(item.id)) {
-            playAlarmSound(config.alarmSound);
-            announcedBatches.current.add(item.id);
+        if (item.status === 'active') {
+            if (!announcedBatches.current.has(item.id)) {
+                announcedBatches.current.add(item.id);
+                if (!isInitialGracePeriod) {
+                    playAlarmSound(config.alarmSound);
+                }
+            }
             
             // Check if audio context is allowed
             const ctx = initAudioContext();
@@ -2811,14 +2868,26 @@ const App: React.FC = () => {
     }
   }, [scheduleMatrix, config.audioEnabled, config.isStopped]);
 
-  // Handler to enable audio manually
+  // Handler to enable audio manually without loud blast
   const enableAudio = () => {
-      if (!isLoading) {
-          playAlarmSound(alarmSoundRef.current);
+      const ctx = initAudioContext();
+      if (ctx && ctx.state === 'suspended') {
+          ctx.resume();
       }
       setAudioAllowed(true);
+      if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'default') {
+          Notification.requestPermission().catch(() => {});
+      }
+      setAudioNotification({
+          show: true,
+          message: "Suara Alarm Diaktifkan",
+          subMessage: "Sistem alarm suara aktif dan siap membunyikan peringatan jadwal reaktor.",
+          type: 'success'
+      });
+      setTimeout(() => {
+          setAudioNotification(prev => prev ? { ...prev, show: false } : null);
+      }, 4000);
   };
-
 
   // Full Screen Alert Logic
   const fullScreenAlertItem = useMemo(() => {
@@ -2840,14 +2909,58 @@ const App: React.FC = () => {
       if (fullScreenAlertItem && fullScreenAlertItem.id !== lastAlertedId) {
           setLastAlertedId(fullScreenAlertItem.id);
           
+          // Don't play alarm sound in the first seconds of page load to prevent noisy refresh
+          const isInitialGracePeriod = !initialGracePeriodOverRef.current;
+
           // Play Siren Sound
-          if (config.audioEnabled) {
+          if (config.audioEnabled && !isInitialGracePeriod) {
               playAlarmSound(config.alarmSound);
+          }
+
+          // Trigger Desktop Notification when tab is minimized, in background, or inactive
+          if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
+              try {
+                  const secondsUntilStart = Math.max(0, Math.ceil((fullScreenAlertItem.startTime.getTime() - now.getTime()) / 1000));
+                  const notif = new Notification(`⚠️ PERINGATAN: START REAKTOR ${fullScreenAlertItem.reactorId}`, {
+                      body: `Reaktor ${fullScreenAlertItem.reactorId} (Batch ${fullScreenAlertItem.batchNumber} - ${fullScreenAlertItem.grade}) akan segera START dalam ${secondsUntilStart} detik!`,
+                      icon: '/favicon.ico',
+                      tag: `reactor-alert-${fullScreenAlertItem.id}`,
+                      requireInteraction: true
+                  });
+                  notif.onclick = () => {
+                      window.focus();
+                      notif.close();
+                  };
+              } catch (e) {
+                  console.warn("Desktop notification trigger failed:", e);
+              }
           }
       } else if (!fullScreenAlertItem) {
           setLastAlertedId(null);
       }
-  }, [fullScreenAlertItem, lastAlertedId, config.audioEnabled]);
+  }, [fullScreenAlertItem, lastAlertedId, config.audioEnabled, config.alarmSound, now]);
+
+  // Tab Title Flashing during Full Screen Alert
+  useEffect(() => {
+      if (!fullScreenAlertItem) {
+          document.title = "SCHEDULE START PVC 5";
+          return;
+      }
+
+      let isFlashing = false;
+      const originalTitle = "SCHEDULE START PVC 5";
+      const alertTitle = `🚨 [ALARM R${fullScreenAlertItem.reactorId}] START BATCH ${fullScreenAlertItem.batchNumber}!`;
+
+      const interval = setInterval(() => {
+          isFlashing = !isFlashing;
+          document.title = isFlashing ? alertTitle : `⚠️ REAKTOR ${fullScreenAlertItem.reactorId} STARTING...`;
+      }, 800);
+
+      return () => {
+          clearInterval(interval);
+          document.title = originalTitle;
+      };
+  }, [fullScreenAlertItem]);
 
   if (isLoading) {
       return (
@@ -2943,559 +3056,557 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Section: Navigation & Settings */}
+          {/* Right Section: Navigation Tabs (Matching Jadwal/Catatan/Setting Style) */}
           <div className="flex shrink-0">
-              
-              {/* Navigation Pill - Premium Style */}
-              <div className="flex flex-wrap items-center gap-0.5 bg-slate-100/80 dark:bg-slate-800/80 p-1 rounded-full border border-slate-200/60 dark:border-slate-700/60 shadow-inner backdrop-blur-xl">
-                  <button onClick={() => setCurrentView('scheduler')} className={`relative px-3.5 py-1.5 text-[0.75rem] font-bold uppercase tracking-wider rounded-full transition-all duration-300 flex items-center gap-1.5 ${currentView === 'scheduler' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600 scale-105' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}>
-                      <LayoutGrid className={`w-3.5 h-3.5 transition-colors ${currentView === 'scheduler' ? 'text-blue-600 dark:text-blue-400' : ''}`} /> <span>POLYMER</span>
-                  </button>
-                  <button onClick={() => setCurrentView('demonomer')} className={`relative px-3.5 py-1.5 text-[0.75rem] font-bold uppercase tracking-wider rounded-full transition-all duration-300 flex items-center gap-1.5 ${currentView === 'demonomer' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600 scale-105' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}>
-                      <Activity className={`w-3.5 h-3.5 transition-colors ${currentView === 'demonomer' ? 'text-teal-600 dark:text-teal-400' : ''}`} /> <span>DEMONOMER</span>
-                  </button>
-                  <button onClick={() => setCurrentView('silo')} className={`relative px-3.5 py-1.5 text-[0.75rem] font-bold uppercase tracking-wider rounded-full transition-all duration-300 flex items-center gap-1.5 ${currentView === 'silo' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600 scale-105' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}>
-                      <Database className={`w-3.5 h-3.5 transition-colors ${currentView === 'silo' ? 'text-cyan-600 dark:text-cyan-400' : ''}`} /> <span>SILO</span>
-                  </button>
-                  
-                  <div className="w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1"></div>
-                  
-                  <button onClick={() => setCurrentView('catatan')} className={`relative px-3.5 py-1.5 text-[0.75rem] font-bold uppercase tracking-wider rounded-full transition-all duration-300 flex items-center gap-1.5 ${currentView === 'catatan' ? 'bg-white dark:bg-slate-700 text-slate-900 dark:text-white shadow-sm ring-1 ring-slate-200 dark:ring-slate-600 scale-105' : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-200/50 dark:hover:bg-slate-700/50'}`}>
-                      <FileText className={`w-3.5 h-3.5 transition-colors ${currentView === 'catatan' ? 'text-emerald-600 dark:text-emerald-400' : ''}`} /> <span>CATATAN</span>
-                  </button>
-                  
-                  <div className={`w-px h-4 bg-slate-300 dark:bg-slate-600 mx-1 transition-opacity duration-500 ${isSettingsButtonVisible || isSettingsOpen ? 'opacity-100' : 'opacity-0'}`}></div>
-                  
+              <nav aria-label="Main Navigation" className="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
+                  {/* Tab 1: Polymer */}
                   <button 
-                      onClick={() => setIsSettingsOpen(!isSettingsOpen)} 
-                      className={`p-2 rounded-full transition-all duration-500 ${isSettingsButtonVisible || isSettingsOpen ? 'opacity-100 translate-x-0' : 'opacity-0 translate-x-4 pointer-events-none'} ${isSettingsOpen ? 'bg-blue-600 text-white shadow-md' : 'text-slate-500 dark:text-slate-400 hover:text-slate-800 dark:hover:text-slate-200 hover:bg-slate-300/30 dark:hover:bg-slate-700/30'}`} 
-                      title="Settings"
+                      id="tab-polymer"
+                      onClick={() => setCurrentView('scheduler')} 
+                      className={`py-1.5 px-3 rounded-lg font-black text-xs tracking-tight uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
+                          currentView === 'scheduler' 
+                              ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-400' 
+                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80'
+                      }`}
                   >
-                      <Settings className="w-5 h-5" />
+                      <LayoutGrid className={`w-3.5 h-3.5 ${currentView === 'scheduler' ? 'text-white' : 'text-blue-500'}`} />
+                      <span>POLYMER</span>
                   </button>
-              </div>
+
+                  {/* Tab 2: Demonomer */}
+                  <button 
+                      id="tab-demonomer"
+                      onClick={() => setCurrentView('demonomer')} 
+                      className={`py-1.5 px-3 rounded-lg font-black text-xs tracking-tight uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
+                          currentView === 'demonomer' 
+                              ? 'bg-teal-600 text-white shadow-sm ring-1 ring-teal-400' 
+                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80'
+                      }`}
+                  >
+                      <Activity className={`w-3.5 h-3.5 ${currentView === 'demonomer' ? 'text-white' : 'text-teal-500'}`} />
+                      <span>DEMONOMER</span>
+                  </button>
+
+                  {/* Tab 3: Silo */}
+                  <button 
+                      id="tab-silo"
+                      onClick={() => setCurrentView('silo')} 
+                      className={`py-1.5 px-3 rounded-lg font-black text-xs tracking-tight uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
+                          currentView === 'silo' 
+                              ? 'bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400' 
+                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80'
+                      }`}
+                  >
+                      <Database className={`w-3.5 h-3.5 ${currentView === 'silo' ? 'text-white' : 'text-cyan-500'}`} />
+                      <span>SILO</span>
+                  </button>
+              </nav>
           </div>
         </div>
+    </header>
+  );
 
-        {/* Settings Panel Drawer */}
-            {isSettingsOpen && (
-              <div className="border-t border-slate-200 dark:border-slate-800 animate-in slide-in-from-top-2 duration-200 transition-colors bg-slate-50 dark:bg-slate-900/50 py-6 mt-3">
-                <div className="w-full px-6 mx-auto">
-                  {/* Settings Header with Auto-Close Countdown */}
-                  <div className="flex flex-wrap items-center justify-between gap-3 pb-3 mb-5 border-b border-slate-200 dark:border-slate-800">
-                      <div className="flex items-center gap-2">
-                          <Settings className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                          <span className="font-extrabold text-sm text-slate-800 dark:text-slate-100 uppercase tracking-wider">
-                              Pengaturan System
-                          </span>
-                      </div>
-                      <div className="flex items-center gap-2 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 px-3 py-1.5 rounded-xl text-xs font-bold shadow-sm">
-                          <ClockIcon className="w-4 h-4 text-amber-600 dark:text-amber-400 animate-pulse" />
-                          <span>Menutup otomatis dalam: <span className="font-mono font-black text-sm text-amber-800 dark:text-amber-200">{formatCountdown(settingsCountdown)}</span></span>
-                          <button 
-                              onClick={() => setSettingsCountdown(120)}
-                              className="ml-2 text-[10px] px-2 py-0.5 bg-amber-200/80 dark:bg-amber-800/60 hover:bg-amber-300 dark:hover:bg-amber-700 text-amber-900 dark:text-amber-100 rounded font-black uppercase transition-colors"
-                              title="Reset timer ke 2 menit"
-                          >
-                              Reset Waktu
-                          </button>
-                      </div>
-                  </div>
+  const renderSettingsModal = () => {
+    if (!isSettingsOpen) return null;
 
-                  {/* DB Schema Error Alert */}
-                  {dbSchemaError && (
-                      <div className="mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-xl text-red-200 text-sm flex items-start gap-3 animate-pulse max-w-4xl mx-auto">
-                          <AlertTriangle className="w-6 h-6 shrink-0 text-red-400" />
-                          <div className="flex-1">
-                              <p className="font-black text-lg leading-none mb-1 uppercase tracking-tighter">Database Schema Outdated</p>
-                              <p className="opacity-80 font-bold text-xs">
-                                  {dbSchemaError}. Jalankan script di bawah ini pada Supabase SQL Editor Anda untuk mengupdate tabel agar fitur alarm & cycle time berjalan dengan lancar.
-                              </p>
-                              <div className="mt-3 flex gap-3">
-                                  <button 
-                                       onClick={() => {
-                                          let sql = "";
-                                          if (dbSchemaError.includes('alarm_sound')) {
-                                              sql += "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS alarm_sound TEXT DEFAULT 'siren';\n";
-                                          }
-                                          if (dbSchemaError.includes('alert_style')) {
-                                              sql += "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS alert_style TEXT DEFAULT 'classic';\n";
-                                          }
-                                          if (dbSchemaError.includes('grade_mode')) {
-                                              sql += "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS grade_mode TEXT DEFAULT 'normal';\n";
-                                          }
-                                          if (dbSchemaError.includes('cycle_time_data')) {
-                                              sql += "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS cycle_time_data JSONB DEFAULT '[{\"id\": 1, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}, {\"id\": 2, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}]'::jsonb;\n";
-                                          }
-                                          if (dbSchemaError.includes('custom_interval_hours') || dbSchemaError.includes('custom_interval_minutes')) {
-                                              sql += "ALTER TABLE schedule_overrides ADD COLUMN IF NOT EXISTS custom_interval_hours INT DEFAULT NULL;\n" +
-                                                     "ALTER TABLE schedule_overrides ADD COLUMN IF NOT EXISTS custom_interval_minutes INT DEFAULT NULL;\n";
-                                          }
-                                          if (!sql) {
-                                              sql = "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS alarm_sound TEXT DEFAULT 'siren';\n" +
-                                                    "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS alert_style TEXT DEFAULT 'classic';\n" +
-                                                    "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS grade_mode TEXT DEFAULT 'normal';\n" +
-                                                    "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS cycle_time_data JSONB DEFAULT '[{\"id\": 1, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}, {\"id\": 2, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}]'::jsonb;\n" +
-                                                    "ALTER TABLE schedule_overrides ADD COLUMN IF NOT EXISTS custom_interval_hours INT DEFAULT NULL;\n" +
-                                                    "ALTER TABLE schedule_overrides ADD COLUMN IF NOT EXISTS custom_interval_minutes INT DEFAULT NULL;";
-                                          }
-                                          navigator.clipboard.writeText(sql);
-                                          alert("SQL berhasil disalin ke clipboard!");
-                                      }}
-                                      className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded-lg font-black text-xs transition-colors shadow-lg uppercase"
-                                  >
-                                      Copy SQL Fix
-                                  </button>
-                                  <button 
-                                      onClick={() => setDbSchemaError(null)}
-                                      className="px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg font-bold text-xs transition-colors uppercase"
-                                  >
-                                      Dismiss
-                                  </button>
-                              </div>
-                          </div>
-                      </div>
-                  )}
-                  
-                  <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
-                  
-                  {/* Sound & Zoom Controls */}
-                  <div className="md:col-span-1 flex flex-col gap-4">
-                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Sound & Zoom</label>
-                      <button 
-                        onClick={toggleAudio} 
-                        className={`flex items-center justify-center gap-2.5 p-3 rounded-xl border transition-all shadow-sm ${config.audioEnabled ? 'bg-green-500 text-white border-green-600' : 'bg-white dark:bg-slate-700 text-slate-500 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:border-slate-300'}`}
-                      >
-                          {config.audioEnabled ? <Volume2 className="w-5 h-5" /> : <VolumeX className="w-5 h-5" />}
-                          <span className="font-black text-xs uppercase tracking-tight">
-                            AUDIO ALARM: {config.audioEnabled ? 'AKTIF (ON)' : 'MATI (OFF)'}
-                          </span>
-                      </button>
+    return (
+      <div className="fixed inset-0 pointer-events-none z-[80] flex items-center justify-center p-4 animate-in fade-in duration-200">
+        <DraggableModal className="w-full max-w-4xl flex flex-col max-h-[90vh]">
+          <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col ring-4 ring-blue-500/40">
+          
+            {/* Modal Header */}
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 shrink-0 cursor-grab active:cursor-grabbing">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 bg-blue-500/10 dark:bg-blue-500/20 text-blue-600 dark:text-blue-400 rounded-xl">
+                  <Settings className="w-5 h-5" />
+                </div>
+                <div>
+                  <h3 className="font-black text-sm sm:text-base text-slate-800 dark:text-white uppercase tracking-tight flex items-center gap-2">
+                    Pengaturan Sistem
+                    <span className="px-2 py-0.5 text-[10px] bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold rounded border border-blue-200 dark:border-blue-700 select-none">
+                      ✋ Tahan & Drag
+                    </span>
+                  </h3>
+                  <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium">
+                    Konfigurasi alarm, sequence, cycle time & tampilan
+                  </p>
+                </div>
+              </div>
 
-                      {/* Zoom Control */}
-                      <div className="flex items-center bg-white dark:bg-slate-700 rounded-lg border border-slate-200 dark:border-slate-600 p-1 shadow-sm">
-                          <button onClick={handleZoomOut} className="p-2 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors">
-                              <ZoomOut className="w-5 h-5" />
-                          </button>
-                          <span className="text-xs font-black flex-1 text-center text-slate-600 dark:text-slate-300 select-none cursor-pointer" onClick={handleZoomReset}>
-                              ZOOM: {Math.round(zoomLevel * 100)}%
-                          </span>
-                          <button onClick={handleZoomIn} className="p-2 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors">
-                              <ZoomIn className="w-5 h-5" />
-                          </button>
-                      </div>
-                  </div>
+              <div className="flex items-center gap-2.5">
+                {/* Countdown timer */}
+                <div className="flex items-center gap-1.5 bg-amber-50 dark:bg-amber-950/40 text-amber-700 dark:text-amber-300 border border-amber-200 dark:border-amber-800/60 px-2.5 py-1 rounded-lg text-xs font-bold shadow-xs">
+                  <ClockIcon className="w-3.5 h-3.5 text-amber-600 dark:text-amber-400 animate-pulse shrink-0" />
+                  <span className="text-[11px]">Tutup: <span className="font-mono font-black">{formatCountdown(settingsCountdown)}</span></span>
+                  <button 
+                    onClick={() => setSettingsCountdown(120)}
+                    className="ml-1 text-[9px] px-1.5 py-0.5 bg-amber-200/80 dark:bg-amber-800/60 hover:bg-amber-300 dark:hover:bg-amber-700 text-amber-900 dark:text-amber-100 rounded font-black uppercase transition-colors cursor-pointer"
+                    title="Reset timer ke 2 menit"
+                  >
+                    Reset
+                  </button>
+                </div>
 
-                  {/* RESET SEQUENCE BUTTON (Renamed and Moved) */}
-                  <div className="md:col-span-1 flex flex-col justify-end">
-                      <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block">Sequence Control</label>
-                      <button onClick={handleResetSequence} className={`flex items-center justify-center gap-2 px-4 py-3 rounded-lg font-black bg-red-600 text-white hover:bg-red-700 border border-red-700 transition-all shadow-lg transform active:scale-95`}>
-                        <RotateCcw className="w-6 h-6" />
-                        INPUT FOR RE-S
-                      </button>
-                  </div>
+                {/* Close button */}
+                <button 
+                  onClick={() => setIsSettingsOpen(false)}
+                  className="p-1.5 text-slate-400 hover:text-slate-700 dark:hover:text-white hover:bg-slate-200/60 dark:hover:bg-slate-800 rounded-lg transition-colors cursor-pointer"
+                  title="Tutup Pengaturan"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
 
-                  {/* ALARM SOUND SETTINGS (Penambahan Baru) */}
-                  <div className="md:col-span-2 flex flex-col gap-4 bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm justify-between">
-                      <div>
-                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase mb-2 block flex items-center gap-1.5">
-                              <Bell className="w-4 h-4 text-blue-500" /> PENGATURAN SUARA ALARM
-                          </label>
-                          <div className="relative">
-                              <select 
-                                  value={tempAlarmSound} 
-                                  onChange={(e) => {
-                                      const newSound = e.target.value as AlarmSoundType;
-                                      setTempAlarmSound(newSound);
-                                      handleConfigChange('alarmSound', newSound);
-                                      playAlarmSound(newSound); // preview instantly
-                                  }}
-                                  className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-3 py-2 text-sm font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
-                              >
-                                  <option value="siren">🚨 Siren (Original)</option>
-                                  <option value="siren_polisi">🚓 Siren Polisi (10s)</option>
-                                  <option value="siren_kebakaran">🚒 Siren Kebakaran (10s)</option>
-                                  <option value="kicau_mania">🐦 Kicau Mania (10s)</option>
-                                  <option value="google_robot">🤖 Google/Robot Voice ("Woy Woy Start")</option>
-                                  <option value="rocket">🚀 Suara Roket (rocket)</option>
-                                  <option value="jet">✈️ Suara Pesawat Jet (jet)</option>
-                                  <option value="powerpoint">📊 PowerPoint Chime</option>
-                                  <option value="bomb">💣 Bomb Explosion</option>
-                                  <option value="fajar_sadboy">💃 Gaspol Dangak (Lagu 10s)</option>
-                                  <option value="train">🚂 Suara Kereta Api (train)</option>
-                                  <option value="car_horn">🚗 Suara Klakson Mobil (car_horn)</option>
-                                  <option value="ship_horn">🚢 Suara Klakson Kapal (ship_horn)</option>
-                                  <option value="ringtone">📞 Suara Nada Dering (ringtone)</option>
-                                  <option value="missile">🚀 Suara Tembakan Rudal (missile)</option>
-                                  <option value="crow">🐦 Suara Burung Gagak (crow)</option>
-                                  <option value="magic_spell">🪄 Magic Spell (magic_spell)</option>
-                                  <option value="ufo">🛸 UFO Beam (ufo)</option>
-                                  <option value="laser">🔫 Alien Laser (laser)</option>
-                                  <option value="telephone">☎️ Old Telephone Ring (telephone)</option>
-                                  <option value="arcade">👾 Retro Arcade Chime (arcade)</option>
-                                  <option value="gong">🔔 Epic Gong Strike (gong)</option>
-                              </select>
-                          </div>
-                      </div>
-
-                      <div className="flex flex-col gap-2">
-                          <div className="text-xs text-emerald-500 dark:text-emerald-400 font-bold flex items-center gap-1.5">
-                              <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-500" />
-                              <span>Suara langsung terapply & disimpan ke database!</span>
-                          </div>
-
-                          <button 
-                              onClick={() => {
-                                  playAlarmSound(tempAlarmSound); // play sound preview as test
-                              }}
-                              className="w-full py-2.5 px-4 rounded-lg font-black uppercase text-xs tracking-wider transition-all duration-300 shadow-md flex items-center justify-center gap-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white"
-                          >
-                              <Volume2 className="w-4 h-4" />
-                              TEST SUARA ALARM
-                          </button>
-                      </div>
-                  </div>
-
-                  {/* ALERT SYSTEM CONTROLS & STYLE SELECTION */}
-                  <div className="md:col-span-4 flex flex-col gap-5">
-                      {/* PILIHAN TAMPILAN FULL ALERT ALARM & PREVIEW */}
-                      <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm flex flex-col gap-4">
-                          <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-200 dark:border-slate-700 pb-3">
-                              <div className="flex-1">
-                                  <div className="flex items-center gap-2 flex-wrap">
-                                      <label className="text-sm font-extrabold text-slate-800 dark:text-slate-100 uppercase tracking-wider flex items-center gap-2">
-                                          <Palette className="w-5 h-5 text-amber-500" /> PILIHAN GAYA TAMPILAN FULL ALERT ALARM
-                                      </label>
-                                      <span className="bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 text-[11px] font-black px-2.5 py-1 rounded-full border border-amber-300 dark:border-amber-700/80 flex items-center gap-1 uppercase">
-                                          <Check className="w-3 h-3 text-emerald-600 dark:text-emerald-400" /> GAYA AKTIF: {
-                                              {
-                                                  classic: '1. Klasik Reaktor',
-                                                  neon: '2. Cyber Neon',
-                                                  emergency: '3. Emergency Sirens',
-                                                  glass: '4. Modern Glass HUD',
-                                                  industrial: '5. Industrial Safety',
-                                                  holo: '6. Hologram Sci-Fi',
-                                                  matrix: '7. Terminal Matrix',
-                                                  minimal: '8. Minimalist Bold',
-                                                  warning_stripe: '9. Caution Tag Hazard'
-                                              }[config.alertStyle || 'classic']
-                                          }
-                                      </span>
-                                  </div>
-                                  <p className="text-xs text-slate-500 dark:text-slate-400 mt-1 font-medium">
-                                      Pilihan gaya tertutup secara default. Klik tombol <span className="font-bold text-amber-600 dark:text-amber-400">"BUKA / GANTI GAYA"</span> jika ingin melihat dan memilih dari 9 tema tampilan alarm layar penuh!
-                                  </p>
-                              </div>
-                              <div className="flex items-center gap-2 flex-wrap">
-                                  <button 
-                                      onClick={() => setTestAlertStyle(config.alertStyle || 'classic')}
-                                      className="px-3.5 py-2 bg-gradient-to-r from-amber-500 to-yellow-500 hover:from-amber-600 hover:to-yellow-600 text-slate-950 font-black text-xs rounded-xl shadow-md flex items-center gap-1.5 transition-transform active:scale-95 uppercase tracking-wider"
-                                      title="Test gaya alarm yang sedang aktif"
-                                  >
-                                      <Eye className="w-4 h-4 text-black" /> TEST PREVIEW
-                                  </button>
-                                  <button 
-                                      onClick={() => setIsAlertStyleSectionOpen(prev => !prev)}
-                                      className={`px-4 py-2 font-black text-xs rounded-xl shadow-md flex items-center gap-2 transition-all uppercase tracking-wider ${
-                                          isAlertStyleSectionOpen 
-                                              ? 'bg-slate-200 dark:bg-slate-700 text-slate-800 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 border border-slate-300 dark:border-slate-600' 
-                                              : 'bg-blue-600 hover:bg-blue-700 text-white border border-blue-500'
-                                      }`}
-                                  >
-                                      <Sliders className="w-4 h-4" />
-                                      {isAlertStyleSectionOpen ? (
-                                          <>SEMBUNYIKAN GAYA <ChevronUp className="w-4 h-4" /></>
-                                      ) : (
-                                          <>BUKA / GANTI GAYA (9 TEMA) <ChevronDown className="w-4 h-4" /></>
-                                      )}
-                                  </button>
-                              </div>
-                          </div>
-
-                          {!isAlertStyleSectionOpen && (
-                              <div className="bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-200/80 dark:border-slate-700/80 flex items-center justify-between text-xs text-slate-600 dark:text-slate-400 font-medium">
-                                  <div className="flex items-center gap-2">
-                                      <Info className="w-4 h-4 text-blue-500 shrink-0" />
-                                      <span>Pilihan 9 tema gaya alarm tertutup. Gaya aktif saat ini: <strong className="text-slate-800 dark:text-slate-200 font-bold uppercase">{config.alertStyle || 'classic'}</strong>.</span>
-                                  </div>
-                                  <button 
-                                      onClick={() => setIsAlertStyleSectionOpen(true)}
-                                      className="text-blue-600 dark:text-blue-400 font-bold hover:underline shrink-0 ml-2 uppercase text-[11px]"
-                                  >
-                                      Buka Pilihan &rarr;
-                                  </button>
-                              </div>
-                          )}
-
-                          {isAlertStyleSectionOpen && (
-                              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3.5 animate-in fade-in duration-200">
-                                  {[
-                                      {
-                                          key: 'classic' as const,
-                                          title: '1. Klasik Reaktor',
-                                          badge: '🔴 Klasik',
-                                          bgClass: 'bg-red-600 text-white',
-                                          desc: 'Tampilan kontras tinggi dengan warna khas reaktor & badge countdown.'
-                                      },
-                                      {
-                                          key: 'neon' as const,
-                                          title: '2. Cyber Neon',
-                                          badge: '⚡ Cyber Neon',
-                                          bgClass: 'bg-slate-950 text-amber-300 border-2 border-amber-400',
-                                          desc: 'Tema futuristik gelap dengan border neon, hazard tape, & font digital.'
-                                      },
-                                      {
-                                          key: 'emergency' as const,
-                                          title: '3. Emergency Sirens',
-                                          badge: '🚨 Sirene',
-                                          bgClass: 'bg-red-950 text-yellow-300 border-2 border-red-500',
-                                          desc: 'Tema darurat pabrik dengan efek strobe berkedip & lampu sirene.'
-                                      },
-                                      {
-                                          key: 'glass' as const,
-                                          title: '4. Modern Glass HUD',
-                                          badge: '💎 Glass HUD',
-                                          bgClass: 'bg-slate-900/90 text-slate-100 border border-white/30 backdrop-blur-md',
-                                          desc: 'Desain berkaca transparan dengan lingkaran neon halus & badge modern.'
-                                      },
-                                      {
-                                          key: 'industrial' as const,
-                                          title: '5. Industrial Safety',
-                                          badge: '🚧 Safety Gate',
-                                          bgClass: 'bg-amber-500 text-black border-2 border-black',
-                                          desc: 'Strip keselamatan pabrik industri dengan strip hazard kuning-hitam tebal.'
-                                      },
-                                      {
-                                          key: 'holo' as const,
-                                          title: '6. Hologram Sci-Fi',
-                                          badge: '🌐 Hologram',
-                                          bgClass: 'bg-slate-950 text-cyan-300 border-2 border-cyan-400 shadow-[0_0_15px_rgba(34,211,238,0.5)]',
-                                          desc: 'Konsol hologram futuristik warna cyan neon dengan lingkaran pulsing 3D.'
-                                      },
-                                      {
-                                          key: 'matrix' as const,
-                                          title: '7. Terminal Matrix',
-                                          badge: '📟 Terminal',
-                                          bgClass: 'bg-black text-emerald-400 border-2 border-emerald-500 font-mono',
-                                          desc: 'Tampilan terminal industri hijau matrix berkedip dengan huruf monospaced.'
-                                      },
-                                      {
-                                          key: 'minimal' as const,
-                                          title: '8. Minimalist Bold',
-                                          badge: '🔲 Minimalist',
-                                          bgClass: 'bg-slate-100 text-slate-900 border-2 border-slate-900',
-                                          desc: 'Kontras ultra tinggi bersih, fungsional dengan angka raksasa yang sangat jelas.'
-                                      },
-                                      {
-                                          key: 'warning_stripe' as const,
-                                          title: '9. Caution Tag Hazard',
-                                          badge: '⚠️ Caution Tag',
-                                          bgClass: 'bg-yellow-400 text-slate-950 border-2 border-black',
-                                          desc: 'Papan peringatan hazard kuning pabrik dengan banner garis keselamatan bergelombang.'
-                                      }
-                                  ].map((item) => {
-                                      const isSelected = (config.alertStyle || 'classic') === item.key;
-                                      return (
-                                          <div 
-                                              key={item.key} 
-                                              className={`p-3.5 rounded-xl border flex flex-col justify-between transition-all ${
-                                                  isSelected 
-                                                      ? 'border-amber-500 ring-2 ring-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20 shadow-md' 
-                                                      : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50 hover:border-slate-300 dark:hover:border-slate-600'
-                                              }`}
-                                          >
-                                              <div>
-                                                  <div className="flex items-center justify-between mb-2">
-                                                      <span className="text-xs font-black text-slate-800 dark:text-slate-200 uppercase">{item.title}</span>
-                                                      {isSelected && (
-                                                          <span className="bg-emerald-500 text-white text-[9px] font-black px-1.5 py-0.5 rounded-full uppercase tracking-wider flex items-center gap-1">
-                                                              <Check className="w-2.5 h-2.5" /> AKTIF
-                                                          </span>
-                                                      )}
-                                                  </div>
-
-                                                  {/* Mini Visual Badge Preview */}
-                                                  <div className={`p-2.5 rounded-lg text-center font-black text-xs mb-2 shadow-inner flex flex-col items-center justify-center gap-1 min-h-[64px] ${item.bgClass}`}>
-                                                      <span className="text-[10px] opacity-80 uppercase tracking-widest">{item.badge}</span>
-                                                      <span className="text-xs font-extrabold tracking-tight">PREPARE START</span>
-                                                  </div>
-
-                                                  <p className="text-[11px] text-slate-600 dark:text-slate-400 leading-tight mb-3">
-                                                      {item.desc}
-                                                  </p>
-                                              </div>
-
-                                              <div className="flex gap-1.5 pt-2 border-t border-slate-200/60 dark:border-slate-700/60">
-                                                  <button 
-                                                      onClick={() => setTestAlertStyle(item.key)}
-                                                      className="flex-1 py-1.5 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-800 dark:text-slate-100 font-bold text-[10px] rounded-lg transition-colors flex items-center justify-center gap-1 uppercase"
-                                                      title="Lihat preview layar penuh"
-                                                  >
-                                                      <Eye className="w-3 h-3 text-amber-500" /> UJI COBA
-                                                  </button>
-                                                  <button 
-                                                      onClick={() => handleConfigChange('alertStyle', item.key)}
-                                                      className={`flex-1 py-1.5 font-black text-[10px] rounded-lg transition-colors flex items-center justify-center gap-1 uppercase ${
-                                                          isSelected 
-                                                              ? 'bg-emerald-600 text-white cursor-default' 
-                                                              : 'bg-blue-600 hover:bg-blue-700 text-white shadow-sm'
-                                                      }`}
-                                                  >
-                                                      {isSelected ? 'TERAPKAN ✓' : 'TERAPKAN'}
-                                                  </button>
-                                              </div>
-                                          </div>
-                                      );
-                                  })}
-                              </div>
-                          )}
-                      </div>
-
-                      <div className="flex flex-col sm:flex-row gap-3 items-center justify-between bg-slate-100 dark:bg-slate-800/80 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700">
-                          <span className="text-xs font-bold text-slate-600 dark:text-slate-300 flex items-center gap-2">
-                              <Bell className="w-4 h-4 text-blue-500" /> Notifikasi Sistem Browser
-                          </span>
-                          <div className="flex gap-2">
-                              <button 
-                                 onClick={() => {
-                                    if ('Notification' in window) {
-                                        Notification.requestPermission().then(permission => {
-                                            if (permission === 'granted') {
-                                                new Notification("Notifications Enabled", { body: "You will now receive reaktor start alerts." });
-                                            }
-                                        });
-                                    }
-                                }}
-                                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300 hover:bg-slate-300 dark:hover:bg-slate-600 transition-all text-xs uppercase"
-                              >
-                                  <Bell className="w-3.5 h-3.5" /> ENABLE BROWSER NOTIFICATION
-                              </button>
-                              <button 
-                                onClick={() => {
-                                    setTestAlertStyle(config.alertStyle || 'classic');
-                                }}
-                                className="flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-lg font-bold bg-yellow-500 text-black hover:bg-yellow-600 transition-all text-xs uppercase"
-                              >
-                                  <AlertTriangle className="w-3.5 h-3.5" /> TEST ALERT OVERLAY
-                              </button>
-                          </div>
-                      </div>
-                  </div>
-
-                  {/* NEXT PREDICTION START INFO */}
-                  <div className="md:col-span-4 bg-emerald-50 dark:bg-emerald-900/20 p-6 rounded-xl border border-emerald-200 dark:border-emerald-800 flex flex-col md:flex-row items-center justify-between gap-6 shadow-sm">
-                      <div className="flex items-center gap-4 text-emerald-800 dark:text-emerald-300">
-                          <div className="p-3 bg-emerald-100 dark:bg-emerald-800 rounded-full shadow-inner">
-                              <FastForward className="w-8 h-8" />
-                          </div>
-                          <div>
-                              <h3 className="font-black text-2xl uppercase tracking-tight">Next Cycle Prediction</h3>
-                              <p className="text-xs font-bold opacity-70">Auto-start parameters after current sequence</p>
-                          </div>
-                      </div>
-                      <div className="flex items-center gap-6">
-                          <div className="flex flex-col items-center">
-                              <span className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400">Next Batch</span>
-                              <span className="text-2xl font-mono font-black text-emerald-700 dark:text-emerald-200">#{nextStartParams.batch}</span>
-                          </div>
-                          <div className="h-8 w-px bg-emerald-200 dark:bg-emerald-700"></div>
-                          <div className="flex flex-col items-center">
-                              <span className="text-[10px] font-bold uppercase text-emerald-600 dark:text-emerald-400">Est. Start Time</span>
-                              <span className="text-2xl font-mono font-black text-emerald-700 dark:text-emerald-200">
-                                  {new Date(nextStartParams.time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })}
-                                  <span className="text-sm ml-1 align-top opacity-60">{new Date(nextStartParams.time).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' })}</span>
-                              </span>
-                          </div>
-                      </div>
-                  </div>
-
-                  {/* Standard Settings Below */}
-                  <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
-                      <Timer className="w-3 h-3" /> Interval (HH:MM)
-                    </label>
-                    <div className="flex gap-2 items-center">
-                      <input type="number" min="0" max="23" value={config.intervalHours} onChange={(e) => handleConfigChange('intervalHours', parseInt(e.target.value) || 0)} className={`w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none shadow-sm`} />
-                      <span className="font-black text-2xl dark:text-white">:</span>
-                      <input type="number" min="0" max="59" value={config.intervalMinutes} onChange={(e) => handleConfigChange('intervalMinutes', parseInt(e.target.value) || 0)} className={`w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none shadow-sm`} />
-                    </div>
-                  </div>
-                  
-                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
-                        <ClockIcon className="w-3 h-3" /> Batch Duration (Min)
-                    </label>
-                    <input type="number" min="1" max="600" value={config.batchDurationMinutes} onChange={(e) => handleConfigChange('batchDurationMinutes', parseInt(e.target.value) || 1)} className={`w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-sm`} />
-                  </div>
-
-                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
-                        <LayoutGrid className="w-3 h-3" /> View Cycles
-                    </label>
-                    <input type="number" min="1" max="10" value={config.columnsToDisplay} onChange={(e) => handleConfigChange('columnsToDisplay', parseInt(e.target.value) || 1)} className={`w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-sm`} />
-                  </div>
-
-                   {/* Full Screen Alert Setting */}
-                   <div className="space-y-2">
-                    <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1">
-                        <Bell className="w-3 h-3" /> Full Screen Alert
-                    </label>
-                    <div className="flex items-center gap-3">
-                         <input type="number" min="0" max="300" value={config.alertThresholdSeconds} onChange={(e) => handleConfigChange('alertThresholdSeconds', parseInt(e.target.value) || 0)} className={`w-24 border border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono focus:ring-2 focus:ring-blue-500 outline-none shadow-sm`} placeholder="Sec" />
-                        <span className="text-[10px] text-slate-500 font-black leading-tight">SECONDS BEFORE START</span>
-                    </div>
-                   </div>
-
-                  {/* Management Controls */}
-                  <div className="md:col-span-4 border-t border-slate-200 dark:border-slate-700 pt-6 mt-2 flex flex-col md:flex-row gap-8 items-center justify-between">
-                    <div className="flex-1 w-full max-w-2xl mr-auto space-y-4">
-                        {/* Marquee Text Control */}
-                        <div>
-                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1 mb-2">
-                                <Type className="w-3 h-3" /> Running Text Alert
-                            </label>
-                            <div className="flex gap-3">
-                                <button onClick={toggleMarqueePause} className={`px-4 py-2 rounded-lg border-2 font-black transition-all shadow-sm ${config.isMarqueePaused ? 'bg-red-100 text-red-600 border-red-200' : 'bg-green-100 text-green-600 border-green-200'}`} title={config.isMarqueePaused ? "Resume Animation" : "Pause Animation"}>
-                                    {config.isMarqueePaused ? <Play className="w-5 h-5" /> : <Pause className="w-5 h-5" />}
-                                </button>
-                                <input type="text" value={config.runningText} onChange={(e) => handleConfigChange('runningText', e.target.value)} className={`w-full border-2 border-slate-300 dark:border-slate-600 rounded-lg p-3 text-base font-black text-yellow-800 bg-yellow-50 dark:bg-slate-800 dark:text-yellow-400 focus:ring-2 focus:ring-yellow-400 outline-none shadow-inner`} placeholder="Enter alert text here..." />
-                            </div>
-                        </div>
-
-                        {/* Marquee Speed Control */}
-                        <div>
-                            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1 mb-2">
-                                <Gauge className="w-3 h-3" /> Running Text Speed ({config.marqueeSpeed}s)
-                            </label>
-                             <div className="flex items-center gap-4">
-                                <span className="text-[10px] font-black text-slate-400">FAST</span>
-                                <input 
-                                    type="range" 
-                                    min="5" 
-                                    max="300" 
-                                    step="1"
-                                    value={config.marqueeSpeed} 
-                                    onChange={(e) => handleConfigChange('marqueeSpeed', parseInt(e.target.value))} 
-                                    className={`w-full h-3 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-blue-600 shadow-inner`}
-                                />
-                                <span className="text-[10px] font-black text-slate-400">SLOW</span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div className="flex gap-4">
-                         <button onClick={toggleStop} className={`flex items-center gap-3 px-6 py-3 rounded-xl font-black border-2 transition-all shadow-lg transform active:scale-95 ${config.isStopped ? 'bg-green-600 text-white border-green-700 hover:bg-green-700' : 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800 hover:bg-red-100 dark:hover:bg-red-900/30'}`}>
-                            {config.isStopped ? <PlayCircle className="w-6 h-6" /> : <PauseCircle className="w-6 h-6" />}
-                            {config.isStopped ? "RESUME SYSTEM" : "STOP SYSTEM"}
-                         </button>
-                    </div>
+            {/* Modal Scrollable Body */}
+            <div className="p-4 sm:p-5 overflow-y-auto space-y-4 flex-1 bg-slate-50/50 dark:bg-slate-900/50 max-h-[70vh]">
+            
+            {/* DB Schema Error Alert */}
+            {dbSchemaError && (
+              <div className="p-3.5 bg-red-500/10 border border-red-500/40 rounded-xl text-red-700 dark:text-red-300 text-xs flex items-start gap-2.5 animate-pulse">
+                <AlertTriangle className="w-5 h-5 shrink-0 text-red-500 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-black text-sm uppercase tracking-tight mb-1">Database Schema Outdated</p>
+                  <p className="opacity-90 font-medium">
+                    {dbSchemaError}. Jalankan update script di Supabase SQL Editor jika diperlukan.
+                  </p>
+                  <div className="mt-2.5 flex gap-2">
+                    <button 
+                      onClick={() => {
+                        let sql = "";
+                        if (dbSchemaError.includes('alarm_sound')) {
+                          sql += "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS alarm_sound TEXT DEFAULT 'siren';\n";
+                        }
+                        if (dbSchemaError.includes('alert_style')) {
+                          sql += "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS alert_style TEXT DEFAULT 'classic';\n";
+                        }
+                        if (dbSchemaError.includes('grade_mode')) {
+                          sql += "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS grade_mode TEXT DEFAULT 'normal';\n";
+                        }
+                        if (dbSchemaError.includes('cycle_time_data')) {
+                          sql += "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS cycle_time_data JSONB DEFAULT '[{\"id\": 1, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}, {\"id\": 2, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}]'::jsonb;\n";
+                        }
+                        if (dbSchemaError.includes('custom_interval_hours') || dbSchemaError.includes('custom_interval_minutes')) {
+                          sql += "ALTER TABLE schedule_overrides ADD COLUMN IF NOT EXISTS custom_interval_hours INT DEFAULT NULL;\n" +
+                                 "ALTER TABLE schedule_overrides ADD COLUMN IF NOT EXISTS custom_interval_minutes INT DEFAULT NULL;\n";
+                        }
+                        if (!sql) {
+                          sql = "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS alarm_sound TEXT DEFAULT 'siren';\n" +
+                                "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS alert_style TEXT DEFAULT 'classic';\n" +
+                                "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS grade_mode TEXT DEFAULT 'normal';\n" +
+                                "ALTER TABLE app_settings ADD COLUMN IF NOT EXISTS cycle_time_data JSONB DEFAULT '[{\"id\": 1, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}, {\"id\": 2, \"ns\": \"\", \"readyBlowing\": \"\", \"blowing\": \"\", \"blowingComplete\": \"\"}]'::jsonb;\n" +
+                                "ALTER TABLE schedule_overrides ADD COLUMN IF NOT EXISTS custom_interval_hours INT DEFAULT NULL;\n" +
+                                "ALTER TABLE schedule_overrides ADD COLUMN IF NOT EXISTS custom_interval_minutes INT DEFAULT NULL;";
+                        }
+                        navigator.clipboard.writeText(sql);
+                        alert("SQL berhasil disalin ke clipboard!");
+                      }}
+                      className="px-2.5 py-1 bg-red-600 hover:bg-red-700 text-white rounded-lg font-black text-[10px] transition-colors uppercase"
+                    >
+                      Copy SQL Fix
+                    </button>
+                    <button 
+                      onClick={() => setDbSchemaError(null)}
+                      className="px-2.5 py-1 bg-slate-200 dark:bg-slate-700 hover:bg-slate-300 dark:hover:bg-slate-600 text-slate-700 dark:text-slate-200 rounded-lg font-bold text-[10px] transition-colors uppercase"
+                    >
+                      Dismiss
+                    </button>
                   </div>
                 </div>
               </div>
+            )}
+
+            {/* Quick Controls Grid */}
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3.5">
+              
+              {/* Card 1: Audio & Zoom */}
+              <div className="bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between gap-3">
+                <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1.5">
+                  <Volume2 className="w-3.5 h-3.5 text-blue-500" /> Audio & Tampilan Zoom
+                </label>
+                <button 
+                  onClick={toggleAudio} 
+                  className={`flex items-center justify-center gap-2 p-2.5 rounded-lg border transition-all cursor-pointer ${config.audioEnabled ? 'bg-emerald-600 text-white border-emerald-700 shadow-xs' : 'bg-slate-100 dark:bg-slate-700/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-600'}`}
+                >
+                  {config.audioEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+                  <span className="font-black text-xs uppercase tracking-tight">
+                    ALARM SUARA: {config.audioEnabled ? 'AKTIF (ON)' : 'MATI (OFF)'}
+                  </span>
+                </button>
+                <div className="flex items-center bg-slate-100 dark:bg-slate-700/80 rounded-lg border border-slate-200 dark:border-slate-600 p-1">
+                  <button onClick={handleZoomOut} className="p-1.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors cursor-pointer" title="Zoom Out">
+                    <ZoomOut className="w-4 h-4" />
+                  </button>
+                  <span className="text-xs font-black flex-1 text-center text-slate-700 dark:text-slate-200 select-none cursor-pointer" onClick={handleZoomReset} title="Klik untuk Reset Zoom (100%)">
+                    ZOOM: {Math.round(zoomLevel * 100)}%
+                  </span>
+                  <button onClick={handleZoomIn} className="p-1.5 text-slate-500 hover:text-blue-600 dark:text-slate-400 dark:hover:text-blue-400 transition-colors cursor-pointer" title="Zoom In">
+                    <ZoomIn className="w-4 h-4" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Card 2: Sequence & Stop Controls */}
+              <div className="bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between gap-3">
+                <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1.5">
+                  <RotateCcw className="w-3.5 h-3.5 text-red-500" /> Kontrol Sequence & System
+                </label>
+                <button 
+                  onClick={() => {
+                    setIsSettingsOpen(false);
+                    handleResetSequence();
+                  }} 
+                  className="flex items-center justify-center gap-2 p-2.5 rounded-lg font-black bg-red-600 hover:bg-red-700 text-white transition-all shadow-xs active:scale-95 text-xs uppercase cursor-pointer"
+                >
+                  <RotateCcw className="w-4 h-4" />
+                  INPUT FOR RE-S
+                </button>
+                <button 
+                  onClick={toggleStop} 
+                  className={`flex items-center justify-center gap-2 p-2.5 rounded-lg font-black border transition-all text-xs uppercase cursor-pointer ${config.isStopped ? 'bg-emerald-600 text-white border-emerald-700 hover:bg-emerald-700' : 'bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 border-red-200 dark:border-red-800/80 hover:bg-red-100'}`}
+                >
+                  {config.isStopped ? <PlayCircle className="w-4 h-4" /> : <PauseCircle className="w-4 h-4" />}
+                  {config.isStopped ? "RESUME SYSTEM" : "FREEZE / STOP SYSTEM"}
+                </button>
+              </div>
+
+              {/* Card 3: Alarm Sound Choice */}
+              <div className="bg-white dark:bg-slate-800 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col justify-between gap-2.5">
+                <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase flex items-center gap-1.5">
+                  <Bell className="w-3.5 h-3.5 text-amber-500" /> Pilihan Suara Alarm
+                </label>
+                <select 
+                  value={tempAlarmSound} 
+                  onChange={(e) => {
+                    const newSound = e.target.value as AlarmSoundType;
+                    setTempAlarmSound(newSound);
+                    handleConfigChange('alarmSound', newSound);
+                    playAlarmSound(newSound);
+                  }}
+                  className="w-full bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-lg px-2.5 py-1.5 text-xs font-bold text-slate-800 dark:text-white outline-none focus:ring-2 focus:ring-blue-500 cursor-pointer"
+                >
+                  <option value="siren">🚨 Siren (Original)</option>
+                  <option value="siren_polisi">🚓 Siren Polisi (10s)</option>
+                  <option value="siren_kebakaran">🚒 Siren Kebakaran (10s)</option>
+                  <option value="kicau_mania">🐦 Kicau Mania (10s)</option>
+                  <option value="google_robot">🤖 Google/Robot Voice ("Woy Woy Start")</option>
+                  <option value="rocket">🚀 Suara Roket (rocket)</option>
+                  <option value="jet">✈️ Suara Pesawat Jet (jet)</option>
+                  <option value="powerpoint">📊 PowerPoint Chime</option>
+                  <option value="bomb">💣 Bomb Explosion</option>
+                  <option value="fajar_sadboy">💃 Gaspol Dangak (Lagu 10s)</option>
+                  <option value="train">🚂 Suara Kereta Api (train)</option>
+                  <option value="car_horn">🚗 Suara Klakson Mobil (car_horn)</option>
+                  <option value="ship_horn">🚢 Suara Klakson Kapal (ship_horn)</option>
+                  <option value="ringtone">📞 Suara Nada Dering (ringtone)</option>
+                  <option value="missile">🚀 Suara Tembakan Rudal (missile)</option>
+                  <option value="crow">🐦 Suara Burung Gagak (crow)</option>
+                  <option value="magic_spell">🪄 Magic Spell (magic_spell)</option>
+                  <option value="ufo">🛸 UFO Beam (ufo)</option>
+                  <option value="laser">🔫 Alien Laser (laser)</option>
+                  <option value="telephone">☎️ Old Telephone Ring (telephone)</option>
+                  <option value="arcade">👾 Retro Arcade Chime (arcade)</option>
+                  <option value="gong">🔔 Epic Gong Strike (gong)</option>
+                </select>
+                <button 
+                  onClick={() => playAlarmSound(tempAlarmSound)}
+                  className="w-full py-1.5 px-3 rounded-lg font-black uppercase text-[10px] tracking-wider transition-all shadow-xs flex items-center justify-center gap-1.5 bg-blue-600 hover:bg-blue-700 text-white cursor-pointer"
+                >
+                  <Volume2 className="w-3.5 h-3.5" />
+                  TES SUARA INI
+                </button>
+              </div>
             </div>
-          )}
-    </header>
+
+            {/* Cycle Parameters & Alert Timing */}
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
+              <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase block mb-3 flex items-center gap-1.5">
+                <Timer className="w-3.5 h-3.5 text-indigo-500" /> Parameter Interval & Cycle Time
+              </label>
+              <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+                
+                {/* Interval */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Interval (HH:MM)</span>
+                  <div className="flex gap-1 items-center">
+                    <input 
+                      type="number" min="0" max="23" 
+                      value={config.intervalHours} 
+                      onChange={(e) => handleConfigChange('intervalHours', parseInt(e.target.value) || 0)} 
+                      className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg p-2 text-sm font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none" 
+                    />
+                    <span className="font-bold">:</span>
+                    <input 
+                      type="number" min="0" max="59" 
+                      value={config.intervalMinutes} 
+                      onChange={(e) => handleConfigChange('intervalMinutes', parseInt(e.target.value) || 0)} 
+                      className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg p-2 text-sm font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none" 
+                    />
+                  </div>
+                </div>
+
+                {/* Batch Duration */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Batch Dur (Min)</span>
+                  <input 
+                    type="number" min="1" max="600" 
+                    value={config.batchDurationMinutes} 
+                    onChange={(e) => handleConfigChange('batchDurationMinutes', parseInt(e.target.value) || 1)} 
+                    className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg p-2 text-sm font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none" 
+                  />
+                </div>
+
+                {/* View Cycles */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">View Cycles (Col)</span>
+                  <input 
+                    type="number" min="1" max="10" 
+                    value={config.columnsToDisplay} 
+                    onChange={(e) => handleConfigChange('columnsToDisplay', parseInt(e.target.value) || 1)} 
+                    className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg p-2 text-sm font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none" 
+                  />
+                </div>
+
+                {/* Full Alert Countdown */}
+                <div className="space-y-1">
+                  <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 uppercase">Alert Trigger (Detik)</span>
+                  <input 
+                    type="number" min="0" max="300" 
+                    value={config.alertThresholdSeconds} 
+                    onChange={(e) => handleConfigChange('alertThresholdSeconds', parseInt(e.target.value) || 0)} 
+                    className="w-full border border-slate-300 dark:border-slate-600 dark:bg-slate-700 dark:text-white rounded-lg p-2 text-sm font-mono text-center focus:ring-2 focus:ring-blue-500 outline-none" 
+                  />
+                </div>
+              </div>
+            </div>
+
+            {/* Running Text Alert (Marquee) */}
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs space-y-3">
+              <label className="text-[11px] font-black text-slate-500 dark:text-slate-400 uppercase block flex items-center gap-1.5">
+                <Type className="w-3.5 h-3.5 text-yellow-500" /> Running Text Alert & Kecepatan
+              </label>
+              <div className="flex gap-2">
+                <button 
+                  onClick={toggleMarqueePause} 
+                  className={`px-3 py-2 rounded-lg border font-black transition-all text-xs cursor-pointer ${config.isMarqueePaused ? 'bg-red-50 text-red-600 border-red-200' : 'bg-emerald-50 text-emerald-600 border-emerald-200'}`} 
+                  title={config.isMarqueePaused ? "Resume Animation" : "Pause Animation"}
+                >
+                  {config.isMarqueePaused ? <Play className="w-4 h-4" /> : <Pause className="w-4 h-4" />}
+                </button>
+                <input 
+                  type="text" 
+                  value={config.runningText} 
+                  onChange={(e) => handleConfigChange('runningText', e.target.value)} 
+                  className="flex-1 border border-slate-300 dark:border-slate-600 rounded-lg px-3 py-2 text-xs font-bold text-yellow-800 bg-yellow-50/60 dark:bg-slate-700 dark:text-yellow-400 focus:ring-2 focus:ring-yellow-400 outline-none" 
+                  placeholder="Ketik running text alert di sini..." 
+                />
+              </div>
+              <div className="flex items-center gap-3 pt-1">
+                <span className="text-[9px] font-black text-slate-400">FAST (5s)</span>
+                <input 
+                  type="range" 
+                  min="5" 
+                  max="300" 
+                  step="1" 
+                  value={config.marqueeSpeed} 
+                  onChange={(e) => handleConfigChange('marqueeSpeed', parseInt(e.target.value))} 
+                  className="flex-1 h-2 bg-slate-200 rounded-lg appearance-none cursor-pointer dark:bg-slate-700 accent-blue-600" 
+                />
+                <span className="text-[9px] font-black text-slate-400">SLOW ({config.marqueeSpeed}s)</span>
+              </div>
+            </div>
+
+            {/* Pilihan Gaya Tampilan Full Alert (9 Tema) */}
+            <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs flex flex-col gap-3">
+              <div className="flex flex-wrap items-center justify-between gap-2.5">
+                <div>
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <label className="text-[11px] font-black text-slate-800 dark:text-slate-200 uppercase flex items-center gap-1.5">
+                      <Palette className="w-3.5 h-3.5 text-amber-500" /> Tema Gaya Tampilan Full Alert
+                    </label>
+                    <span className="bg-amber-100 dark:bg-amber-950/80 text-amber-800 dark:text-amber-300 text-[10px] font-black px-2 py-0.5 rounded-full border border-amber-300 dark:border-amber-700/80 flex items-center gap-1 uppercase">
+                      <Check className="w-2.5 h-2.5 text-emerald-600" /> AKTIF: {
+                        {
+                          classic: '1. Klasik Reaktor',
+                          neon: '2. Cyber Neon',
+                          emergency: '3. Emergency Sirens',
+                          glass: '4. Modern Glass HUD',
+                          industrial: '5. Industrial Safety',
+                          holo: '6. Hologram Sci-Fi',
+                          matrix: '7. Terminal Matrix',
+                          minimal: '8. Minimalist Bold',
+                          warning_stripe: '9. Caution Tag Hazard'
+                        }[config.alertStyle || 'classic']
+                      }
+                    </span>
+                  </div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button 
+                    onClick={() => {
+                      setIsSettingsOpen(false);
+                      setTestAlertStyle(config.alertStyle || 'classic');
+                    }}
+                    className="px-2.5 py-1.5 bg-gradient-to-r from-amber-500 to-yellow-500 text-slate-950 font-black text-[10px] rounded-lg shadow-xs flex items-center gap-1 uppercase cursor-pointer"
+                  >
+                    <Eye className="w-3.5 h-3.5 text-black" /> PREVIEW FULL SCREEN
+                  </button>
+                  <button 
+                    onClick={() => setIsAlertStyleSectionOpen(prev => !prev)}
+                    className="px-2.5 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 font-bold text-[10px] rounded-lg border border-slate-200 dark:border-slate-600 flex items-center gap-1 uppercase cursor-pointer"
+                  >
+                    <Sliders className="w-3 h-3" />
+                    {isAlertStyleSectionOpen ? <>Tutup Tema <ChevronUp className="w-3 h-3" /></> : <>Pilih Tema (9) <ChevronDown className="w-3 h-3" /></>}
+                  </button>
+                </div>
+              </div>
+
+              {isAlertStyleSectionOpen && (
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-2.5 pt-2 border-t border-slate-200 dark:border-slate-700 animate-in fade-in duration-200">
+                  {[
+                    { key: 'classic' as const, title: '1. Klasik Reaktor', badge: '🔴 Klasik', bgClass: 'bg-red-600 text-white', desc: 'Kontras tinggi khas reaktor & badge countdown.' },
+                    { key: 'neon' as const, title: '2. Cyber Neon', badge: '⚡ Cyber Neon', bgClass: 'bg-slate-950 text-amber-300 border border-amber-400', desc: 'Tema futuristik gelap dengan border neon.' },
+                    { key: 'emergency' as const, title: '3. Emergency Sirens', badge: '🚨 Sirene', bgClass: 'bg-red-950 text-yellow-300 border border-red-500', desc: 'Tema darurat pabrik dengan efek strobe.' },
+                    { key: 'glass' as const, title: '4. Modern Glass HUD', badge: '💎 Glass HUD', bgClass: 'bg-slate-900 text-slate-100 border border-white/30', desc: 'Desain berkaca transparan modern.' },
+                    { key: 'industrial' as const, title: '5. Industrial Safety', badge: '🚧 Safety Gate', bgClass: 'bg-amber-500 text-black border border-black', desc: 'Strip keselamatan pabrik industri tebal.' },
+                    { key: 'holo' as const, title: '6. Hologram Sci-Fi', badge: '🌐 Hologram', bgClass: 'bg-slate-950 text-cyan-300 border border-cyan-400', desc: 'Konsol hologram cyan neon futuristik.' },
+                    { key: 'matrix' as const, title: '7. Terminal Matrix', badge: '📟 Terminal', bgClass: 'bg-black text-emerald-400 border border-emerald-500 font-mono', desc: 'Terminal industri hijau matrix berkedip.' },
+                    { key: 'minimal' as const, title: '8. Minimalist Bold', badge: '🔲 Minimalist', bgClass: 'bg-slate-100 text-slate-900 border border-slate-900', desc: 'Kontras ultra tinggi fungsional bersih.' },
+                    { key: 'warning_stripe' as const, title: '9. Caution Tag Hazard', badge: '⚠️ Caution Tag', bgClass: 'bg-yellow-400 text-slate-950 border border-black', desc: 'Papan peringatan hazard kuning pabrik.' }
+                  ].map((item) => {
+                    const isSelected = (config.alertStyle || 'classic') === item.key;
+                    return (
+                      <div 
+                        key={item.key} 
+                        className={`p-2.5 rounded-xl border flex flex-col justify-between gap-2 ${isSelected ? 'border-amber-500 ring-2 ring-amber-400/50 bg-amber-50/40 dark:bg-amber-950/20' : 'border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/50'}`}
+                      >
+                        <div>
+                          <div className="flex items-center justify-between mb-1">
+                            <span className="text-[11px] font-black text-slate-800 dark:text-slate-200">{item.title}</span>
+                            {isSelected && <span className="text-[8px] bg-emerald-500 text-white font-bold px-1 rounded">AKTIF</span>}
+                          </div>
+                          <div className={`py-2 px-1 rounded text-center text-[10px] font-black mb-1 ${item.bgClass}`}>
+                            {item.badge}
+                          </div>
+                          <p className="text-[10px] text-slate-500 dark:text-slate-400 leading-tight">{item.desc}</p>
+                        </div>
+                        <div className="flex gap-1 pt-1">
+                          <button 
+                            onClick={() => {
+                              setIsSettingsOpen(false);
+                              setTestAlertStyle(item.key);
+                            }}
+                            className="flex-1 py-1 bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 text-[9px] font-bold rounded uppercase cursor-pointer"
+                          >
+                            Preview
+                          </button>
+                          <button 
+                            onClick={() => handleConfigChange('alertStyle', item.key)}
+                            className={`flex-1 py-1 text-[9px] font-black rounded uppercase cursor-pointer ${isSelected ? 'bg-emerald-600 text-white' : 'bg-blue-600 text-white hover:bg-blue-700'}`}
+                          >
+                            {isSelected ? 'Terpilih ✓' : 'Pilih'}
+                          </button>
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+
+            {/* Browser Notification & Next Cycle Footer Info */}
+            <div className="flex flex-col sm:flex-row items-center justify-between gap-3 bg-emerald-50 dark:bg-emerald-950/30 p-3.5 rounded-xl border border-emerald-200 dark:border-emerald-800/60">
+              <div className="flex items-center gap-2 text-emerald-800 dark:text-emerald-300">
+                <FastForward className="w-4 h-4 text-emerald-600" />
+                <span className="text-xs font-bold">
+                  Next Sequence: <strong className="font-mono">#{nextStartParams.batch}</strong> ({new Date(nextStartParams.time).toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' })})
+                </span>
+              </div>
+              <button 
+                onClick={() => {
+                  if ('Notification' in window) {
+                    Notification.requestPermission().then(permission => {
+                      if (permission === 'granted') {
+                        new Notification("Notifications Enabled", { body: "Notifikasi start reaktor telah diaktifkan." });
+                      }
+                    });
+                  }
+                }}
+                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-black text-[10px] uppercase cursor-pointer"
+              >
+                Aktifkan Notifikasi Browser
+              </button>
+            </div>
+          </div>
+
+          {/* Modal Footer */}
+          <div className="px-5 py-3 border-t border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/80 flex items-center justify-between shrink-0">
+            <span className="text-[11px] text-slate-400 font-medium">Perubahan langsung tersimpan otomatis</span>
+            <button 
+              onClick={() => setIsSettingsOpen(false)}
+              className="px-5 py-2 bg-slate-800 dark:bg-slate-700 hover:bg-slate-900 dark:hover:bg-slate-600 text-white font-black text-xs rounded-xl shadow-xs transition-colors uppercase tracking-wider cursor-pointer"
+            >
+              Tutup Pengaturan
+            </button>
+          </div>
+        </div>
+      </DraggableModal>
+    </div>
   );
+};
+
+  const renderNavTabsWidget = () => {
+      return (
+          <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1.5 overflow-hidden">
+              <div className="grid grid-cols-3 gap-1.5">
+                  {/* Tab Jadwal */}
+                  <button 
+                      id="nav-tab-jadwal"
+                      onClick={() => setCurrentView('jadwal')}
+                      className={`py-2 px-1 rounded-lg font-black text-[0.75em] tracking-tight uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
+                          currentView === 'jadwal'
+                              ? 'bg-amber-500 text-white shadow-sm ring-1 ring-amber-400'
+                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80'
+                      }`}
+                      title="Buka Halaman Jadwal"
+                  >
+                      <Calendar className={`w-3.5 h-3.5 ${currentView === 'jadwal' ? 'text-white' : 'text-amber-500'}`} />
+                      <span>JADWAL</span>
+                  </button>
+
+                  {/* Tab Catatan */}
+                  <button 
+                      id="nav-tab-catatan"
+                      onClick={() => setCurrentView('catatan')}
+                      className={`py-2 px-1 rounded-lg font-black text-[0.75em] tracking-tight uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
+                          currentView === 'catatan'
+                              ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400'
+                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80'
+                      }`}
+                      title="Buka Halaman Catatan"
+                  >
+                      <FileText className={`w-3.5 h-3.5 ${currentView === 'catatan' ? 'text-white' : 'text-emerald-500'}`} />
+                      <span>CATATAN</span>
+                  </button>
+
+                  {/* Tab Setting */}
+                  <button 
+                      id="nav-tab-setting"
+                      onClick={() => setIsSettingsOpen(!isSettingsOpen)}
+                      className={`py-2 px-1 rounded-lg font-black text-[0.75em] tracking-tight uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
+                          isSettingsOpen
+                              ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-400'
+                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80'
+                      }`}
+                      title={isSettingsOpen ? "Tutup Pengaturan" : "Buka Pengaturan"}
+                  >
+                      <Settings className={`w-3.5 h-3.5 ${isSettingsOpen ? 'rotate-90 text-white' : 'text-blue-500'} transition-transform duration-300`} />
+                      <span>SETTING</span>
+                  </button>
+              </div>
+          </div>
+      );
+  };
 
   const renderGradeSelectionWidget = () => {
       return (
@@ -3512,7 +3623,7 @@ const App: React.FC = () => {
                           NORMAL
                       </button>
                       <button 
-                        onClick={() => handleConfigChange('gradeMode', 'gradeChange')}
+                        onClick={openGradeChangeModal}
                         className={`flex-1 py-2 rounded-md font-black text-[0.7em] transition-all ${config.gradeMode === 'gradeChange' ? 'bg-white dark:bg-slate-700 text-teal-600 dark:text-teal-400 shadow-sm' : 'text-slate-400 hover:text-slate-600'}`}
                       >
                           GRADE CHANGE
@@ -3633,10 +3744,10 @@ const App: React.FC = () => {
 
   const renderCatalystMiniWidget = () => {
       return (
-          <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800 catalyst-widget-container">
+          <div className="flex flex-col flex-1 shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800 catalyst-widget-container min-h-0">
               <div 
                   onClick={openCatalystModal}
-                  className="bg-indigo-600 hover:bg-indigo-700 cursor-pointer text-white font-bold text-[0.8em] px-3 py-2 text-center flex items-center justify-between gap-2 uppercase tracking-tight transition-colors"
+                  className="bg-indigo-600 hover:bg-indigo-700 cursor-pointer text-white font-bold text-[0.8em] px-3 py-2 text-center flex items-center justify-between gap-2 uppercase tracking-tight transition-colors shrink-0"
                   title="Click to open Catalyst Presets Settings"
               >
                   <div className="flex items-center gap-2">
@@ -3645,8 +3756,8 @@ const App: React.FC = () => {
                   </div>
                   <Sliders className="w-3.5 h-3.5 opacity-80" />
               </div>
-              <div className="p-2">
-                  <table className="w-full border-collapse">
+              <div className="p-2 flex-1 flex flex-col justify-center">
+                  <table className="w-full border-collapse h-full">
                       <thead>
                           <tr className="text-slate-500 dark:text-slate-400 border-b border-slate-100 dark:border-slate-700">
                               <th className="py-1 text-left font-black text-[0.7em] uppercase tracking-wider">CATA</th>
@@ -3997,7 +4108,8 @@ const App: React.FC = () => {
           </div>
 
           {/* RIGHT SIDE: 20% Widgets */}
-          <div className="w-[20%] flex flex-col gap-2 overflow-y-auto">
+          <div className="w-[20%] flex flex-col gap-2 h-full">
+              {renderNavTabsWidget()}
               {renderGradeSelectionWidget()}
               {renderSiloWidget()}
               {renderSteamWidget()}
@@ -4364,7 +4476,13 @@ const App: React.FC = () => {
                 data={demonomerData}
                 onDataChange={handleDemonomerChange}
                 gradeMode={config.gradeMode}
-                onGradeModeChange={(m) => handleConfigChange('gradeMode', m)}
+                onGradeModeChange={(m) => {
+                    if (m === 'gradeChange') {
+                        openGradeChangeModal();
+                    } else {
+                        handleConfigChange('gradeMode', 'normal');
+                    }
+                }}
                 onOpenFieTrend={() => setIsFie2002TrendOpen(true)}
             />
           ); break;
@@ -4413,6 +4531,7 @@ const App: React.FC = () => {
           const handleDismiss = () => {
               if (isTesting) {
                   setTestAlertStyle(null);
+                  setIsSettingsOpen(true);
               } else {
                   setDismissedAlerts(prev => new Set(prev).add(activeItem.id));
               }
@@ -4427,7 +4546,7 @@ const App: React.FC = () => {
                           <span className="whitespace-nowrap">MODE TEST PREVIEW: {alertStyle.toUpperCase()}</span>
                           <button 
                               onClick={() => playAlarmSound(config.alarmSound)}
-                              className="px-2.5 py-1 bg-slate-900 text-amber-300 hover:bg-slate-800 rounded-lg font-bold text-[10px] transition-colors whitespace-nowrap"
+                              className="px-2.5 py-1 bg-slate-900 text-amber-300 hover:bg-slate-800 rounded-lg font-bold text-[10px] transition-colors whitespace-nowrap cursor-pointer"
                           >
                               🔊 TES SUARA
                           </button>
@@ -4435,14 +4554,18 @@ const App: React.FC = () => {
                               onClick={() => {
                                   handleConfigChange('alertStyle', alertStyle);
                                   setTestAlertStyle(null);
+                                  setIsSettingsOpen(true);
                               }}
-                              className="px-2.5 py-1 bg-emerald-700 text-white hover:bg-emerald-800 rounded-lg font-bold text-[10px] transition-colors whitespace-nowrap"
+                              className="px-2.5 py-1 bg-emerald-700 text-white hover:bg-emerald-800 rounded-lg font-bold text-[10px] transition-colors whitespace-nowrap cursor-pointer"
                           >
                               ✓ APPLIKASIKAN GAYA INI
                           </button>
                           <button 
-                              onClick={() => setTestAlertStyle(null)}
-                              className="px-2.5 py-1 bg-red-700 text-white hover:bg-red-800 rounded-lg font-bold text-[10px] transition-colors whitespace-nowrap"
+                              onClick={() => {
+                                  setTestAlertStyle(null);
+                                  setIsSettingsOpen(true);
+                              }}
+                              className="px-2.5 py-1 bg-red-700 text-white hover:bg-red-800 rounded-lg font-bold text-[10px] transition-colors whitespace-nowrap cursor-pointer"
                           >
                               ✕ TUTUP PREVIEW
                           </button>
@@ -4462,14 +4585,14 @@ const App: React.FC = () => {
                           <div className="animate-pulse flex flex-col items-center my-auto max-w-2xl w-full">
                               <AlertTriangle className={`w-24 h-24 mb-3 ${reactorObj?.id === 'U' ? 'text-black' : 'text-yellow-300'}`} />
                               <h2 className="text-xl sm:text-2xl font-black tracking-widest uppercase mb-4 bg-black/30 px-8 py-2 rounded-full border border-white/30 text-yellow-300 shadow-lg">
-                                  SEGERA START REAKTOR RE-{activeItem.reactorId}
+                                  SEGERA START REAKTOR {activeItem.reactorId}
                               </h2>
                               
                               {/* KOTAK REAKTOR DENGAN WARNA BACKGROUND TABEL CYCLE */}
                               <div className={`${reactorObj?.color || 'bg-red-600'} ${reactorObj?.textColor || 'text-white'} px-12 py-8 rounded-3xl shadow-2xl flex flex-col items-center mb-6 border-4 border-white/80 min-w-[320px] sm:min-w-[420px]`}>
-                                  <span className="text-xs sm:text-sm font-black uppercase tracking-widest opacity-80">NAMA REAKTOR</span>
+                                  <span className="text-xs sm:text-sm font-black uppercase tracking-widest opacity-80">REAKTOR</span>
                                   <span className="text-[100px] sm:text-[130px] leading-none font-black tracking-tight my-1 drop-shadow-2xl">
-                                      RE-{activeItem.reactorId}
+                                      {activeItem.reactorId}
                                   </span>
                               </div>
 
@@ -4519,13 +4642,13 @@ const App: React.FC = () => {
                                   <span className="text-lg font-black uppercase tracking-widest">PERINTAH UTAMA START</span>
                               </div>
                               <h1 className="text-2xl sm:text-3xl font-black text-amber-400 tracking-wider mb-4 drop-shadow-[0_0_20px_rgba(251,191,36,0.8)]">
-                                  SEGERA START REAKTOR RE-{activeItem.reactorId}
+                                  SEGERA START REAKTOR {activeItem.reactorId}
                               </h1>
 
                               {/* KOTAK REAKTOR DENGAN WARNA BACKGROUND TABEL CYCLE */}
                               <div className={`${reactorObj?.color || 'bg-red-600'} ${reactorObj?.textColor || 'text-white'} border-4 border-amber-400 rounded-3xl p-8 shadow-[0_0_50px_rgba(251,191,36,0.5)] my-2 flex flex-col items-center w-full`}>
-                                  <span className="text-xs font-bold tracking-widest uppercase opacity-90">TARGET REAKTOR</span>
-                                  <span className="text-8xl sm:text-9xl font-black my-2 drop-shadow-2xl">RE-{activeItem.reactorId}</span>
+                                  <span className="text-xs font-bold tracking-widest uppercase opacity-90">REAKTOR</span>
+                                  <span className="text-8xl sm:text-9xl font-black my-2 drop-shadow-2xl">{activeItem.reactorId}</span>
                               </div>
 
                               <div className="flex justify-around items-center w-full bg-slate-900 border-2 border-amber-400 rounded-2xl p-4 my-4 text-cyan-300 font-bold text-lg sm:text-2xl shadow-inner">
@@ -4571,13 +4694,13 @@ const App: React.FC = () => {
                           <div className="flex flex-col items-center my-auto max-w-2xl w-full">
                               <AlertTriangle className="w-24 h-24 text-yellow-300 mb-2 animate-ping" />
                               <p className="text-lg sm:text-2xl font-black text-yellow-300 uppercase tracking-widest mb-6">
-                                  SEGERA START REAKTOR RE-{activeItem.reactorId}
+                                  SEGERA START REAKTOR {activeItem.reactorId}
                               </p>
 
                               {/* KOTAK REAKTOR DENGAN WARNA BACKGROUND TABEL CYCLE */}
                               <div className={`${reactorObj?.color || 'bg-red-600'} ${reactorObj?.textColor || 'text-white'} border-4 border-yellow-300 rounded-3xl p-8 shadow-2xl flex flex-col items-center w-full mb-6`}>
-                                  <span className="text-xs font-black uppercase tracking-widest opacity-90">UNIT KONTROL</span>
-                                  <span className="text-8xl sm:text-9xl font-black my-1 drop-shadow-2xl">RE-{activeItem.reactorId}</span>
+                                  <span className="text-xs font-black uppercase tracking-widest opacity-90">REAKTOR</span>
+                                  <span className="text-8xl sm:text-9xl font-black my-1 drop-shadow-2xl">{activeItem.reactorId}</span>
                               </div>
 
                               <div className="flex justify-around items-center w-full bg-red-900 border-2 border-yellow-300 rounded-2xl p-4 mb-6 text-white font-mono text-xl font-black">
@@ -4618,13 +4741,13 @@ const App: React.FC = () => {
                               <AlertTriangle className="w-16 h-16 text-amber-400 mb-2 animate-pulse" />
                               <span className="text-xs font-black uppercase tracking-widest text-blue-400 mb-1">PLANT COMMAND NOTIFICATION</span>
                               <h2 className="text-2xl font-extrabold text-white mb-4 tracking-tight uppercase">
-                                  SEGERA START REAKTOR RE-{activeItem.reactorId}
+                                  SEGERA START REAKTOR {activeItem.reactorId}
                               </h2>
 
                               {/* KOTAK REAKTOR DENGAN WARNA BACKGROUND TABEL CYCLE */}
                               <div className={`${reactorObj?.color || 'bg-red-600'} ${reactorObj?.textColor || 'text-white'} px-8 py-6 rounded-3xl border-4 border-white/60 flex flex-col items-center justify-center mb-6 shadow-2xl w-full`}>
-                                  <span className="text-xs font-bold uppercase tracking-widest opacity-80">REAKTOR ID</span>
-                                  <span className="text-7xl sm:text-8xl font-black mt-1">RE-{activeItem.reactorId}</span>
+                                  <span className="text-xs font-bold uppercase tracking-widest opacity-80">REAKTOR</span>
+                                  <span className="text-7xl sm:text-8xl font-black mt-1">{activeItem.reactorId}</span>
                               </div>
 
                               <div className="grid grid-cols-2 gap-4 w-full bg-white/5 border border-white/10 rounded-2xl p-4 mb-6">
@@ -4667,13 +4790,13 @@ const App: React.FC = () => {
 
                           <div className="flex flex-col items-center my-auto p-6 text-center max-w-2xl w-full">
                               <div className="bg-amber-500 text-black px-6 py-2 rounded-lg font-black text-base uppercase tracking-widest mb-4 flex items-center gap-2 shadow-2xl border-2 border-black">
-                                  <Wrench className="w-5 h-5" /> SEGERA START REAKTOR RE-{activeItem.reactorId}
+                                  <Wrench className="w-5 h-5" /> SEGERA START REAKTOR {activeItem.reactorId}
                               </div>
 
                               {/* KOTAK REAKTOR DENGAN WARNA BACKGROUND TABEL CYCLE */}
                               <div className={`${reactorObj?.color || 'bg-red-600'} ${reactorObj?.textColor || 'text-white'} border-4 border-amber-500 rounded-2xl p-8 shadow-2xl flex flex-col items-center w-full my-2`}>
-                                  <span className="text-xs font-bold uppercase tracking-widest opacity-80">UNIT REAKTOR KONTROL</span>
-                                  <span className="text-8xl sm:text-9xl font-black my-2">RE-{activeItem.reactorId}</span>
+                                  <span className="text-xs font-bold uppercase tracking-widest opacity-80">REAKTOR</span>
+                                  <span className="text-8xl sm:text-9xl font-black my-2">{activeItem.reactorId}</span>
                               </div>
 
                               <div className="flex justify-around items-center w-full bg-black border-2 border-amber-500 rounded-xl p-4 my-3 text-white font-mono text-xl font-black">
@@ -4719,14 +4842,14 @@ const App: React.FC = () => {
                                   SYSTEM COMMAND: EXECUTE OPERASI
                               </div>
                               <h1 className="text-2xl sm:text-3xl font-black text-white tracking-wide uppercase mb-4 drop-shadow-[0_0_15px_rgba(34,211,238,0.8)]">
-                                  SEGERA START REAKTOR RE-{activeItem.reactorId}
+                                  SEGERA START REAKTOR {activeItem.reactorId}
                               </h1>
 
                               {/* KOTAK REAKTOR DENGAN WARNA BACKGROUND TABEL CYCLE */}
                               <div className={`${reactorObj?.color || 'bg-red-600'} ${reactorObj?.textColor || 'text-white'} border-2 border-white/60 rounded-2xl p-6 w-full mb-6 shadow-2xl`}>
-                                  <span className="text-xs font-bold uppercase tracking-widest block mb-1 opacity-80">TARGET UNIT CONTROL</span>
+                                  <span className="text-xs font-bold uppercase tracking-widest block mb-1 opacity-80">REAKTOR</span>
                                   <span className="text-7xl sm:text-8xl font-black tracking-tight block">
-                                      RE-{activeItem.reactorId}
+                                      {activeItem.reactorId}
                                   </span>
                               </div>
 
@@ -4776,14 +4899,14 @@ const App: React.FC = () => {
                                   [PERINTAH OPERATOR]: RUN START_SEQUENCE.EXE
                               </div>
                               <h1 className="text-2xl sm:text-3xl font-black text-emerald-300 uppercase tracking-tight mb-6">
-                                  SEGERA START REAKTOR RE-{activeItem.reactorId}
+                                  SEGERA START REAKTOR {activeItem.reactorId}
                               </h1>
 
                               {/* KOTAK REAKTOR DENGAN WARNA BACKGROUND TABEL CYCLE */}
                               <div className={`${reactorObj?.color || 'bg-red-600'} ${reactorObj?.textColor || 'text-white'} border-2 border-emerald-400 p-8 rounded-2xl w-full mb-6 shadow-2xl`}>
-                                  <span className="text-xs uppercase tracking-widest block mb-1 opacity-80">// TARGET UNIT</span>
+                                  <span className="text-xs uppercase tracking-widest block mb-1 opacity-80">// REAKTOR</span>
                                   <span className="text-8xl sm:text-9xl font-black tracking-tight block">
-                                      RE-{activeItem.reactorId}
+                                      {activeItem.reactorId}
                                   </span>
                               </div>
 
@@ -4806,7 +4929,7 @@ const App: React.FC = () => {
                           </div>
 
                           <div className="w-full text-center text-xs text-emerald-600 border-t border-emerald-800 pt-2">
-                              STATUS: REAKTOR_RE-{activeItem.reactorId}_READY_FOR_START
+                              STATUS: REAKTOR_{activeItem.reactorId}_READY_FOR_START
                           </div>
                       </div>
                   )}
@@ -4824,14 +4947,14 @@ const App: React.FC = () => {
 
                           <div className="flex flex-col items-center my-auto max-w-2xl w-full">
                               <span className="text-sm font-black tracking-widest uppercase text-amber-400 bg-amber-950/80 px-6 py-2 rounded-full border border-amber-500/50 mb-6">
-                                  SEGERA START REAKTOR RE-{activeItem.reactorId}
+                                  SEGERA START REAKTOR {activeItem.reactorId}
                               </span>
 
                               {/* KOTAK REAKTOR DENGAN WARNA BACKGROUND TABEL CYCLE */}
                               <div className={`${reactorObj?.color || 'bg-red-600'} ${reactorObj?.textColor || 'text-white'} p-10 rounded-3xl w-full shadow-2xl mb-8 border-4 border-white/40`}>
-                                  <span className="text-sm font-extrabold uppercase tracking-widest block mb-1 opacity-80">REAKTOR SCHEDULE</span>
+                                  <span className="text-sm font-extrabold uppercase tracking-widest block mb-1 opacity-80">REAKTOR</span>
                                   <span className="text-[90px] sm:text-[120px] leading-none font-black tracking-tighter block my-2 drop-shadow-xl">
-                                      RE-{activeItem.reactorId}
+                                      {activeItem.reactorId}
                                   </span>
                               </div>
 
@@ -4873,19 +4996,19 @@ const App: React.FC = () => {
 
                           <div className="w-full bg-black text-yellow-400 py-3 text-center font-black text-base uppercase tracking-widest flex items-center justify-center gap-3">
                               <ShieldAlert className="w-6 h-6 animate-pulse text-red-500" />
-                              ⚠️ SEGERA START REAKTOR RE-{activeItem.reactorId} ⚠️
+                              ⚠️ SEGERA START REAKTOR {activeItem.reactorId} ⚠️
                               <ShieldAlert className="w-6 h-6 animate-pulse text-red-500" />
                           </div>
 
                           <div className="flex flex-col items-center my-auto p-6 text-center max-w-2xl w-full">
                               <div className="bg-black text-yellow-400 px-8 py-2.5 rounded-2xl font-black text-lg uppercase tracking-widest mb-6 border-2 border-yellow-500 shadow-2xl">
-                                  SEGERA START REAKTOR RE-{activeItem.reactorId}
+                                  SEGERA START REAKTOR {activeItem.reactorId}
                               </div>
 
                               {/* KOTAK REAKTOR DENGAN WARNA BACKGROUND TABEL CYCLE */}
                               <div className={`${reactorObj?.color || 'bg-red-600'} ${reactorObj?.textColor || 'text-white'} border-8 border-black rounded-3xl p-10 shadow-2xl flex flex-col items-center w-full mb-6`}>
-                                  <span className="text-sm font-black uppercase tracking-widest opacity-80">NAMA REAKTOR</span>
-                                  <span className="text-8xl sm:text-9xl font-black my-2 drop-shadow-2xl">RE-{activeItem.reactorId}</span>
+                                  <span className="text-sm font-black uppercase tracking-widest opacity-80">REAKTOR</span>
+                                  <span className="text-8xl sm:text-9xl font-black my-2 drop-shadow-2xl">{activeItem.reactorId}</span>
                               </div>
 
                               <div className="flex justify-around items-center w-full bg-black text-white rounded-2xl p-4 mb-6 font-mono text-xl sm:text-2xl font-black">
@@ -4952,10 +5075,10 @@ const App: React.FC = () => {
 
       {/* Dynamic Layout Rendering */}
       <div className={`flex-1 flex flex-col ${currentView === 'scheduler' ? 'overflow-hidden p-1 gap-1' : 'overflow-auto p-2 gap-4'}`}>
-          {/* Header is always shown */}
+          {/* Header */}
           {renderSection('header', 0)}
 
-          <div className="flex-1 flex flex-col min-h-0" style={{ zoom: 0.8 }}>
+          <div className="flex-1 flex flex-col min-h-0" style={currentView === 'scheduler' ? { zoom: 0.8 } : undefined}>
               {currentView === 'scheduler' && (
                   <>
                       <div className="flex-1 min-h-0">{renderSection('scheduler', 1)}</div>
@@ -4995,6 +5118,10 @@ const App: React.FC = () => {
               {currentView === 'catatan' && (
                 <Catatan onBack={() => setCurrentView('scheduler')} />
               )}
+
+              {currentView === 'jadwal' && (
+                <Jadwal />
+              )}
           </div>
       </div>
 
@@ -5002,24 +5129,24 @@ const App: React.FC = () => {
           2025 | SCHEDULE START PVC 5
       </div>
 
-      {/* --- DEMONOMER POPUP --- */}
+      {/* --- DEMONOMER POPUP (ADJUST STEAM) --- */}
       {isDemonomerPopupOpen && (
           <div className="fixed inset-0 pointer-events-none z-[80] flex items-center justify-center p-4 animate-in fade-in duration-200">
-              <DraggableModal className="w-full max-w-7xl h-[90vh] flex flex-col">
-                  <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full h-full overflow-hidden flex flex-col ring-4 ring-teal-500/50">
-                      <div className="bg-teal-600 text-white p-4 flex items-center justify-between shrink-0 cursor-grab active:cursor-grabbing">
-                          <h3 className="text-2xl font-black flex items-center gap-2">
-                              <Activity className="w-6 h-6" />
-                              ADJUST STEAM (DEMONOMER)
-                              <span className="px-2 py-0.5 text-xs bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
+              <DraggableModal className="w-full max-w-4xl flex flex-col max-h-[90vh]">
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col ring-4 ring-teal-500/50">
+                      <div className="bg-teal-600 text-white px-5 py-3.5 flex items-center justify-between shrink-0 cursor-grab active:cursor-grabbing">
+                          <h3 className="text-sm sm:text-base font-black flex items-center gap-2 uppercase tracking-tight">
+                              <Activity className="w-5 h-5 text-yellow-300 animate-pulse shrink-0" />
+                              <span>ADJUST STEAM (DEMONOMER)</span>
+                              <span className="px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-1 whitespace-nowrap">
                                   ✋ Tahan &amp; Drag
                               </span>
                           </h3>
-                          <button onClick={() => setIsDemonomerPopupOpen(false)} className="p-2 hover:bg-white/20 rounded-full transition-colors">
-                              <X className="w-6 h-6" />
+                          <button onClick={() => setIsDemonomerPopupOpen(false)} className="p-1.5 text-white/80 hover:text-white hover:bg-white/20 rounded-lg transition-colors cursor-pointer" title="Tutup Adjust Steam">
+                              <X className="w-5 h-5" />
                           </button>
                       </div>
-                      <div className="flex-1 overflow-y-auto p-4">
+                      <div className="flex-1 overflow-y-auto p-4 sm:p-5 max-h-[78vh]">
                           <Demonomer 
                               currentGrade={config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade} 
                               onGradeChange={(g) => {
@@ -5032,9 +5159,129 @@ const App: React.FC = () => {
                               data={demonomerData}
                               onDataChange={handleDemonomerChange}
                               gradeMode={config.gradeMode}
-                              onGradeModeChange={(m) => handleConfigChange('gradeMode', m)}
+                              onGradeModeChange={(m) => {
+                                  if (m === 'gradeChange') {
+                                      openGradeChangeModal();
+                                  } else {
+                                      handleConfigChange('gradeMode', 'normal');
+                                  }
+                              }}
                               onOpenFieTrend={() => setIsFie2002TrendOpen(true)}
                           />
+                      </div>
+                  </div>
+              </DraggableModal>
+          </div>
+      )}
+
+      {/* --- GRADE CHANGE CONFIRMATION MODAL --- */}
+      {isGradeChangeModalOpen && (
+          <div className="fixed inset-0 pointer-events-none z-[85] flex items-center justify-center p-4 animate-in fade-in duration-200">
+              <DraggableModal className="w-full max-w-lg">
+                  <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden transform transition-all ring-4 ring-teal-500/50">
+                      {/* Header */}
+                      <div className="bg-gradient-to-r from-teal-600 to-emerald-600 text-white p-5 flex items-center justify-between cursor-grab active:cursor-grabbing">
+                          <div>
+                              <h3 className="text-xl font-black flex items-center gap-2">
+                                  <Activity className="w-6 h-6 text-yellow-300 animate-pulse" />
+                                  KONFIRMASI GRADE CHANGE
+                                  <span className="px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
+                                      ✋ Tahan &amp; Drag
+                                  </span>
+                              </h3>
+                              <p className="text-teal-100 font-bold text-xs mt-0.5">
+                                  Pilih grade demonomer sebelum masuk ke mode Grade Change.
+                              </p>
+                          </div>
+                          <button 
+                              onClick={() => setIsGradeChangeModalOpen(false)} 
+                              className="bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors text-white"
+                              title="Tutup"
+                          >
+                              <X className="w-5 h-5" />
+                          </button>
+                      </div>
+
+                      {/* Body */}
+                      <div className="p-6 space-y-5">
+                          {/* Plant Current Grade Info */}
+                          <div className="flex items-center justify-between bg-slate-50 dark:bg-slate-800/60 p-3.5 rounded-xl border border-slate-200 dark:border-slate-700">
+                              <div>
+                                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 uppercase block">Grade Utama Reaktor</span>
+                                  <span className="text-sm font-black text-slate-800 dark:text-white">Saat ini running di jadwal</span>
+                              </div>
+                              <span className={`px-4 py-1.5 rounded-lg text-sm font-black text-white shadow-sm ${GRADE_COLORS[config.currentGrade] || 'bg-slate-700'}`}>
+                                  {config.currentGrade}
+                              </span>
+                          </div>
+
+                          {/* Choose Demonomer Grade */}
+                          <div>
+                              <label className="text-xs font-black text-slate-700 dark:text-slate-300 uppercase tracking-wider mb-2.5 flex items-center gap-1.5">
+                                  <span className="w-2 h-2 rounded-full bg-teal-500 animate-ping"></span>
+                                  Pilih Grade Demonomer:
+                              </label>
+                              <div className="grid grid-cols-5 gap-2">
+                                  {GRADES.map(g => {
+                                      const isSelected = tempSelectedGradeForChange === g;
+                                      return (
+                                          <button
+                                              key={g}
+                                              type="button"
+                                              onClick={() => setTempSelectedGradeForChange(g)}
+                                              className={`py-3.5 px-2 rounded-xl font-black text-sm sm:text-base flex flex-col items-center justify-center gap-1 transition-all border-2 ${
+                                                  isSelected 
+                                                      ? `${GRADE_COLORS[g]} text-white border-teal-400 dark:border-white shadow-lg scale-105 ring-2 ring-teal-400/50` 
+                                                      : 'bg-slate-50 dark:bg-slate-800/80 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700 hover:border-teal-400 dark:hover:border-teal-500 hover:bg-teal-50/50 dark:hover:bg-teal-950/20'
+                                              }`}
+                                          >
+                                              <span>{g}</span>
+                                              {isSelected && <CheckCircle2 className="w-4 h-4 text-white" />}
+                                          </button>
+                                      );
+                                  })}
+                              </div>
+                          </div>
+
+                          {/* Selected Grade Summary Card */}
+                          <div className="bg-teal-50/70 dark:bg-teal-950/30 p-4 rounded-xl border border-teal-200 dark:border-teal-800/50 flex items-center justify-between">
+                              <div>
+                                  <span className="text-[10px] font-bold uppercase text-teal-700 dark:text-teal-400 tracking-wider block">Grade Demonomer Terpilih</span>
+                                  <span className="text-xl font-black text-teal-900 dark:text-teal-200">
+                                      {tempSelectedGradeForChange}
+                                  </span>
+                              </div>
+                              <div className="text-right">
+                                  <span className="text-[10px] font-bold uppercase text-slate-500 dark:text-slate-400 tracking-wider block">Steam Multiplier</span>
+                                  <span className="text-lg font-mono font-black text-slate-800 dark:text-white">
+                                      {demonomerData.multipliers[tempSelectedGradeForChange as keyof typeof demonomerData.multipliers] ?? '-'}
+                                  </span>
+                              </div>
+                          </div>
+
+                          {/* Explanation */}
+                          <div className="bg-amber-50 dark:bg-amber-950/20 p-3 rounded-xl border border-amber-200/80 dark:border-amber-900/40 text-[11px] text-amber-800 dark:text-amber-300 font-bold leading-relaxed">
+                              ℹ️ Mode <strong>Grade Change</strong> memungkinkan perhitungan steam rasio demonomer menggunakan grade yang berbeda dengan grade reaktor yang sedang berlangsung.
+                          </div>
+
+                          {/* Actions */}
+                          <div className="flex gap-3 pt-2">
+                              <button
+                                  type="button"
+                                  onClick={() => setIsGradeChangeModalOpen(false)}
+                                  className="flex-1 py-3 px-4 rounded-xl font-black text-slate-600 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors uppercase text-xs tracking-wider"
+                              >
+                                  Batal
+                              </button>
+                              <button
+                                  type="button"
+                                  onClick={handleConfirmGradeChange}
+                                  className="flex-1 py-3 px-4 rounded-xl font-black text-white bg-teal-600 hover:bg-teal-700 shadow-lg shadow-teal-500/30 transition-all transform active:scale-95 uppercase text-xs tracking-wider flex items-center justify-center gap-2"
+                              >
+                                  <Check className="w-4 h-4" />
+                                  Konfirmasi &amp; Lanjut
+                              </button>
+                          </div>
                       </div>
                   </div>
               </DraggableModal>
@@ -5882,6 +6129,42 @@ const App: React.FC = () => {
           onClearHistory={handleClearFieTrend}
           onResetDefaultHistory={handleResetDefaultFieTrend}
       />
+
+      {/* --- FLOATING AUDIO NOTIFICATION TOAST --- */}
+      {audioNotification && audioNotification.show && (
+          <div className="fixed top-4 right-4 z-[95] max-w-sm w-full bg-white dark:bg-slate-800 border-2 border-emerald-500 shadow-2xl rounded-2xl p-4 flex items-start gap-3 animate-in slide-in-from-top-4 duration-300 pointer-events-auto">
+              <div className="p-2.5 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl shrink-0 mt-0.5 animate-pulse">
+                  <Volume2 className="w-5 h-5" />
+              </div>
+              <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between gap-1">
+                      <h4 className="font-black text-xs sm:text-sm text-slate-800 dark:text-white uppercase tracking-tight">
+                          {audioNotification.message}
+                      </h4>
+                      <button 
+                          onClick={() => setAudioNotification(null)}
+                          className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md transition-colors cursor-pointer"
+                          title="Tutup Notifikasi"
+                      >
+                          <X className="w-4 h-4" />
+                      </button>
+                  </div>
+                  {audioNotification.subMessage && (
+                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1 leading-snug">
+                          {audioNotification.subMessage}
+                      </p>
+                  )}
+                  <div className="mt-2 flex items-center gap-2">
+                      <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800/60 flex items-center gap-1">
+                          <Check className="w-3 h-3" /> Siap Bunyi Otomatis
+                      </span>
+                  </div>
+              </div>
+          </div>
+      )}
+
+      {/* --- SETTINGS POPUP MODAL --- */}
+      {renderSettingsModal()}
 
     </div>
   );
