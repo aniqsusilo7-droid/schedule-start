@@ -1217,15 +1217,41 @@ export const Jadwal: React.FC = () => {
               {/* Purpose / Details Input */}
               <div className="space-y-1.5">
                 <label className="text-xs font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider block">
-                  Tujuan / Rincian Lembur (Shift / Tugas)
+                  Tujuan / Rincian Lembur
                 </label>
-                <input
-                  type="text"
-                  value={entryPurpose}
-                  onChange={e => { setEntryPurpose(e.target.value); setFormError(null); }}
-                  placeholder="e.g. BU hikmal 15-19 atau BU Harjo 07-11"
-                  className="w-full p-3 font-bold text-base bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl focus:border-amber-500 outline-none dark:text-white"
-                />
+                <div className="flex flex-col gap-2">
+                  <input
+                    type="text"
+                    value={entryPurpose}
+                    onChange={e => { setEntryPurpose(e.target.value); setFormError(null); }}
+                    placeholder="Ketik tujuan / nama..."
+                    className="w-full p-3 font-bold text-base bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl focus:border-amber-500 outline-none dark:text-white"
+                  />
+                  <select
+                    onChange={e => {
+                      const time = e.target.value;
+                      if (!time) return;
+                      const current = entryPurpose.trim();
+                      const times = ["07:00 sd 11:00", "11:00 sd 15:00", "15:00 sd 19:00", "19:00 sd 23:00", "23:00 sd 07:00"];
+                      let cleanCurrent = current;
+                      times.forEach(t => {
+                         cleanCurrent = cleanCurrent.replace(t, '').trim();
+                      });
+                      
+                      setEntryPurpose(cleanCurrent ? `${cleanCurrent} ${time}` : time);
+                      setFormError(null);
+                      e.target.value = "";
+                    }}
+                    className="w-full p-3 font-bold text-base bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl focus:border-amber-500 outline-none dark:text-white cursor-pointer"
+                  >
+                    <option value="">+ Tambah Waktu Lembur...</option>
+                    <option value="07:00 sd 11:00">07:00 sd 11:00</option>
+                    <option value="11:00 sd 15:00">11:00 sd 15:00</option>
+                    <option value="15:00 sd 19:00">15:00 sd 19:00</option>
+                    <option value="19:00 sd 23:00">19:00 sd 23:00</option>
+                    <option value="23:00 sd 07:00">23:00 sd 07:00</option>
+                  </select>
+                </div>
               </div>
 
               {/* Optional Note */}
