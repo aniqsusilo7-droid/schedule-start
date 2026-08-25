@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { useMediaQuery, DESKTOP_QUERY } from '../utils/useMediaQuery';
 
 interface DraggableModalProps {
   children: React.ReactNode;
@@ -16,7 +17,12 @@ export const DraggableModal: React.FC<DraggableModalProps> = ({
   const dragStartRef = useRef({ x: 0, y: 0 });
   const posStartRef = useRef({ x: 0, y: 0 });
 
+  /* Di HP modal tidak boleh digeser: gerakan jari sudah dipakai untuk scroll,
+     dan modal yang tergeser gampang hilang di luar layar tanpa cara balik. */
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
+
   const startDrag = (clientX: number, clientY: number, target: HTMLElement) => {
+    if (!isDesktop) return;
     // Avoid dragging when clicking on inputs, buttons, scrollbars or links inside modal
     if (target.closest('button, input, select, textarea, a, .no-drag, [role="button"]')) return;
     setIsDragging(true);
@@ -82,7 +88,7 @@ export const DraggableModal: React.FC<DraggableModalProps> = ({
       onTouchStart={handleTouchStart}
       style={{
         ...style,
-        transform: `translate(${position.x}px, ${position.y}px)`
+        transform: isDesktop ? `translate(${position.x}px, ${position.y}px)` : undefined
       }}
       className={`pointer-events-auto transition-shadow ${
         isDragging ? 'cursor-grabbing shadow-2xl select-none ring-2 ring-indigo-500/50' : ''

@@ -8,8 +8,13 @@ import { Demonomer } from './components/Demonomer';
 import { Silo } from './components/Silo';
 import { Catatan } from './components/Catatan';
 import { Kesepakatan } from './components/Kesepakatan';
-import { Jadwal } from './components/Jadwal';
-import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp } from 'lucide-react';
+import { Jadwal, GroupKey, GROUP_THEMES } from './components/Jadwal';
+import { KasGrup } from './components/KasGrup';
+import { JadwalShift } from './components/JadwalShift';
+import { Sidebar, SidebarView, GroupedView } from './components/Sidebar';
+import { useMediaQuery, DESKTOP_QUERY } from './utils/useMediaQuery';
+import { getShiftGroupsNow, getActiveShifts, SHIFT_SLOTS, ShiftGroup } from './utils/shiftSchedule';
+import { Settings, RefreshCw, AlertTriangle, Calendar, CalendarDays, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp, Wallet, Menu } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { Reorder } from 'framer-motion';
 import { Fie2002TrendModal, Fie2002TrendEntry } from './components/Fie2002TrendModal';
@@ -17,6 +22,113 @@ import { DraggableModal } from './components/DraggableModal';
 
 const GRADES: GradeType[] = ['SM', 'SLK', 'SLP', 'SE', 'SR'];
 const STAGE_OPTIONS = ['Sample Blowing', 'Sample Washing', 'Sample Air Slurry'];
+
+/* Lebar tabel scheduler di HP. Kolom reaktor dipersempit dan dibuat sticky,
+   sisanya digeser horizontal. */
+const MOBILE_REACTOR_COL = 56;
+const MOBILE_CELL_MIN = 104;
+
+/* Label & ikon tiap halaman, dipakai breadcrumb di header. */
+const VIEW_META: Record<SidebarView, { label: string; Icon: React.ComponentType<{ className?: string }>; color: string }> = {
+  scheduler: { label: 'POLYMER',       Icon: LayoutGrid, color: 'text-blue-500' },
+  demonomer: { label: 'DEMONOMER',     Icon: Activity,   color: 'text-teal-500' },
+  silo:      { label: 'SILO',          Icon: Database,   color: 'text-cyan-500' },
+  jadwalShift: { label: 'JADWAL SHIFT', Icon: CalendarDays, color: 'text-rose-500' },
+  jadwal:    { label: 'JADWAL BACKUP', Icon: Calendar,   color: 'text-amber-500' },
+  kas:       { label: 'KAS GRUP',      Icon: Wallet,     color: 'text-violet-500' },
+  catatan:   { label: 'CATATAN',       Icon: FileText,   color: 'text-emerald-500' },
+};
+
+/* Warna grup mengikuti tema grup di halaman Jadwal/Kas agar konsisten. */
+const SHIFT_GROUP_COLOR: Record<ShiftGroup, string> = {
+  A: 'bg-blue-600 text-white',
+  B: 'bg-emerald-600 text-white',
+  C: 'bg-purple-600 text-white',
+  D: 'bg-amber-500 text-slate-950',
+};
+
+/** Grup yang memegang tiap shift hari ini. Berganti otomatis tiap tanggal,
+    dan menyorot shift yang sedang berjalan menurut jam saat ini. */
+const ShiftToday: React.FC<{ date: Date; className?: string }> = ({ date, className = '' }) => {
+  /* Bukan sekadar baris tanggal hari ini: Shift I menembus tengah malam,
+     jadi grupnya ditentukan oleh jam, bukan tanggal kalender. */
+  const assignment = getShiftGroupsNow(date);
+  const active = getActiveShifts(date);
+  /* Dua shift aktif berarti sedang dalam 15 menit serah terima. */
+  const isHandover = active.length > 1;
+
+  return (
+    /* Basis sengaja tanpa kelas `display`: pemanggil yang menentukan lewat
+       `hidden lg:flex`, supaya tidak ada dua kelas display yang bertabrakan. */
+    <div className={`flex-col rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm overflow-hidden ${className}`}>
+
+      {/* Tanggal: dipindah ke sini dari bawah judul agar jadi satu kartu. */}
+      <div className="flex items-center justify-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-700">
+        <Calendar className="w-[1.2em] h-[1.2em] text-slate-400 dark:text-slate-500 shrink-0" />
+        <span className="text-[0.95em] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 whitespace-nowrap leading-none">
+          {formatDate(date)}
+        </span>
+        {isHandover && (
+          <span className="text-[0.42em] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-400 text-amber-950 whitespace-nowrap">
+            Serah Terima
+          </span>
+        )}
+      </div>
+
+      <div className="flex flex-1 items-stretch">
+        {SHIFT_SLOTS.map((slot, i) => {
+          const isActive = active.includes(slot);
+          return (
+            <div
+              key={slot}
+              className={`flex-1 flex flex-col min-w-0 transition-colors ${
+                i > 0 ? 'border-l border-slate-200 dark:border-slate-700' : ''
+              }`}
+            >
+              {/* Label shift: tanpa latar, hanya warna teks yang menandai aktif. */}
+              <span className={`px-2.5 lg:px-8 py-1 lg:py-1.5 text-[0.58em] font-black uppercase tracking-widest text-center whitespace-nowrap leading-none ${
+                isActive
+                  ? 'text-emerald-600 dark:text-emerald-400'
+                  : 'text-slate-400 dark:text-slate-500'
+              }`}>
+                Shift {slot}
+              </span>
+
+              {/* Nama grup: warnanya memenuhi lebar dan sisa tinggi sel. */}
+              <span className={`flex-1 flex items-center justify-center px-2 py-1.5 lg:py-2.5 text-[0.75em] font-black uppercase tracking-wider whitespace-nowrap leading-none ${SHIFT_GROUP_COLOR[assignment[slot]]} ${
+                isActive ? '' : 'opacity-40'
+              }`}>
+                Grup {assignment[slot]}
+              </span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+};
+
+const Breadcrumb: React.FC<{ view: SidebarView; group: GroupKey }> = ({ view, group }) => {
+  const meta = VIEW_META[view];
+  const showGroup = view === 'jadwal' || view === 'kas';
+  return (
+    <div className="lg:hidden flex items-center gap-2 shrink-0 px-2.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+      <meta.Icon className={`w-3.5 h-3.5 shrink-0 ${meta.color}`} />
+      {/* Di HP label diganti badge grup saja bila ada, supaya tidak
+          mendesak judul keluar layar. */}
+      <span className={`text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 ${
+        showGroup ? 'hidden' : 'inline'
+      }`}>
+        {meta.label}
+      </span>
+      {showGroup && (
+        <span className={`text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${GROUP_THEMES[group].activeTabBg}`}>
+          {group}
+        </span>
+      )}
+    </div>
+  );
+};
 
 // Helper to generate 7-day default sample trend history for FIE2002 (168 hours)
 const generateDefaultFie2002History = (baseVal: number = 125): Fie2002TrendEntry[] => {
@@ -884,7 +996,7 @@ const HEADER_COLOR_SCHEMES = [
     marqueeText: "text-emerald-900 dark:text-emerald-100",
     marqueeBorder: "border-emerald-200 dark:border-emerald-800",
     marqueeGradientFrom: "from-emerald-100 dark:from-slate-900/50",
-    icon: "text-emerald-600 dark:text-emerald-400 animate-bounce",
+    icon: "text-emerald-600 dark:text-emerald-400",
     titleAnimClass: "animate-[pulse_2s_ease-in-out_infinite]"
   },
   {
@@ -929,7 +1041,7 @@ const HEADER_COLOR_SCHEMES = [
     marqueeText: "text-violet-900 dark:text-violet-100",
     marqueeBorder: "border-violet-200 dark:border-violet-800",
     marqueeGradientFrom: "from-violet-100 dark:from-slate-900/50",
-    icon: "text-violet-600 dark:text-violet-400 animate-bounce",
+    icon: "text-violet-600 dark:text-violet-400",
     titleAnimClass: "animate-[bounce_3s_infinite]"
   },
   {
@@ -951,7 +1063,36 @@ const HEADER_COLOR_SCHEMES = [
 
 const App: React.FC = () => {
   // --- State ---
-  const [currentView, setCurrentView] = useState<'scheduler' | 'demonomer' | 'silo' | 'catatan' | 'jadwal'>('scheduler');
+  const [currentView, setCurrentView] = useState<SidebarView>('scheduler');
+
+  /* Di bawah 1024px tabel scheduler tidak muat, jadi struktur render diganti
+     (tabel jadi kartu, sidebar jadi drawer) — bukan sekadar gaya. */
+  const isDesktop = useMediaQuery(DESKTOP_QUERY);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
+
+  /* Grup shift aktif. Tiap grup adalah halaman tersendiri, jadi kombinasi
+     currentView + currentGroup yang menentukan halaman mana yang tampil. */
+  const [currentGroup, setCurrentGroup] = useState<GroupKey>(() => {
+    const saved = localStorage.getItem('lastActiveGroup');
+    return (saved as GroupKey) || 'GRUP D';
+  });
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(
+    () => localStorage.getItem('sidebarCollapsed') === '1'
+  );
+
+  useEffect(() => {
+    localStorage.setItem('lastActiveGroup', currentGroup);
+  }, [currentGroup]);
+
+  useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', sidebarCollapsed ? '1' : '0');
+  }, [sidebarCollapsed]);
+
+  const handleSelectGroup = useCallback((view: GroupedView, group: GroupKey) => {
+    setCurrentView(view);
+    setCurrentGroup(group);
+  }, []);
   const [isDemonomerPopupOpen, setIsDemonomerPopupOpen] = useState(false);
   
   const [stoppedAt, setStoppedAt] = useState<number | null>(() => {
@@ -1257,6 +1398,16 @@ const App: React.FC = () => {
     subMessage?: string;
     type?: 'info' | 'success' | 'warning';
   } | null>(null);
+
+  /* Toast selalu hilang sendiri setelah 5 detik, lewat jalur pemicu mana pun.
+     Sebelumnya tiap pemanggil memasang timer sendiri dengan durasi berbeda. */
+  useEffect(() => {
+    if (!audioNotification?.show) return;
+    const timer = setTimeout(() => {
+      setAudioNotification(prev => (prev ? { ...prev, show: false } : null));
+    }, 5000);
+    return () => clearTimeout(timer);
+  }, [audioNotification?.show, audioNotification?.message]);
   const [dbSchemaError, setDbSchemaError] = useState<string | null>(null);
   const supabaseColumnsRef = useRef<Set<string>>(new Set());
   const isCatalystModalOpenRef = useRef(false);
@@ -1303,10 +1454,6 @@ const App: React.FC = () => {
                 }
             }
 
-            const timer = setTimeout(() => {
-                setAudioNotification(prev => prev ? { ...prev, show: false } : null);
-            }, 6000);
-            return () => clearTimeout(timer);
         }
     }
   }, [isLoading, config.alarmSound]);
@@ -2633,6 +2780,67 @@ const App: React.FC = () => {
     }
   }, [currentView, scrollToNowPosition]);
 
+  /* Tabel scheduler saat layar sempit: kolom paling kiri berisi batch yang
+     sudah lewat, sehingga jadwal yang akan start tertutup dan harus digeser
+     manual. Saat halaman dibuka, geser otomatis ke kolom pertama yang belum
+     start. Di layar lebar tabel tidak meluber, jadi ini otomatis tidak aktif. */
+  const schedulerScrollRef = useRef<HTMLDivElement | null>(null);
+  const hasAutoScrolledSchedulerRef = useRef(false);
+
+  useEffect(() => {
+    if (currentView !== 'scheduler') {
+      hasAutoScrolledSchedulerRef.current = false;
+      return;
+    }
+    if (hasAutoScrolledSchedulerRef.current) return;
+
+    /* Ditunda: tabel baru punya ukuran setelah dirender. */
+    const timer = setTimeout(() => {
+      const el = schedulerScrollRef.current;
+      if (!el) return;
+
+      if (el.scrollWidth <= el.clientWidth + 1) {
+        hasAutoScrolledSchedulerRef.current = true;
+        return;
+      }
+
+      const rows = Object.values(scheduleMatrix) as ScheduleItem[][];
+      const colCount = rows[0]?.length || 0;
+      const nowMs = Date.now();
+
+      /* Kolom pertama yang masih punya batch belum start di reaktor mana pun.
+         Batch yang di-skip tidak dihitung karena memang tidak akan jalan. */
+      let targetCol = -1;
+      for (let j = 0; j < colCount && targetCol < 0; j++) {
+        for (const row of rows) {
+          const item = row[j];
+          if (item && item.status !== 'skipped' && item.startTime.getTime() >= nowMs) {
+            targetCol = j;
+            break;
+          }
+        }
+      }
+
+      if (targetCol <= 0) {
+        hasAutoScrolledSchedulerRef.current = true;
+        return;
+      }
+
+      const firstRow = el.querySelector('tbody tr');
+      const cell = firstRow?.children[targetCol + 1] as HTMLElement | undefined;
+      const stickyCol = firstRow?.children[0] as HTMLElement | undefined;
+      if (!cell || !stickyCol) return;
+
+      /* Lebar kolom reaktor dikurangi karena kolom itu sticky dan akan
+         menutupi kolom tujuan kalau tidak dikompensasi. */
+      const cellLeft = cell.getBoundingClientRect().left - el.getBoundingClientRect().left + el.scrollLeft;
+      el.scrollLeft = Math.max(0, cellLeft - stickyCol.getBoundingClientRect().width);
+      hasAutoScrolledSchedulerRef.current = true;
+    }, 250);
+
+    return () => clearTimeout(timer);
+  }, [currentView, scheduleMatrix]);
+
   // --- Auto-calculated Running Text for Polymer ---
   const autoRunningText = useMemo(() => {
     try {
@@ -2884,9 +3092,6 @@ const App: React.FC = () => {
           subMessage: "Sistem alarm suara aktif dan siap membunyikan peringatan jadwal reaktor.",
           type: 'success'
       });
-      setTimeout(() => {
-          setAudioNotification(prev => prev ? { ...prev, show: false } : null);
-      }, 4000);
   };
 
   // Full Screen Alert Logic
@@ -2901,6 +3106,41 @@ const App: React.FC = () => {
       });
       return impendingItem || null;
   }, [scheduleMatrix, now, config.isStopped, config.alertThresholdSeconds, dismissedAlerts]);
+
+  /* Start reaktor terdekat yang belum lewat, untuk countdown di header.
+     scheduleMatrix dikelompokkan per reaktor, jadi hasil flat() tidak urut
+     waktu — harus dipindai untuk cari yang paling awal, bukan diambil yang
+     pertama ketemu. Pindai linear (bukan sort) karena `now` berubah tiap detik. */
+  const nextStartItem = useMemo(() => {
+      if (config.isStopped) return null;
+      const allItems = Object.values(scheduleMatrix).flat() as ScheduleItem[];
+      const nowMs = now.getTime();
+      let soonest: ScheduleItem | null = null;
+      for (const item of allItems) {
+          if (item.status === 'skipped') continue;
+          const t = item.startTime.getTime();
+          if (t <= nowMs) continue;
+          if (!soonest || t < soonest.startTime.getTime()) soonest = item;
+      }
+      return soonest;
+  }, [scheduleMatrix, now, config.isStopped]);
+
+  const nextStartSeconds = nextStartItem
+      ? Math.max(0, Math.ceil((nextStartItem.startTime.getTime() - now.getTime()) / 1000))
+      : null;
+
+  const isNextStartImminent =
+      nextStartSeconds !== null && nextStartSeconds <= (config.alertThresholdSeconds || 300);
+
+  const nextStartReactor = nextStartItem
+      ? REACTORS.find(r => r.id === nextStartItem.reactorId)
+      : undefined;
+
+  /* Ditampilkan sebagai menit penuh + detik (mis. 75 menit 15 detik), bukan
+     jam:menit:detik — menit tidak di-wrap ke jam supaya jarak ke start
+     langsung terbaca tanpa dihitung ulang. */
+  const nextStartMinutes = nextStartSeconds !== null ? Math.floor(nextStartSeconds / 60) : null;
+  const nextStartRemSeconds = nextStartSeconds !== null ? nextStartSeconds % 60 : null;
 
   // System Notification for Full Screen Alert
   const [lastAlertedId, setLastAlertedId] = useState<string | null>(null);
@@ -2974,17 +3214,24 @@ const App: React.FC = () => {
   // --- Render Components Logic ---
   
   const renderHeader = () => (
-      <header className="bg-white dark:bg-slate-900 border-b border-slate-200 dark:border-slate-800 p-1 shadow-sm z-30 relative transition-colors duration-300" style={{ fontSize: `${config.tableFontSize}px` }}>
+      <header
+        className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-1 shadow-sm z-30 relative transition-colors duration-300"
+        /* tableFontSize disetel untuk layar kontrol; di HP dibatasi agar
+           angka jam dan countdown tidak melebihi lebar layar. */
+        style={{ fontSize: `${isDesktop ? config.tableFontSize : Math.min(config.tableFontSize, 15)}px` }}
+      >
         
         {/* Main Header Container */}
-        <div className="flex flex-row items-center justify-between gap-2 w-full max-w-[1920px] mx-auto relative overflow-x-auto pb-0.5">
+        <div className="flex flex-wrap lg:flex-nowrap flex-row items-center justify-between gap-2 w-full max-w-[1920px] mx-auto relative lg:overflow-x-auto pb-0.5">
           
           {/* Left Section: Widget */}
-          <div className="flex shrink-0">
+          <div className="flex shrink-0 lg:flex-1 order-3 lg:order-1 w-full lg:w-auto">
                {/* Widget: Interval & Time */}
-               <div className="flex bg-slate-800 rounded-lg p-1 shadow-md">
+               <div className="flex flex-col lg:flex-row bg-slate-800 rounded-lg p-1 shadow-md w-full lg:w-auto gap-1 lg:gap-0">
+                    {/* Baris 1 di HP: interval + jam berdampingan */}
+                    <div className="flex w-full lg:contents">
                       {/* Interval */}
-                      <div className="px-4 py-1.5 flex flex-col items-center justify-center border-r border-slate-700/50 min-w-[125px] relative overflow-hidden group">
+                      <div className="flex shrink-0 px-2 lg:px-4 py-1.5 flex-col items-center justify-center border-r border-slate-700/50 min-w-[86px] lg:min-w-[125px] relative overflow-hidden group">
                          {/* Subtle pulsing bg */}
                          <div className="absolute inset-0 bg-cyan-500/5 dark:bg-cyan-400/5 rounded-l-lg pointer-events-none"></div>
                          
@@ -2997,7 +3244,7 @@ const App: React.FC = () => {
                          </div>
                       </div>
                       {/* Time */}
-                      <div className="px-4 py-1.5 flex flex-col items-center justify-center min-w-[210px] relative overflow-hidden group">
+                      <div className="w-full lg:w-auto px-2 lg:px-4 py-1.5 flex flex-col items-center justify-center min-w-0 lg:min-w-[210px] relative overflow-hidden group">
                          {/* Subtle background glow that pulses */}
                          <div className="absolute inset-0 bg-blue-500/5 dark:bg-blue-400/5 rounded-r-lg animate-pulse pointer-events-none"></div>
                          
@@ -3022,8 +3269,67 @@ const App: React.FC = () => {
                                  }
                                  return timeStr;
                              })()}
-                             <span className="text-[0.45em] ml-1 text-cyan-500 dark:text-cyan-400 font-black animate-bounce">s</span>
+                             <span className="text-[0.45em] ml-1 text-cyan-500 dark:text-cyan-400 font-black">s</span>
                          </div>
+                      </div>
+                    </div>
+
+                      {/* Countdown: start reaktor berikutnya */}
+                      <div className="w-full lg:w-auto px-2 lg:px-3 py-1.5 flex items-stretch gap-2 border-t lg:border-t-0 lg:border-l border-slate-700/50 min-w-0 lg:min-w-[230px] relative overflow-hidden">
+                         <div className={`absolute inset-0 rounded-r-lg pointer-events-none ${
+                            isNextStartImminent ? 'bg-red-500/10' : 'bg-amber-500/5'
+                         }`}></div>
+
+                         {/* Badge reaktor: self-stretch membuatnya setinggi
+                             ketiga baris teks di sebelah kanannya. */}
+                         {nextStartItem && (
+                            <span /* Di HP badge setinggi kartu; di desktop separuh ukurannya dan
+                                  cukup sejajar tengah, karena panelnya sudah ramai. */
+                               className={`z-10 shrink-0 self-stretch lg:self-center w-[2.4em] lg:w-[1.8em] lg:h-[1.8em] rounded-lg flex items-center justify-center font-black text-[1.7em] lg:text-[0.85em] leading-none shadow-sm ${nextStartReactor?.color || 'bg-slate-600'} ${nextStartReactor?.textColor || 'text-white'}`}>
+                               {nextStartItem.reactorId}
+                            </span>
+                         )}
+
+                       <div className="z-10 flex-1 min-w-0 flex flex-col items-center justify-center">
+                         <span className="text-[0.5em] text-slate-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5">
+                            <Timer className={`w-3 h-3 ${
+                               isNextStartImminent ? 'text-red-400' : 'text-amber-400'
+                            }`} />
+                            START BERIKUTNYA DALAM
+                         </span>
+
+                         {nextStartItem && nextStartSeconds !== null ? (
+                            <div className="flex flex-col items-center gap-1 w-full">
+                               <div className="flex items-center gap-1.5">
+                                  <span className={`flex items-baseline gap-1 leading-none ${
+                                     isNextStartImminent ? 'text-red-400' : 'text-amber-300'
+                                  }`}>
+                                     {nextStartMinutes !== null && nextStartMinutes > 0 && (
+                                        <>
+                                           <span className="font-mono font-black text-[1.5em] tracking-tight">{nextStartMinutes}</span>
+                                           <span className="text-[0.5em] font-bold uppercase tracking-wider opacity-75">menit</span>
+                                        </>
+                                     )}
+                                     <span className="font-mono font-black text-[1.5em] tracking-tight">
+                                        {nextStartRemSeconds?.toString().padStart(2, '0')}
+                                     </span>
+                                     <span className="text-[0.5em] font-bold uppercase tracking-wider opacity-75">detik</span>
+                                  </span>
+                               </div>
+                               <div className="flex items-center gap-1.5 text-[0.5em] font-bold uppercase tracking-wider text-slate-400">
+                                  <span>#{nextStartItem.batchNumber}</span>
+                                  <span className={`px-1.5 py-px rounded text-white ${GRADE_COLORS[nextStartItem.grade]}`}>
+                                     {nextStartItem.grade}
+                                  </span>
+                                  <span>{formatTime(nextStartItem.startTime)}</span>
+                               </div>
+                            </div>
+                         ) : (
+                            <div className="font-mono font-black text-[1.5em] leading-none text-slate-500">
+                               {config.isStopped ? 'STOPPED' : '--:--'}
+                            </div>
+                         )}
+                       </div>
                       </div>
                </div>
           </div>
@@ -3031,76 +3337,36 @@ const App: React.FC = () => {
           {/* Center Section: Title with 30-Second Dynamic Animation Rotation */}
           <div 
             key={cycle30s}
-            className={`flex flex-col items-center justify-center shrink-0 px-5 py-2 rounded-2xl backdrop-blur-md border shadow-md mx-4 transition-all duration-700 animate-in fade-in zoom-in-95 relative overflow-hidden group ${currentColorScheme.headerBg} ${currentColorScheme.headerBorder}`}
+            className={`flex flex-col items-center justify-center order-1 lg:order-2 flex-1 lg:flex-none lg:shrink-0 min-w-0 overflow-hidden px-3 lg:px-5 py-1.5 lg:py-2 rounded-2xl backdrop-blur-md border shadow-md mx-0 lg:mx-4 transition-all duration-700 animate-in fade-in zoom-in-95 relative overflow-hidden group ${currentColorScheme.headerBg} ${currentColorScheme.headerBorder}`}
           >
-            {/* 30-Second Animation Indicator */}
-            <div className="absolute top-1 right-2 flex items-center gap-1 text-[8px] font-mono font-black text-slate-400 dark:text-slate-500 opacity-65">
-               <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-ping"></span>
-               <span>30S ANIM</span>
-            </div>
-
-            <h1 className={`text-[2.0em] font-black tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm transition-all duration-700 ${currentColorScheme.titleAnimClass || ''}`}>
+            <h1 className={`text-[1.35em] lg:text-[2.0em] font-black tracking-tighter leading-none uppercase flex items-center gap-2 drop-shadow-sm transition-all duration-700 ${currentColorScheme.titleAnimClass || ''}`}>
                <span className={`transition-all duration-700 ${currentColorScheme.schedule}`}>SCHEDULE</span> 
                <span className={`transition-all duration-700 ${currentColorScheme.start}`}>START</span>
             </h1>
 
-            <div className="flex items-center gap-4 mt-1 border-t-2 border-slate-200/80 dark:border-slate-700/80 pt-1 w-full justify-center">
+            {/* Reaktor + tanggal disembunyikan di HP; tanggal sudah ada di daftar
+                batch dan barisnya memakan lebar yang dibutuhkan judul. */}
+            <div className="hidden lg:flex items-center gap-4 mt-1 border-t-2 border-slate-200/80 dark:border-slate-700/80 pt-1 w-full justify-center">
                 <span className={`text-[0.85em] font-black tracking-widest uppercase transition-colors duration-700 ${currentColorScheme.reaktor}`}>
                     REAKTOR PVC 5
-                </span>
-                <div className="h-3.5 w-px bg-slate-300 dark:bg-slate-600"></div>
-                <span className={`text-[0.85em] font-black tracking-widest uppercase flex items-center gap-2 transition-colors duration-700 ${currentColorScheme.date}`}>
-                    <Calendar className={`w-[1.2em] h-[1.2em] transition-all duration-700 ${currentColorScheme.icon}`} />
-                    {formatDate(now)}
                 </span>
             </div>
           </div>
 
-          {/* Right Section: Navigation Tabs (Matching Jadwal/Catatan/Setting Style) */}
-          <div className="flex shrink-0">
-              <nav aria-label="Main Navigation" className="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-                  {/* Tab 1: Polymer */}
-                  <button 
-                      id="tab-polymer"
-                      onClick={() => setCurrentView('scheduler')} 
-                      className={`py-1.5 px-3 rounded-lg font-black text-xs tracking-tight uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
-                          currentView === 'scheduler' 
-                              ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-400' 
-                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80'
-                      }`}
-                  >
-                      <LayoutGrid className={`w-3.5 h-3.5 ${currentView === 'scheduler' ? 'text-white' : 'text-blue-500'}`} />
-                      <span>POLYMER</span>
-                  </button>
+          {/* Right Section: Breadcrumb — navigasi pindah seluruhnya ke sidebar kanan */}
+          <div className="flex shrink-0 lg:flex-1 items-center lg:items-stretch justify-end lg:justify-center gap-2 order-2 lg:order-3">
+              <ShiftToday date={now} className="hidden lg:flex" />
+              <Breadcrumb view={currentView} group={currentGroup} />
 
-                  {/* Tab 2: Demonomer */}
-                  <button 
-                      id="tab-demonomer"
-                      onClick={() => setCurrentView('demonomer')} 
-                      className={`py-1.5 px-3 rounded-lg font-black text-xs tracking-tight uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
-                          currentView === 'demonomer' 
-                              ? 'bg-teal-600 text-white shadow-sm ring-1 ring-teal-400' 
-                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80'
-                      }`}
-                  >
-                      <Activity className={`w-3.5 h-3.5 ${currentView === 'demonomer' ? 'text-white' : 'text-teal-500'}`} />
-                      <span>DEMONOMER</span>
-                  </button>
-
-                  {/* Tab 3: Silo */}
-                  <button 
-                      id="tab-silo"
-                      onClick={() => setCurrentView('silo')} 
-                      className={`py-1.5 px-3 rounded-lg font-black text-xs tracking-tight uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
-                          currentView === 'silo' 
-                              ? 'bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400' 
-                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80'
-                      }`}
-                  >
-                      <Database className={`w-3.5 h-3.5 ${currentView === 'silo' ? 'text-white' : 'text-cyan-500'}`} />
-                      <span>SILO</span>
-                  </button>
-              </nav>
+              {/* Pembuka drawer. Di desktop sidebar selalu terlihat, jadi disembunyikan. */}
+              <button
+                type="button"
+                onClick={() => setIsMobileNavOpen(true)}
+                aria-label="Buka menu navigasi"
+                className="lg:hidden shrink-0 p-2.5 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm active:scale-95 transition-transform cursor-pointer"
+              >
+                <Menu className="w-5 h-5 text-slate-600 dark:text-slate-300" />
+              </button>
           </div>
         </div>
     </header>
@@ -3123,7 +3389,7 @@ const App: React.FC = () => {
                 <div>
                   <h3 className="font-black text-sm sm:text-base text-slate-800 dark:text-white uppercase tracking-tight flex items-center gap-2">
                     Pengaturan Sistem
-                    <span className="px-2 py-0.5 text-[10px] bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold rounded border border-blue-200 dark:border-blue-700 select-none">
+                    <span className="hidden lg:inline px-2 py-0.5 text-[10px] bg-blue-100 dark:bg-blue-900/60 text-blue-700 dark:text-blue-300 font-bold rounded border border-blue-200 dark:border-blue-700 select-none">
                       ✋ Tahan & Drag
                     </span>
                   </h3>
@@ -3555,58 +3821,6 @@ const App: React.FC = () => {
   );
 };
 
-  const renderNavTabsWidget = () => {
-      return (
-          <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1.5 overflow-hidden">
-              <div className="grid grid-cols-3 gap-1.5">
-                  {/* Tab Jadwal */}
-                  <button 
-                      id="nav-tab-jadwal"
-                      onClick={() => setCurrentView('jadwal')}
-                      className={`py-2 px-1 rounded-lg font-black text-[0.75em] tracking-tight uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
-                          currentView === 'jadwal'
-                              ? 'bg-amber-500 text-white shadow-sm ring-1 ring-amber-400'
-                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80'
-                      }`}
-                      title="Buka Halaman Jadwal"
-                  >
-                      <Calendar className={`w-3.5 h-3.5 ${currentView === 'jadwal' ? 'text-white' : 'text-amber-500'}`} />
-                      <span>JADWAL</span>
-                  </button>
-
-                  {/* Tab Catatan */}
-                  <button 
-                      id="nav-tab-catatan"
-                      onClick={() => setCurrentView('catatan')}
-                      className={`py-2 px-1 rounded-lg font-black text-[0.75em] tracking-tight uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
-                          currentView === 'catatan'
-                              ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400'
-                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80'
-                      }`}
-                      title="Buka Halaman Catatan"
-                  >
-                      <FileText className={`w-3.5 h-3.5 ${currentView === 'catatan' ? 'text-white' : 'text-emerald-500'}`} />
-                      <span>CATATAN</span>
-                  </button>
-
-                  {/* Tab Setting */}
-                  <button 
-                      id="nav-tab-setting"
-                      onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                      className={`py-2 px-1 rounded-lg font-black text-[0.75em] tracking-tight uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
-                          isSettingsOpen
-                              ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-400'
-                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80'
-                      }`}
-                      title={isSettingsOpen ? "Tutup Pengaturan" : "Buka Pengaturan"}
-                  >
-                      <Settings className={`w-3.5 h-3.5 ${isSettingsOpen ? 'rotate-90 text-white' : 'text-blue-500'} transition-transform duration-300`} />
-                      <span>SETTING</span>
-                  </button>
-              </div>
-          </div>
-      );
-  };
 
   const renderGradeSelectionWidget = () => {
       return (
@@ -3809,9 +4023,14 @@ const App: React.FC = () => {
     };
 
     return (
-        <div className="w-full h-full flex flex-row gap-2" style={{ fontSize: `${config.tableFontSize}px` }}>
+        <div
+          className="w-full lg:h-full flex flex-col lg:flex-row gap-2"
+          /* tableFontSize disetel untuk layar kontrol besar; di HP dibatasi
+             supaya isi sel tidak saling tindih. */
+          style={{ fontSize: `${isDesktop ? config.tableFontSize : Math.min(config.tableFontSize, 13)}px` }}
+        >
           {/* LEFT SIDE: 80% Table */}
-          <div className="w-[80%] flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
+          <div className="w-full lg:w-[80%] flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
             
              {/* MARQUEE BAR: Placed between header and table rows */}
              <div className={`w-full ${currentColorScheme.marqueeBg} border-b ${currentColorScheme.marqueeBorder} overflow-hidden h-10 relative flex items-center transition-all duration-1000`}>
@@ -3850,16 +4069,25 @@ const App: React.FC = () => {
                   </div>
              </div>
 
-            <div className="overflow-x-auto h-full">
-              <table className="w-full border-collapse h-full table-fixed">
+            <div ref={schedulerScrollRef} className="overflow-x-auto lg:h-full">
+              <table
+                className="w-full border-collapse lg:h-full table-fixed"
+                style={isDesktop ? undefined : { minWidth: `${MOBILE_REACTOR_COL + config.columnsToDisplay * MOBILE_CELL_MIN}px` }}
+              >
                 {/* Removed <thead> to align with image where the first row is just data rows */}
                 <tbody>
                   {REACTORS.map((reactor) => (
-                    <tr key={reactor.id} className="border-b border-slate-200 dark:border-slate-700 last:border-0" style={{ height: `${config.tableRowHeight}px` }}>
+                    <tr key={reactor.id} className="border-b border-slate-200 dark:border-slate-700 last:border-0" style={{ height: `${isDesktop ? config.tableRowHeight : Math.min(config.tableRowHeight, 58)}px` }}>
                       
                       <td 
-                        className={`${reactor.color} ${reactor.textColor} border-r border-slate-900/10 dark:border-slate-900/30 p-2 relative group`}
-                        style={{ width: '140px', minWidth: '140px', maxWidth: '140px' }}
+                        /* sticky: tanpa ini huruf reaktor ikut hilang saat tabel
+                           digeser ke kanan dan barisnya jadi tak dikenali. */
+                        className={`${reactor.color} ${reactor.textColor} border-r border-slate-900/10 dark:border-slate-900/30 p-1 lg:p-2 relative group sticky left-0 z-20`}
+                        style={{
+                          width: `${isDesktop ? 140 : MOBILE_REACTOR_COL}px`,
+                          minWidth: `${isDesktop ? 140 : MOBILE_REACTOR_COL}px`,
+                          maxWidth: `${isDesktop ? 140 : MOBILE_REACTOR_COL}px`,
+                        }}
                       >
                          <div className="flex flex-col items-center justify-center h-full">
                             <span className="font-black font-serif drop-shadow-md leading-none" style={{ fontSize: '2.2em' }}>{reactor.label}</span>
@@ -3932,9 +4160,9 @@ const App: React.FC = () => {
                               key={item.id} 
                               onClick={() => openRescheduleModal(item)}
                               className={cellClasses}
-                              style={{ 
-                                width: `calc((100% - 140px) / ${config.columnsToDisplay})`,
-                                minWidth: '130px'
+                              style={{
+                                width: `calc((100% - ${isDesktop ? 140 : MOBILE_REACTOR_COL}px) / ${config.columnsToDisplay})`,
+                                minWidth: `${isDesktop ? 130 : MOBILE_CELL_MIN}px`,
                               }}
                           >
                             <div className="h-full flex flex-col justify-between p-1">
@@ -4108,8 +4336,7 @@ const App: React.FC = () => {
           </div>
 
           {/* RIGHT SIDE: 20% Widgets */}
-          <div className="w-[20%] flex flex-col gap-2 h-full">
-              {renderNavTabsWidget()}
+          <div className="w-full lg:w-[20%] grid grid-cols-2 lg:flex lg:flex-col gap-2 lg:h-full">
               {renderGradeSelectionWidget()}
               {renderSiloWidget()}
               {renderSteamWidget()}
@@ -4315,7 +4542,9 @@ const App: React.FC = () => {
       return (
            <div className="flex flex-col gap-4" style={{ fontSize: `${config.tableFontSize}px` }}>
                 
-               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+               {/* Hitung Cycle Time & Kesepakatan Shift disembunyikan di HP:
+                   keduanya tabel lebar yang tidak terbaca di layar sempit. */}
+               <div className="hidden lg:grid grid-cols-1 lg:grid-cols-2 gap-4">
                    {/* 1. CYCLE TIME WIDGET */}
                    <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 cycle-time-container">
                         <div className={`${GRADE_COLORS[config.currentGrade] || 'bg-indigo-600'} text-white font-bold text-[0.7em] px-3 py-1 text-center rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight transition-colors`}>
@@ -4504,8 +4733,15 @@ const App: React.FC = () => {
 
   return (
     <div 
-        className={`min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans text-sm relative transition-colors duration-300 ${config.theme}`}
-        style={{ zoom: zoomLevel }}
+        className={`bg-slate-50 dark:bg-slate-950 flex flex-col font-sans text-sm relative transition-colors duration-300 ${config.theme}`}
+        /* min-height dibagi zoomLevel: `zoom` ikut mengecilkan 100vh, sehingga
+           min-h-screen menyisakan pita kosong di bawah saat zoom < 1. */
+        style={{
+            /* Zoom pilihan user hanya untuk layar besar. Di HP zoom < 1 membuat
+               teks tak terbaca, jadi dipaksa 1. */
+            zoom: isDesktop ? zoomLevel : 1,
+            minHeight: `${100 / (isDesktop ? zoomLevel : 1)}vh`,
+        }}
     >
       
       {/* ... [Full Screen Alert Overlay with Multi-Style Support] ... */}
@@ -5074,11 +5310,20 @@ const App: React.FC = () => {
       )}
 
       {/* Dynamic Layout Rendering */}
-      <div className={`flex-1 flex flex-col ${currentView === 'scheduler' ? 'overflow-hidden p-1 gap-1' : 'overflow-auto p-2 gap-4'}`}>
-          {/* Header */}
-          {renderSection('header', 0)}
+      <div className={`flex-1 flex flex-row min-h-0 gap-2 ${currentView === 'scheduler' ? 'overflow-auto lg:overflow-hidden p-1' : 'overflow-auto p-2'}`}>
 
-          <div className="flex-1 flex flex-col min-h-0" style={currentView === 'scheduler' ? { zoom: 0.8 } : undefined}>
+          {/* Kolom kiri: header + konten. Sidebar jadi saudara kandungnya,
+              bukan anak di bawah header, supaya tingginya sampai atas. */}
+          <div className={`flex-1 flex flex-col min-w-0 min-h-0 ${currentView === 'scheduler' ? 'gap-1' : 'gap-4'}`}>
+              {/* Header */}
+              {renderSection('header', 0)}
+
+              <div
+                className="flex-1 flex flex-col min-w-0 lg:min-h-0 lg:overflow-auto"
+                /* Zoom 0.8 khusus tabel scheduler di desktop; di HP tabelnya
+                   sudah diganti kartu, mengecilkannya lagi bikin tak terbaca. */
+                style={isDesktop && currentView === 'scheduler' ? { zoom: 0.8 } : undefined}
+              >
               {currentView === 'scheduler' && (
                   <>
                       <div className="flex-1 min-h-0">{renderSection('scheduler', 1)}</div>
@@ -5119,10 +5364,37 @@ const App: React.FC = () => {
                 <Catatan onBack={() => setCurrentView('scheduler')} />
               )}
 
-              {currentView === 'jadwal' && (
-                <Jadwal />
+              {currentView === 'jadwalShift' && (
+                <JadwalShift now={now} />
               )}
+
+              {currentView === 'jadwal' && (
+                <Jadwal key={currentGroup} activeGroup={currentGroup} />
+              )}
+
+              {currentView === 'kas' && (
+                <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-800 p-4 lg:p-6 min-h-[500px]">
+                  <KasGrup key={currentGroup} activeGroup={currentGroup} />
+                </div>
+              )}
+              </div>
           </div>
+
+          {/* Sidebar navigasi — satu-satunya tempat berpindah halaman.
+              Saudara kandung kolom kiri, jadi tingginya penuh sampai atas. */}
+          <Sidebar
+                currentView={currentView}
+                currentGroup={currentGroup}
+                collapsed={sidebarCollapsed}
+                onToggleCollapsed={() => setSidebarCollapsed(v => !v)}
+                onSelectView={setCurrentView}
+                onSelectGroup={handleSelectGroup}
+                isSettingsOpen={isSettingsOpen}
+                onToggleSettings={() => setIsSettingsOpen(o => !o)}
+                isMobile={!isDesktop}
+                mobileOpen={isMobileNavOpen}
+            onMobileClose={() => setIsMobileNavOpen(false)}
+          />
       </div>
 
       <div className="max-w-7xl mx-auto mt-6 pb-6 text-center text-slate-400 dark:text-slate-500 text-sm font-bold">
@@ -5138,7 +5410,7 @@ const App: React.FC = () => {
                           <h3 className="text-sm sm:text-base font-black flex items-center gap-2 uppercase tracking-tight">
                               <Activity className="w-5 h-5 text-yellow-300 animate-pulse shrink-0" />
                               <span>ADJUST STEAM (DEMONOMER)</span>
-                              <span className="px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-1 whitespace-nowrap">
+                              <span className="hidden lg:inline px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-1 whitespace-nowrap">
                                   ✋ Tahan &amp; Drag
                               </span>
                           </h3>
@@ -5185,7 +5457,7 @@ const App: React.FC = () => {
                               <h3 className="text-xl font-black flex items-center gap-2">
                                   <Activity className="w-6 h-6 text-yellow-300 animate-pulse" />
                                   KONFIRMASI GRADE CHANGE
-                                  <span className="px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
+                                  <span className="hidden lg:inline px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
                                       ✋ Tahan &amp; Drag
                                   </span>
                               </h3>
@@ -5297,7 +5569,7 @@ const App: React.FC = () => {
                           <h3 className="text-xl font-black flex items-center gap-2">
                               <Sliders className="w-6 h-6 text-yellow-300 animate-pulse" />
                               PRESET CATALYST PER GRADE
-                              <span className="px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
+                              <span className="hidden lg:inline px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
                                   ✋ Tahan &amp; Drag
                               </span>
                           </h3>
@@ -5538,7 +5810,7 @@ const App: React.FC = () => {
                           <h3 className="text-2xl font-black flex items-center gap-2">
                               <Calculator className="w-8 h-8 text-yellow-300" />
                               EDIT RUMUS
-                              <span className="px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
+                              <span className="hidden lg:inline px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
                                   ✋ Tahan &amp; Drag
                               </span>
                           </h3>
@@ -5598,7 +5870,7 @@ const App: React.FC = () => {
                               <h3 className="text-2xl font-black flex items-center gap-2">
                                   <PlayCircle className="w-8 h-8 text-yellow-300" />
                                   START SILO {startSiloData.id}
-                                  <span className="px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
+                                  <span className="hidden lg:inline px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
                                       ✋ Tahan &amp; Drag
                                   </span>
                               </h3>
@@ -5717,28 +5989,28 @@ const App: React.FC = () => {
 
       {/* ... [Reschedule Modal] ... */}
       {selectedItem && (
-        <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center p-4">
+        <div className="fixed inset-0 pointer-events-none z-50 flex items-center justify-center p-2 sm:p-4">
             <DraggableModal className="w-full max-w-lg">
                 <div className="bg-white dark:bg-slate-800 rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-                    <div className="bg-slate-800 dark:bg-slate-950 text-white p-6 flex justify-between items-center shrink-0 cursor-grab active:cursor-grabbing">
+                    <div className="bg-slate-800 dark:bg-slate-950 text-white p-4 sm:p-6 flex justify-between items-center shrink-0 cursor-grab active:cursor-grabbing">
                         <div>
-                            <h3 className="text-2xl font-black flex items-center gap-2">
-                                <Edit3 className="w-6 h-6 text-blue-400" />
+                            <h3 className="text-lg sm:text-2xl font-black flex items-center gap-2">
+                                <Edit3 className="w-5 h-5 sm:w-6 sm:h-6 text-blue-400" />
                                 Adjust Schedule
-                                <span className="px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
+                                <span className="hidden lg:inline px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
                                     ✋ Tahan &amp; Drag
                                 </span>
                             </h3>
-                            <p className="text-sm font-bold text-slate-400">
+                            <p className="text-[11px] sm:text-sm font-bold text-slate-400">
                                 Reaktor {selectedItem.reactorId} &bull; Batch {selectedItem.batchNumber || '---'}
                             </p>
                         </div>
                         <button onClick={closeRescheduleModal} className="text-slate-400 hover:text-white transition-colors">
-                            <X className="w-6 h-6" />
+                            <X className="w-5 h-5 sm:w-6 sm:h-6" />
                         </button>
                     </div>
                     
-                    <div className="p-6 space-y-6 overflow-y-auto">
+                    <div className="p-3 sm:p-6 space-y-4 sm:space-y-6 overflow-y-auto">
                         
                         {/* FITUR KHUSUS: INPUT FOR RE-S (Hanya untuk Reaktor S Cycle Pertama) */}
                         {selectedItem.reactorId === 'S' && selectedItem.cycleIndex === 0 && (
@@ -5761,8 +6033,8 @@ const App: React.FC = () => {
                         )}
                         
                         {/* Notes */}
-                        <div className="mb-6">
-                            <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-3 block">Operator Notes</label>
+                        <div className="mb-4 sm:mb-6">
+                            <label className="text-[11px] sm:text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-2 sm:mb-3 block">Operator Notes</label>
                             <textarea 
                                 value={editForm.note} 
                                 onChange={(e) => {
@@ -5775,14 +6047,14 @@ const App: React.FC = () => {
                                 onFocus={() => setIsNoteFocused(true)}
                                 onBlur={() => setIsNoteFocused(false)}
                                 placeholder="Add information for DCS operator..." 
-                                className={`w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl p-4 text-base font-bold focus:ring-2 focus:ring-blue-500 outline-none min-h-[100px] ${editForm.note && !isNoteFocused && shouldBlinkNote ? 'animate-blink border-red-500 ring-2 ring-red-500/20' : ''}`} 
+                                className={`w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-xl p-3 sm:p-4 text-sm sm:text-base font-bold focus:ring-2 focus:ring-blue-500 outline-none min-h-[72px] sm:min-h-[100px] ${editForm.note && !isNoteFocused && shouldBlinkNote ? 'animate-blink border-red-500 ring-2 ring-red-500/20' : ''}`} 
                             />
                         </div>
 
                         {/* Mode, Grade & Skip Controls */}
-                        <div className="grid grid-cols-2 gap-6">
-                             <div className="flex flex-col gap-3">
-                                <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase">Status</label>
+                        <div className="grid grid-cols-2 gap-3 sm:gap-6">
+                             <div className="flex flex-col gap-2 sm:gap-3">
+                                <label className="text-[11px] sm:text-sm font-black text-slate-500 dark:text-slate-400 uppercase">Status</label>
                                 <select 
                                     value={editForm.isSkipped ? editForm.skipReason : 'ACTIVE'} 
                                     onChange={(e) => {
@@ -5793,7 +6065,7 @@ const App: React.FC = () => {
                                             setEditForm(prev => ({ ...prev, isSkipped: true, skipReason: val as any }));
                                         }
                                     }} 
-                                    className={`w-full p-4 rounded-xl border-2 font-black transition-colors text-lg appearance-none outline-none ${editForm.isSkipped ? 'bg-stone-200 text-stone-700 border-stone-300' : 'bg-white dark:bg-slate-700 text-gray-600 dark:text-gray-200 border-gray-200 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'}`}
+                                    className={`w-full p-2.5 sm:p-4 rounded-xl border-2 font-black transition-colors text-sm sm:text-lg appearance-none outline-none ${editForm.isSkipped ? 'bg-stone-200 text-stone-700 border-stone-300' : 'bg-white dark:bg-slate-700 text-gray-600 dark:text-gray-200 border-gray-200 dark:border-slate-600 focus:ring-2 focus:ring-blue-500'}`}
                                 >
                                     <option value="ACTIVE">ACTIVE</option>
                                     <option value="PASS">PASS</option>
@@ -5803,16 +6075,16 @@ const App: React.FC = () => {
                                     <option value="POISON_CHARGE">POISON CHARGE</option>
                                 </select>
                              </div>
-                             <div className="flex flex-col gap-3">
-                                <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase">Mode</label>
-                                <div className="flex bg-slate-100 dark:bg-slate-700 rounded-xl p-1.5 border-2 border-slate-200 dark:border-slate-600 gap-1.5">
-                                    <button onClick={() => handleModeChange('CLOSE')} className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${editForm.mode === 'CLOSE' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
+                             <div className="flex flex-col gap-2 sm:gap-3">
+                                <label className="text-[11px] sm:text-sm font-black text-slate-500 dark:text-slate-400 uppercase">Mode</label>
+                                <div className="flex bg-slate-100 dark:bg-slate-700 rounded-xl p-1 sm:p-1.5 border-2 border-slate-200 dark:border-slate-600 gap-1 sm:gap-1.5">
+                                    <button onClick={() => handleModeChange('CLOSE')} className={`flex-1 py-1.5 sm:py-3 text-[10px] sm:text-xs font-black rounded-lg transition-all ${editForm.mode === 'CLOSE' ? 'bg-white dark:bg-slate-600 text-blue-700 dark:text-blue-300 shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
                                         CLOSE
                                     </button>
-                                    <button onClick={() => handleModeChange('OPEN')} className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${editForm.mode === 'OPEN' ? 'bg-cyan-500 text-white shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
+                                    <button onClick={() => handleModeChange('OPEN')} className={`flex-1 py-1.5 sm:py-3 text-[10px] sm:text-xs font-black rounded-lg transition-all ${editForm.mode === 'OPEN' ? 'bg-cyan-500 text-white shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
                                         OPEN
                                     </button>
-                                    <button onClick={() => handleModeChange('CLOSE TO OPEN')} className={`flex-1 py-3 text-xs font-black rounded-lg transition-all ${editForm.mode === 'CLOSE TO OPEN' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
+                                    <button onClick={() => handleModeChange('CLOSE TO OPEN')} className={`flex-1 py-1.5 sm:py-3 text-[10px] sm:text-xs font-black rounded-lg transition-all ${editForm.mode === 'CLOSE TO OPEN' ? 'bg-amber-500 text-white shadow-sm' : 'text-slate-400 dark:text-slate-400 hover:text-slate-600'}`}>
                                         C TO O
                                     </button>
                                 </div>
@@ -5821,10 +6093,10 @@ const App: React.FC = () => {
 
                         {/* Grade Selector (Override) */}
                         <div>
-                            <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-3 block">Change Grade (Override)</label>
-                            <div className="flex gap-3 flex-wrap">
+                            <label className="text-[11px] sm:text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-2 sm:mb-3 block">Change Grade (Override)</label>
+                            <div className="flex gap-2 sm:gap-3 flex-wrap">
                                 {GRADES.map(g => (
-                                    <button key={g} onClick={() => setEditForm(prev => ({...prev, grade: g}))} className={`px-5 py-3 text-base font-black rounded-lg border-2 transition-all ${editForm.grade === g ? `${GRADE_COLORS[g]} text-white border-slate-800 shadow-md` : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-slate-300'}`}>
+                                    <button key={g} onClick={() => setEditForm(prev => ({...prev, grade: g}))} className={`px-3.5 sm:px-5 py-2 sm:py-3 text-sm sm:text-base font-black rounded-lg border-2 transition-all ${editForm.grade === g ? `${GRADE_COLORS[g]} text-white border-slate-800 shadow-md` : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:border-slate-300'}`}>
                                         {g}
                                     </button>
                                 ))}
@@ -5834,25 +6106,25 @@ const App: React.FC = () => {
                         {!editForm.isSkipped && (
                             <>
                                 {/* Time Input */}
-                                <div className="bg-slate-50 dark:bg-slate-700/50 p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700">
-                                    <label className="block text-base font-black text-slate-600 dark:text-slate-300 mb-3 flex justify-between">
+                                <div className="bg-slate-50 dark:bg-slate-700/50 p-3 sm:p-6 rounded-xl border-2 border-slate-200 dark:border-slate-700">
+                                    <label className="block text-xs sm:text-base font-black text-slate-600 dark:text-slate-300 mb-2 sm:mb-3 flex justify-between">
                                         <span>Start Time</span>
                                         {editForm.mode === 'OPEN' && <span className="text-cyan-600 dark:text-cyan-400 text-sm italic font-bold">-30 mins adjusted</span>}
                                     </label>
-                                    <input type="datetime-local" value={editForm.timeValue} onChange={(e) => setEditForm(prev => ({...prev, timeValue: e.target.value}))} className="w-full border-2 border-slate-300 dark:border-slate-600 rounded-xl p-4 text-2xl font-mono font-black text-slate-800 dark:text-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900 outline-none transition-all bg-white dark:bg-slate-800" />
+                                    <input type="datetime-local" value={editForm.timeValue} onChange={(e) => setEditForm(prev => ({...prev, timeValue: e.target.value}))} className="w-full border-2 border-slate-300 dark:border-slate-600 rounded-xl p-2.5 sm:p-4 text-base sm:text-2xl font-mono font-black text-slate-800 dark:text-white focus:border-blue-500 focus:ring-4 focus:ring-blue-100 dark:focus:ring-blue-900 outline-none transition-all bg-white dark:bg-slate-800" />
                                     
-                                    <div className="mt-6 pt-6 border-t-2 border-slate-200 dark:border-slate-600">
-                                        <label className="text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-3 block">Quick Delay Adjustment</label>
-                                        <div className="flex items-end gap-3">
+                                    <div className="mt-4 sm:mt-6 pt-4 sm:pt-6 border-t-2 border-slate-200 dark:border-slate-600">
+                                        <label className="text-[11px] sm:text-sm font-black text-slate-500 dark:text-slate-400 uppercase mb-2 sm:mb-3 block">Quick Delay Adjustment</label>
+                                        <div className="flex items-end gap-2 sm:gap-3">
                                             <div className="flex-1">
                                                 <span className="text-xs text-slate-400 font-black block mb-1">HOURS</span>
-                                                <input type="number" min="0" value={editForm.delayHours} onChange={(e) => setEditForm(prev => ({...prev, delayHours: parseInt(e.target.value) || 0}))} className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center" />
+                                                <input type="number" min="0" value={editForm.delayHours} onChange={(e) => setEditForm(prev => ({...prev, delayHours: parseInt(e.target.value) || 0}))} className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-2 sm:p-3 text-base sm:text-xl font-mono font-black text-center" />
                                             </div>
                                             <div className="flex-1">
                                                 <span className="text-xs text-slate-400 font-black block mb-1">MINUTES</span>
-                                                <input type="number" min="0" value={editForm.delayMinutes} onChange={(e) => setEditForm(prev => ({...prev, delayMinutes: parseInt(e.target.value) || 0}))} className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center" />
+                                                <input type="number" min="0" value={editForm.delayMinutes} onChange={(e) => setEditForm(prev => ({...prev, delayMinutes: parseInt(e.target.value) || 0}))} className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-2 sm:p-3 text-base sm:text-xl font-mono font-black text-center" />
                                             </div>
-                                            <button onClick={applyManualDelay} className="bg-blue-600 hover:bg-blue-700 text-white font-black px-6 py-3 rounded-lg h-[60px] text-sm transition-all shadow-md active:scale-95">
+                                            <button onClick={applyManualDelay} className="bg-blue-600 hover:bg-blue-700 text-white font-black px-3 sm:px-6 py-2.5 sm:py-3 rounded-lg h-auto sm:h-[60px] text-[10px] sm:text-sm leading-tight transition-all shadow-md active:scale-95">
                                                 APPLY (+{editForm.manualDelayMinutes}m)
                                             </button>
                                         </div>
@@ -5860,21 +6132,21 @@ const App: React.FC = () => {
                                 </div>
 
                                 {/* Shift Toggle */}
-                                <div className="flex items-center gap-4 bg-orange-50 dark:bg-orange-900/20 p-4 rounded-xl border-2 border-orange-100 dark:border-orange-900/40 cursor-pointer" onClick={() => setEditForm(prev => ({...prev, shiftSubsequent: !prev.shiftSubsequent}))}>
+                                <div className="flex items-center gap-3 sm:gap-4 bg-orange-50 dark:bg-orange-900/20 p-3 sm:p-4 rounded-xl border-2 border-orange-100 dark:border-orange-900/40 cursor-pointer" onClick={() => setEditForm(prev => ({...prev, shiftSubsequent: !prev.shiftSubsequent}))}>
                                     <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-colors ${editForm.shiftSubsequent ? 'bg-orange-500 border-orange-600' : 'bg-white dark:bg-slate-700 border-slate-300 dark:border-slate-600'}`}>
                                         {editForm.shiftSubsequent && <div className="w-3 h-3 bg-white dark:bg-white rounded-sm" />}
                                     </div>
                                     <div className="flex-1">
-                                        <span className="block text-base font-black text-slate-700 dark:text-slate-300">
+                                        <span className="block text-xs sm:text-base font-black text-slate-700 dark:text-slate-300">
                                             {editForm.shiftSubsequent ? 'Continue Interval (Shift Active)' : 'Stop Running Interval (Shift Schedule)'}
                                         </span>
-                                        <span className="block text-xs font-bold text-slate-500 dark:text-slate-500">Delay will push all subsequent batches forward</span>
+                                        <span className="block text-[10px] sm:text-xs font-bold text-slate-500 dark:text-slate-500">Delay will push all subsequent batches forward</span>
                                     </div>
                                     <PauseCircle className="w-6 h-6 text-orange-400" />
                                 </div>
 
                                 {/* Custom Subsequent Interval Adjuster */}
-                                <div className="bg-blue-50 dark:bg-blue-900/10 p-6 rounded-xl border-2 border-blue-200 dark:border-blue-900/40">
+                                <div className="bg-blue-50 dark:bg-blue-900/10 p-3 sm:p-6 rounded-xl border-2 border-blue-200 dark:border-blue-900/40">
                                     <div 
                                         className="flex items-center gap-4 cursor-pointer mb-4 select-none" 
                                         onClick={() => setEditForm(prev => ({ ...prev, hasCustomInterval: !prev.hasCustomInterval }))}
@@ -5883,7 +6155,7 @@ const App: React.FC = () => {
                                             {editForm.hasCustomInterval && <div className="w-3 h-3 bg-white dark:bg-white rounded-sm" />}
                                         </div>
                                         <div className="flex-1">
-                                            <span className="block text-base font-black text-blue-800 dark:text-blue-300">
+                                            <span className="block text-xs sm:text-base font-black text-blue-800 dark:text-blue-300">
                                                 Adjust Subsequent Cycle Interval
                                             </span>
                                             <span className="block text-xs font-bold text-blue-600 dark:text-blue-400">
@@ -5893,7 +6165,7 @@ const App: React.FC = () => {
                                     </div>
 
                                     <div className="pt-4 border-t-2 border-blue-100 dark:border-blue-900/30 transition-all">
-                                        <label className="text-sm font-black text-blue-700 dark:text-blue-300 uppercase mb-3 block">New Interval Value</label>
+                                        <label className="text-[11px] sm:text-sm font-black text-blue-700 dark:text-blue-300 uppercase mb-2 sm:mb-3 block">New Interval Value</label>
                                         <div className="flex items-center gap-4">
                                             <div className="flex-1">
                                                 <span className="text-[10px] text-blue-600 dark:text-blue-400 font-black block mb-1">HOURS</span>
@@ -5903,7 +6175,7 @@ const App: React.FC = () => {
                                                     disabled={!editForm.hasCustomInterval}
                                                     value={editForm.customIntervalHours} 
                                                     onChange={(e) => setEditForm(prev => ({ ...prev, customIntervalHours: Math.max(0, parseInt(e.target.value) || 0) }))} 
-                                                    className={`w-full border-2 border-blue-200 dark:border-blue-800 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all ${!editForm.hasCustomInterval ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-900/40' : ''}`} 
+                                                    className={`w-full border-2 border-blue-200 dark:border-blue-800 dark:bg-slate-800 dark:text-white rounded-lg p-2 sm:p-3 text-base sm:text-xl font-mono font-black text-center focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all ${!editForm.hasCustomInterval ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-900/40' : ''}`} 
                                                 />
                                             </div>
                                             <div className="flex-1">
@@ -5915,7 +6187,7 @@ const App: React.FC = () => {
                                                     disabled={!editForm.hasCustomInterval}
                                                     value={editForm.customIntervalMinutes} 
                                                     onChange={(e) => setEditForm(prev => ({ ...prev, customIntervalMinutes: Math.min(59, Math.max(0, parseInt(e.target.value) || 0)) }))} 
-                                                    className={`w-full border-2 border-blue-200 dark:border-blue-800 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-xl font-mono font-black text-center focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all ${!editForm.hasCustomInterval ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-900/40' : ''}`} 
+                                                    className={`w-full border-2 border-blue-200 dark:border-blue-800 dark:bg-slate-800 dark:text-white rounded-lg p-2 sm:p-3 text-base sm:text-xl font-mono font-black text-center focus:border-blue-500 focus:ring-2 focus:ring-blue-200 outline-none transition-all ${!editForm.hasCustomInterval ? 'opacity-50 cursor-not-allowed bg-slate-100 dark:bg-slate-900/40' : ''}`} 
                                                 />
                                             </div>
                                         </div>
@@ -5932,13 +6204,13 @@ const App: React.FC = () => {
                             <label className="text-sm font-black text-fuchsia-700 dark:text-fuchsia-300 uppercase mb-3 flex items-center gap-1">
                                 <Tag className="w-4 h-4" /> Stage Info (Label)
                             </label>
-                            <div className="flex flex-wrap gap-3">
+                            <div className="flex flex-wrap gap-2 sm:gap-3">
                                 {STAGE_OPTIONS.map(opt => (
-                                    <button key={opt} onClick={() => setEditForm(prev => ({...prev, stageInfo: opt}))} className={`px-4 py-3 text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === opt ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-sm' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:bg-fuchsia-100 dark:hover:bg-slate-600'}`}>
+                                    <button key={opt} onClick={() => setEditForm(prev => ({...prev, stageInfo: opt}))} className={`px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === opt ? 'bg-fuchsia-600 text-white border-fuchsia-600 shadow-sm' : 'bg-white dark:bg-slate-700 text-slate-600 dark:text-slate-200 border-slate-200 dark:border-slate-600 hover:bg-fuchsia-100 dark:hover:bg-slate-600'}`}>
                                         {opt}
                                     </button>
                                 ))}
-                                <button onClick={() => setEditForm(prev => ({...prev, stageInfo: ''}))} className={`px-4 py-3 text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === '' ? 'bg-slate-200 text-slate-500 border-slate-300 dark:bg-slate-600 dark:text-slate-300 dark:border-slate-500' : 'bg-white dark:bg-slate-700 text-slate-400 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
+                                <button onClick={() => setEditForm(prev => ({...prev, stageInfo: ''}))} className={`px-3 sm:px-4 py-2 sm:py-3 text-xs sm:text-sm font-black rounded-lg border transition-all ${editForm.stageInfo === '' ? 'bg-slate-200 text-slate-500 border-slate-300 dark:bg-slate-600 dark:text-slate-300 dark:border-slate-500' : 'bg-white dark:bg-slate-700 text-slate-400 dark:text-slate-400 border-slate-200 dark:border-slate-600 hover:bg-slate-50 dark:hover:bg-slate-600'}`}>
                                     Clear
                                 </button>
                             </div>
@@ -5948,22 +6220,22 @@ const App: React.FC = () => {
                                     value={editForm.stageInfo} 
                                     onChange={(e) => setEditForm(prev => ({...prev, stageInfo: e.target.value}))}
                                     placeholder="Or type custom label..."
-                                    className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-3 text-base font-black focus:ring-2 focus:ring-fuchsia-500 outline-none"
+                                    className="w-full border-2 border-slate-300 dark:border-slate-600 dark:bg-slate-800 dark:text-white rounded-lg p-2.5 sm:p-3 text-sm sm:text-base font-black focus:ring-2 focus:ring-fuchsia-500 outline-none"
                                 />
                             </div>
                         </div>
                     </div>
 
-                    <div className="bg-slate-50 dark:bg-slate-900 p-6 border-t-2 border-slate-200 dark:border-slate-800 flex gap-4 justify-end shrink-0">
+                    <div className="bg-slate-50 dark:bg-slate-900 p-3 sm:p-6 border-t-2 border-slate-200 dark:border-slate-800 flex gap-2 sm:gap-4 justify-end shrink-0">
                         {config.itemConfigs[selectedItem.id] && (
-                            <button onClick={clearOverride} className="px-6 py-3 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl font-black text-base transition-colors mr-auto border-2 border-transparent hover:border-red-200">
+                            <button onClick={clearOverride} className="px-3 sm:px-6 py-2.5 sm:py-3 text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-xl font-black text-xs sm:text-base transition-colors mr-auto border-2 border-transparent hover:border-red-200">
                                 Reset
                             </button>
                         )}
-                        <button onClick={closeRescheduleModal} className="px-6 py-3 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-black text-base">
+                        <button onClick={closeRescheduleModal} className="px-3 sm:px-6 py-2.5 sm:py-3 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200 font-black text-xs sm:text-base">
                             Cancel
                         </button>
-                        <button onClick={saveReschedule} className="px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 active:scale-95">
+                        <button onClick={saveReschedule} className="px-4 sm:px-8 py-2.5 sm:py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-black text-sm sm:text-lg shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-1 active:scale-95">
                             Save Changes
                         </button>
                     </div>
@@ -5979,7 +6251,7 @@ const App: React.FC = () => {
                   <div className="bg-white dark:bg-slate-800 rounded-xl shadow-xl w-full max-w-sm p-6 animate-in zoom-in-95 cursor-grab active:cursor-grabbing">
                       <h3 className="text-lg font-bold text-slate-800 dark:text-white mb-4 flex items-center justify-between">
                           <span>Edit Note untuk Reaktor {editingReactorNote}</span>
-                          <span className="text-[10px] bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded font-normal select-none">✋ Drag</span>
+                          <span className="hidden lg:inline text-[10px] bg-slate-200 dark:bg-slate-700 px-1.5 py-0.5 rounded font-normal select-none">✋ Drag</span>
                       </h3>
                       <div className="flex justify-center mb-4">
                           <textarea
@@ -6015,7 +6287,7 @@ const App: React.FC = () => {
                               <h3 className="text-2xl font-black flex items-center gap-2">
                                   <RotateCcw className="w-8 h-8 text-yellow-300" />
                                   RESET SEQUENCE
-                                  <span className="px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
+                                  <span className="hidden lg:inline px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
                                       ✋ Tahan &amp; Drag
                                   </span>
                               </h3>
@@ -6132,29 +6404,31 @@ const App: React.FC = () => {
 
       {/* --- FLOATING AUDIO NOTIFICATION TOAST --- */}
       {audioNotification && audioNotification.show && (
-          <div className="fixed top-4 right-4 z-[95] max-w-sm w-full bg-white dark:bg-slate-800 border-2 border-emerald-500 shadow-2xl rounded-2xl p-4 flex items-start gap-3 animate-in slide-in-from-top-4 duration-300 pointer-events-auto">
-              <div className="p-2.5 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl shrink-0 mt-0.5 animate-pulse">
-                  <Volume2 className="w-5 h-5" />
+          /* Di HP melebar penuh dengan margin kecil; di layar besar tetap kartu
+             di pojok kanan atas. */
+          <div className="fixed top-2 left-2 right-2 sm:top-4 sm:right-4 sm:left-auto sm:w-full sm:max-w-sm z-[96] bg-white dark:bg-slate-800 border-2 border-emerald-500 shadow-2xl rounded-2xl p-3 sm:p-4 flex items-start gap-2.5 sm:gap-3 animate-in slide-in-from-top-4 duration-300 pointer-events-auto">
+              <div className="p-2 sm:p-2.5 bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 rounded-xl shrink-0">
+                  <Volume2 className="w-4 h-4 sm:w-5 sm:h-5" />
               </div>
               <div className="flex-1 min-w-0">
                   <div className="flex items-center justify-between gap-1">
-                      <h4 className="font-black text-xs sm:text-sm text-slate-800 dark:text-white uppercase tracking-tight">
+                      <h4 className="font-black text-[11px] sm:text-sm text-slate-800 dark:text-white uppercase tracking-tight leading-tight">
                           {audioNotification.message}
                       </h4>
                       <button 
                           onClick={() => setAudioNotification(null)}
-                          className="p-1 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md transition-colors cursor-pointer"
+                          className="p-1.5 -m-0.5 shrink-0 text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 rounded-md transition-colors cursor-pointer"
                           title="Tutup Notifikasi"
                       >
                           <X className="w-4 h-4" />
                       </button>
                   </div>
                   {audioNotification.subMessage && (
-                      <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1 leading-snug">
+                      <p className="text-[10px] sm:text-[11px] text-slate-500 dark:text-slate-400 font-medium mt-1 leading-snug">
                           {audioNotification.subMessage}
                       </p>
                   )}
-                  <div className="mt-2 flex items-center gap-2">
+                  <div className="mt-1.5 sm:mt-2 flex items-center gap-2">
                       <span className="text-[10px] bg-emerald-100 dark:bg-emerald-950/60 text-emerald-700 dark:text-emerald-300 font-bold px-2 py-0.5 rounded border border-emerald-300 dark:border-emerald-800/60 flex items-center gap-1">
                           <Check className="w-3 h-3" /> Siap Bunyi Otomatis
                       </span>

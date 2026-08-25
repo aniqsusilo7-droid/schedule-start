@@ -1,11 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar, Plus, Trash2, Edit3, RotateCcw, Save, Copy, 
-  Check, X, ChevronRight, Layers, FileSpreadsheet, Sparkles, AlertCircle, Clock, User, ArrowRight, Wallet,
-  CheckSquare, Square, Users
+  Check, X, ChevronRight, Layers, FileSpreadsheet, Sparkles, AlertCircle, Clock, User, ArrowRight,
+  CheckSquare, Square
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
-import { KasGrup } from './KasGrup';
 
 export interface OvertimeEntry {
   id: string;
@@ -308,16 +307,12 @@ const parseGroupData = (raw: any): GroupTablesData => {
   return INITIAL_GROUPS_DATA;
 };
 
-export const Jadwal: React.FC = () => {
-  const [activeGroup, setActiveGroup] = useState<GroupKey>(() => {
-    const saved = localStorage.getItem('lastActiveGroup');
-    return (saved as GroupKey) || 'GRUP D';
-  });
+interface JadwalProps {
+  /** Grup aktif dikendalikan dari sidebar di App.tsx */
+  activeGroup: GroupKey;
+}
 
-  useEffect(() => {
-    localStorage.setItem('lastActiveGroup', activeGroup);
-  }, [activeGroup]);
-  const [activeViewTab, setActiveViewTab] = useState<'LEMBUR' | 'KAS'>('LEMBUR');
+export const Jadwal: React.FC<JadwalProps> = ({ activeGroup }) => {
 
   const [groupsData, setGroupsData] = useState<GroupTablesData>(() => {
     const saved = localStorage.getItem('overtime_schedule_groups') || localStorage.getItem('overtime_schedule_tables');
@@ -757,84 +752,6 @@ export const Jadwal: React.FC = () => {
   return (
     <div className="w-full flex flex-col gap-4 p-2 md:p-4 bg-slate-100 dark:bg-slate-950 min-h-screen text-slate-900 dark:text-slate-100">
       
-      {/* TOP GROUP SELECTOR BAR */}
-      <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-xl border border-slate-800">
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <div className={`p-2.5 ${currentTheme.badgeBg} ${currentTheme.badgeText} rounded-xl border ${currentTheme.badgeBorder} shrink-0`}>
-              <Users className="w-6 h-6" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h2 className={`text-base font-black tracking-wide uppercase ${currentTheme.badgeText}`}>
-                  PILIH GRUP
-                </h2>
-                <span className={`text-[10px] font-extrabold ${currentTheme.badgeBg} ${currentTheme.badgeText} border ${currentTheme.badgeBorder} px-2 py-0.5 rounded-md uppercase`}>
-                  {activeGroup} Aktif
-                </span>
-              </div>
-              
-            </div>
-          </div>
-
-          {/* Main View Switcher */}
-          <div className="flex bg-slate-950 p-1.5 rounded-xl border border-slate-800 w-full sm:w-auto mb-2 sm:mb-0 mr-4">
-            <button
-              onClick={() => setActiveViewTab('LEMBUR')}
-              className={`px-4 py-2 text-xs font-black rounded-lg transition-all flex items-center gap-2 ${activeViewTab === 'LEMBUR' ? 'bg-amber-500 text-slate-950' : 'text-slate-400 hover:text-white'}`}
-            >
-              <Calendar className="w-4 h-4" /> Lembur
-            </button>
-            <button
-              onClick={() => setActiveViewTab('KAS')}
-              className={`px-4 py-2 text-xs font-black rounded-lg transition-all flex items-center gap-2 ${activeViewTab === 'KAS' ? 'bg-emerald-500 text-white' : 'text-slate-400 hover:text-white'}`}
-            >
-              <Wallet className="w-4 h-4" /> Kas
-            </button>
-          </div>
-
-          {/* Group Switcher Tabs */}
-          <div className="grid grid-cols-4 gap-1.5 w-full sm:w-auto bg-slate-950 p-1.5 rounded-xl border border-slate-800">
-            {ALL_GROUPS.map((groupKey) => {
-              const isActive = activeGroup === groupKey;
-              const gTheme = GROUP_THEMES[groupKey];
-              const totalEntriesInGroup = (groupsData[groupKey] || []).reduce(
-                (sum, tbl) => sum + tbl.columns.reduce((cSum, col) => cSum + col.entries.length, 0),
-                0
-              );
-
-              return (
-                <button
-                  key={groupKey}
-                  type="button"
-                  onClick={() => {
-                    setActiveGroup(groupKey);
-                    setIsSelectionMode(false);
-                    setSelectedEntryKeys([]);
-                  }}
-                  className={`px-3 py-2 rounded-lg font-black text-xs transition-all flex flex-col items-center justify-center cursor-pointer min-w-[75px] ${
-                    isActive
-                      ? `${gTheme.activeTabBg} ${gTheme.activeTabRing} shadow-md active:scale-95`
-                      : 'text-slate-300 hover:text-white hover:bg-slate-800'
-                  }`}
-                >
-                  <span className="text-xs font-black">{groupKey}</span>
-                  <span className={`text-[10px] font-bold ${isActive ? 'opacity-90' : 'text-slate-400'}`}>
-                    {totalEntriesInGroup} Data
-                  </span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </div>
-
-      {activeViewTab === 'KAS' ? (
-        <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-800 p-4 lg:p-6 min-h-[500px]">
-          <KasGrup activeGroup={activeGroup} />
-        </div>
-      ) : (
-        <>
       {/* Top Action Bar & Sync Indicator */}
       <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
         <div className="flex items-center gap-2.5">
@@ -1545,8 +1462,6 @@ export const Jadwal: React.FC = () => {
         </div>
       )}
 
-      </>
-      )}
     </div>
   );
 };

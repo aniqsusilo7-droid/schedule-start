@@ -48,13 +48,13 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
   return (
     <div className="p-4 md:p-8 max-w-7xl mx-auto font-sans animate-in fade-in duration-500">
       
-      <div className="flex items-center justify-between mb-8">
+      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-3 mb-4 lg:mb-8">
           <div className="flex items-center gap-4">
-            <div className="p-4 bg-gradient-to-br from-cyan-500 to-cyan-700 rounded-2xl text-white shadow-xl shadow-cyan-500/20">
-                <Database className="w-8 h-8" />
+            <div className="p-3 lg:p-4 bg-gradient-to-br from-cyan-500 to-cyan-700 rounded-2xl text-white shadow-xl shadow-cyan-500/20 shrink-0">
+                <Database className="w-6 h-6 lg:w-8 lg:h-8" />
             </div>
             <div>
-                <h2 className="text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight">Silo Monitor</h2>
+                <h2 className="text-2xl lg:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight">Silo Monitor</h2>
                 <div className="flex items-center gap-3 mt-1">
                     <p className="text-slate-500 dark:text-slate-400 font-semibold uppercase text-sm tracking-widest">Storage & Distribution</p>
                     <span className="bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 text-xs font-bold px-3 py-1 rounded-full border border-slate-200 dark:border-slate-700 uppercase">O - P - Q Control</span>
@@ -73,7 +73,7 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
               <Database className="w-5 h-5" />
               Silo Operational
           </div>
-          <div className="p-6 overflow-x-auto">
+          <div className="p-3 lg:p-6 overflow-x-auto">
               <table className="w-full border-collapse text-center">
                   <thead>
                       <tr>
@@ -134,7 +134,7 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
                                       type="number" 
                                       value={silos[id as 'O'|'P'|'Q'].capacitySet} 
                                       onChange={(e) => handleChange(id as 'O'|'P'|'Q', 'capacitySet', e.target.value)}
-                                      className="w-full bg-blue-50 dark:bg-blue-900/20 border-none rounded-xl p-4 text-4xl font-black text-center text-cyan-600 dark:text-cyan-400 focus:ring-4 focus:ring-cyan-500/20 transition-all"
+                                      className="w-full bg-blue-50 dark:bg-blue-900/20 border-none rounded-xl p-2 lg:p-4 text-2xl lg:text-4xl font-black text-center text-cyan-600 dark:text-cyan-400 focus:ring-4 focus:ring-cyan-500/20 transition-all"
                                       placeholder="0"
                                   /> 
                               </td>
@@ -177,12 +177,13 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
           </div>
 
           {/* Update Section - Shift Log */}
-          <div className="bg-slate-50 dark:bg-slate-950 p-6 border-t border-slate-200 dark:border-slate-800">
+          <div className="bg-slate-50 dark:bg-slate-950 p-3 lg:p-6 border-t border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2 mb-4">
                   <div className="w-1 h-4 bg-cyan-500 rounded-full"></div>
                   <h3 className="text-sm font-black text-slate-500 uppercase tracking-widest">Shift Log Updates</h3>
               </div>
-              <div className="grid grid-cols-[120px_1fr_1fr_1fr] gap-4">
+              <div className="overflow-x-auto">
+              <div className="grid grid-cols-[90px_1fr_1fr_1fr] lg:grid-cols-[120px_1fr_1fr_1fr] gap-2 lg:gap-4 min-w-[540px]">
                   <div className="flex flex-col gap-2">
                       {['06:00', '14:00', '22:00'].map(time => (
                          <div key={time} className="h-[80px] flex items-center justify-center bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-center font-black text-base text-slate-600 dark:text-slate-400 shadow-sm">
@@ -228,6 +229,7 @@ export const Silo: React.FC<SiloProps> = ({ activeSilo, silos, onDataChange, onS
                           getInputClass={getInputClass}
                       />
                   </div>
+              </div>
               </div>
           </div>
       </div>
