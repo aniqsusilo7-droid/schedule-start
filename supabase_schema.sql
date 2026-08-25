@@ -162,3 +162,21 @@ CREATE POLICY "Allow all access to catatan_data" ON catatan_data FOR ALL USING (
 --
 -- ==============================================================================================
 
+
+CREATE TABLE IF NOT EXISTS jadwal (
+    id BIGINT PRIMARY KEY DEFAULT 1,
+    overtime_tables JSONB DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE jadwal ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT FROM pg_policies 
+        WHERE tablename = 'jadwal' 
+        AND policyname = 'Allow all access to jadwal'
+    ) THEN
+        CREATE POLICY "Allow all access to jadwal" ON jadwal FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+END $$;
+INSERT INTO jadwal (id) VALUES (1) ON CONFLICT (id) DO NOTHING;

@@ -439,10 +439,14 @@ export const Jadwal: React.FC = () => {
       try {
         setIsSyncing(true);
         const { data, error } = await supabase
-          .from('app_settings')
+          .from('jadwal')
           .select('id, overtime_tables')
           .eq('id', 1)
           .single();
+
+        if (error && error.code !== 'PGRST116' && error.code !== '42P01') {
+           console.error("Error fetching jadwal:", error);
+        }
 
         if (data && data.overtime_tables) {
           const parsed = parseGroupData(data.overtime_tables);
@@ -472,7 +476,7 @@ export const Jadwal: React.FC = () => {
 
     try {
       setIsSyncing(true);
-      await supabase.from('app_settings').upsert({
+      await supabase.from('jadwal').upsert({
         id: 1,
         overtime_tables: updatedGroups,
         updated_at: new Date().toISOString()
