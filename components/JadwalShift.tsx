@@ -4,7 +4,7 @@ import {
   Moon, Sun, Sunset, Coffee, Users, RotateCcw, Info,
 } from 'lucide-react';
 import {
-  getShiftAssignment, getGroupDuty, getActiveShifts,
+  getShiftAssignment, getShiftGroupsNow, getGroupDuty, getActiveShifts,
   SHIFT_SLOTS, SHIFT_TIME_LABEL, ALL_SHIFT_GROUPS,
   ShiftGroup, ShiftSlot, ShiftDuty,
 } from '../utils/shiftSchedule';
@@ -148,7 +148,11 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
   }, [focusGroup]);
   useEffect(() => setYearDraft(String(year)), [year]);
 
-  const todayAssignment = getShiftAssignment(now);
+  /* Panel "Hari Ini" menjawab siapa yang SEDANG jaga, jadi Shift I harus
+     ikut koreksi tengah malam — beda dari sel kalender di bawah yang memang
+     menampilkan roster per tanggal. Grup libur tetap dari baris hari ini. */
+  const todayGroups = getShiftGroupsNow(now);
+  const todayOff = getShiftAssignment(now).off;
   const activeSlots = getActiveShifts(now);
 
   const shiftMonth = useCallback((delta: number) => {
@@ -518,8 +522,8 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
                       Shift {slot}
                     </span>
                   </div>
-                  <span className={`px-2 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider text-center ${GROUP_SOLID[todayAssignment[slot]]} ${isLive ? '' : 'opacity-45'}`}>
-                    Grup {todayAssignment[slot]}
+                  <span className={`px-2 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider text-center ${GROUP_SOLID[todayGroups[slot]]} ${isLive ? '' : 'opacity-45'}`}>
+                    Grup {todayGroups[slot]}
                   </span>
                   <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 tracking-wide text-center">
                     {SHIFT_TIME_LABEL[slot]}
@@ -532,8 +536,8 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
                 <Coffee className="w-3.5 h-3.5 text-slate-400 dark:text-slate-500" />
                 <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">Libur</span>
               </div>
-              <span className={`px-2 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider text-center opacity-45 ${GROUP_SOLID[todayAssignment.off]}`}>
-                Grup {todayAssignment.off}
+              <span className={`px-2 py-1.5 rounded-lg text-xs font-black uppercase tracking-wider text-center opacity-45 ${GROUP_SOLID[todayOff]}`}>
+                Grup {todayOff}
               </span>
               <span className="text-[9px] font-bold text-slate-400 dark:text-slate-500 tracking-wide text-center">Off duty</span>
             </div>
