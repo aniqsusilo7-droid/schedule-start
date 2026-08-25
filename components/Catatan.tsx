@@ -149,7 +149,7 @@ export const Catatan: React.FC<CatatanProps> = ({ onBack }) => {
     );
 
     return (
-        <div className="flex flex-col gap-8 p-4 md:p-8 bg-slate-50 dark:bg-slate-950 min-h-full animate-in fade-in duration-500 max-w-[1600px] mx-auto font-sans">
+        <div className="flex flex-col gap-4 lg:gap-8 p-3 lg:p-8 bg-slate-50 dark:bg-slate-950 min-h-full animate-in fade-in duration-500 max-w-[1600px] mx-auto font-sans">
             {/* Header Section - Demonomer Style */}
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
                 <div className="flex items-center gap-4">
@@ -157,7 +157,7 @@ export const Catatan: React.FC<CatatanProps> = ({ onBack }) => {
                         <FileText className="w-8 h-8" />
                     </div>
                     <div>
-                        <h1 className="text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight uppercase">CATATAN</h1>
+                        <h1 className="text-2xl lg:text-5xl font-extrabold text-slate-900 dark:text-white tracking-tight uppercase">CATATAN</h1>
                     </div>
                 </div>
                 <div className="flex gap-3">
@@ -180,7 +180,7 @@ export const Catatan: React.FC<CatatanProps> = ({ onBack }) => {
 
             {/* 1. MASTER REFERENCE TABLE - IMAGE STYLE */}
             <div className="flex flex-col bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                <div className="bg-blue-600 text-white p-5 flex items-center gap-3 font-black uppercase tracking-[0.2em] text-4xl">
+                <div className="bg-blue-600 text-white p-3 lg:p-5 flex items-center gap-2 lg:gap-3 font-black uppercase tracking-widest lg:tracking-[0.2em] text-lg lg:text-4xl">
                     <LayoutGrid className="w-10 h-10" /> CATATAN EBD , ETM ,ESF ,ELC
                 </div>
                 <div className="overflow-x-auto">
@@ -247,10 +247,10 @@ export const Catatan: React.FC<CatatanProps> = ({ onBack }) => {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 lg:gap-8">
                 {/* 2. SPECIAL NOTES TABLE */}
                 <div className="flex flex-col bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                    <div className="bg-[#4db6ac] p-5 flex items-center justify-between text-white font-black uppercase tracking-[0.2em] text-4xl">
+                    <div className="bg-[#4db6ac] p-3 lg:p-5 flex items-center justify-between text-white font-black uppercase tracking-widest lg:tracking-[0.2em] text-lg lg:text-4xl">
                         <div className="flex items-center gap-3">
                             <Info className="w-10 h-10" /> SPECIAL NOTES :
                         </div>
@@ -291,7 +291,7 @@ export const Catatan: React.FC<CatatanProps> = ({ onBack }) => {
 
                 {/* 3. GRADE CONTROL TABLE */}
                 <div className="flex flex-col bg-white dark:bg-slate-900 rounded-[2rem] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-                    <div className="bg-[#03a9f4] p-5 flex items-center justify-between text-white font-black uppercase tracking-[0.2em] text-4xl">
+                    <div className="bg-[#03a9f4] p-3 lg:p-5 flex items-center justify-between text-white font-black uppercase tracking-widest lg:tracking-[0.2em] text-lg lg:text-4xl">
                         <div className="flex items-center gap-3">
                             <Tag className="w-10 h-10" /> GRADE CONTROL
                         </div>

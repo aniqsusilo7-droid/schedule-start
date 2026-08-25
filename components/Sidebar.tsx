@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   LayoutGrid, Activity, Database, Calendar, Wallet, FileText, Settings,
-  ChevronDown, PanelRightClose, PanelRightOpen
+  ChevronDown, PanelRightClose, PanelRightOpen, X
 } from 'lucide-react';
 import { GroupKey, ALL_GROUPS } from './Jadwal';
 
@@ -69,12 +69,20 @@ interface SidebarProps {
   onSelectGroup: (view: GroupedView, group: GroupKey) => void;
   isSettingsOpen: boolean;
   onToggleSettings: () => void;
+  /** Di bawah 1024px sidebar jadi drawer yang menutupi layar. */
+  isMobile?: boolean;
+  mobileOpen?: boolean;
+  onMobileClose?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   currentView, currentGroup, collapsed, onToggleCollapsed,
   onSelectView, onSelectGroup, isSettingsOpen, onToggleSettings,
+  isMobile = false, mobileOpen = false, onMobileClose,
 }) => {
+  /* Rail ikon hanya untuk desktop. Di drawer, menu selalu tampil penuh. */
+  const isRail = collapsed && !isMobile;
+
   /* Accordion: hanya satu sub-menu boleh terbuka. */
   const [openMenu, setOpenMenu] = useState<GroupedView | null>(
     currentView === 'jadwal' || currentView === 'kas' ? currentView : null
@@ -84,23 +92,23 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
   /* Rail terlipat: sub-menu jadi flyout, tutup saat klik di luar. */
   useEffect(() => {
-    if (!collapsed || !openMenu) return;
+    if (!isRail || !openMenu) return;
     const onDocClick = (e: MouseEvent) => {
       if (navRef.current && !navRef.current.contains(e.target as Node)) setOpenMenu(null);
     };
     document.addEventListener('mousedown', onDocClick);
     return () => document.removeEventListener('mousedown', onDocClick);
-  }, [collapsed, openMenu]);
+  }, [isRail, openMenu]);
 
   useEffect(() => {
-    if (collapsed) setOpenMenu(null);
-  }, [collapsed]);
+    if (isRail) setOpenMenu(null);
+  }, [isRail]);
 
   const handleParentClick = (item: MenuItem, el: HTMLButtonElement) => {
     if (item.hasGroups) {
       /* Klik induk HANYA buka/tutup sub-menu — halaman tidak berpindah. */
       const id = item.id as GroupedView;
-      if (collapsed && navRef.current) {
+      if (isRail && navRef.current) {
         setFlyoutTop(el.getBoundingClientRect().top - navRef.current.getBoundingClientRect().top);
       }
       setOpenMenu(prev => (prev === id ? null : id));
@@ -109,11 +117,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
     /* Menu tanpa grup: sub-menu yang terbuka ikut tertutup. */
     setOpenMenu(null);
     onSelectView(item.id);
+    if (isMobile) onMobileClose?.();
   };
 
   const handleGroupClick = (view: GroupedView, group: GroupKey) => {
     setOpenMenu(view);
     onSelectGroup(view, group);
+    if (isMobile) onMobileClose?.();
   };
 
   const renderGroupButton = (item: MenuItem, group: GroupKey, compact: boolean) => {
@@ -124,7 +134,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         type="button"
         onClick={() => handleGroupClick(item.id as GroupedView, group)}
         className={`w-full flex items-center gap-2 px-2.5 rounded-lg font-black uppercase tracking-wide cursor-pointer transition-colors ${
-          compact ? 'py-2 text-[11px]' : 'py-2 text-[10px]'
+          compact ? 'py-2 text-[11px]' : isMobile ? 'py-3 text-[11px]' : 'py-2 text-[10px]'
         } ${
           isActive
             ? GROUP_ACTIVE[group]
@@ -137,33 +147,54 @@ export const Sidebar: React.FC<SidebarProps> = ({
     );
   };
 
-  const flyoutItem = collapsed && openMenu
+  const flyoutItem = isRail && openMenu
     ? SECTIONS.flatMap(s => s.items).find(i => i.id === openMenu)
     : null;
 
   return (
+    <>
+      {/* Latar gelap drawer. Klik di luar menutup menu. */}
+      {isMobile && (
+        <div
+          onClick={onMobileClose}
+          aria-hidden="true"
+          className={`fixed inset-0 z-[90] bg-black/60 backdrop-blur-sm transition-opacity duration-200 ${
+            mobileOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+          }`}
+        />
+      )}
+
     <nav
       ref={navRef}
       aria-label="Navigasi Utama"
-      className="shrink-0 relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col shadow-sm transition-[width] duration-200 ease-out"
-      style={{ width: collapsed ? 58 : 236 }}
+      aria-hidden={isMobile && !mobileOpen}
+      className={
+        isMobile
+          ? `fixed top-0 right-0 bottom-0 z-[95] w-[272px] max-w-[85vw] bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col shadow-2xl transition-transform duration-200 ease-out ${
+              mobileOpen ? 'translate-x-0' : 'translate-x-full'
+            }`
+          : 'shrink-0 relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col shadow-sm transition-[width] duration-200 ease-out'
+      }
+      style={isMobile ? undefined : { width: isRail ? 58 : 236 }}
     >
       {/* Tombol lipat */}
       <div className="shrink-0 p-2 border-b border-slate-200 dark:border-slate-800">
         <button
           type="button"
-          onClick={onToggleCollapsed}
-          title={collapsed ? 'Tampilkan menu' : 'Sembunyikan menu'}
-          className={`w-full flex items-center gap-2 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 cursor-pointer ${
-            collapsed ? 'justify-center px-0' : 'px-2.5'
+          onClick={isMobile ? onMobileClose : onToggleCollapsed}
+          title={isMobile ? 'Tutup menu' : isRail ? 'Tampilkan menu' : 'Sembunyikan menu'}
+          className={`w-full flex items-center gap-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 border border-slate-200 dark:border-slate-700 cursor-pointer ${
+            isRail ? 'justify-center px-0 py-2' : 'px-2.5 py-3 lg:py-2'
           }`}
         >
-          {collapsed
-            ? <PanelRightOpen className="w-4 h-4 shrink-0 text-slate-600 dark:text-slate-300" />
-            : <PanelRightClose className="w-4 h-4 shrink-0 text-slate-600 dark:text-slate-300" />}
-          {!collapsed && (
+          {isMobile
+            ? <X className="w-4 h-4 shrink-0 text-slate-600 dark:text-slate-300" />
+            : isRail
+              ? <PanelRightOpen className="w-4 h-4 shrink-0 text-slate-600 dark:text-slate-300" />
+              : <PanelRightClose className="w-4 h-4 shrink-0 text-slate-600 dark:text-slate-300" />}
+          {!isRail && (
             <span className="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
-              Sembunyikan
+              {isMobile ? 'Tutup' : 'Sembunyikan'}
             </span>
           )}
         </button>
@@ -173,7 +204,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       <div className="flex-1 overflow-y-auto overflow-x-hidden p-2 flex flex-col gap-0.5">
         {SECTIONS.map(section => (
           <React.Fragment key={section.title}>
-            {collapsed ? (
+            {isRail ? (
               <div className="my-1.5 mx-2 h-px bg-slate-200 dark:bg-slate-700" />
             ) : (
               <div className="px-2.5 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
@@ -193,8 +224,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     id={`nav-${item.id}`}
                     title={item.label}
                     onClick={(e) => handleParentClick(item, e.currentTarget)}
-                    className={`w-full flex items-center gap-2.5 py-2.5 rounded-xl font-black text-[11px] uppercase tracking-wide cursor-pointer transition-colors ${
-                      collapsed ? 'justify-center px-0' : 'px-2.5'
+                    className={`w-full flex items-center gap-2.5 rounded-xl font-black text-[11px] uppercase tracking-wide cursor-pointer transition-colors ${
+                      isMobile ? 'py-3.5' : 'py-2.5'
+                    } ${
+                      isRail ? 'justify-center px-0' : 'px-2.5'
                     } ${
                       isActive
                         ? `${item.activeBg} ${item.activeRing} text-white ring-1 shadow-sm`
@@ -202,7 +235,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     }`}
                   >
                     <Icon className={`w-4 h-4 shrink-0 ${isActive ? 'text-white' : item.iconColor}`} />
-                    {!collapsed && (
+                    {!isRail && (
                       <>
                         <span className="flex-1 text-left">{item.label}</span>
                         {item.hasGroups && (
@@ -217,7 +250,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
                   </button>
 
                   {/* Sub-menu grup shift */}
-                  {item.hasGroups && isExpanded && !collapsed && (
+                  {item.hasGroups && isExpanded && !isRail && (
                     <div className="ml-4 mt-1 mb-1 pl-2.5 border-l-2 border-slate-200 dark:border-slate-700 flex flex-col gap-0.5">
                       {ALL_GROUPS.map(g => renderGroupButton(item, g, false))}
                     </div>
@@ -229,7 +262,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
         ))}
 
         {/* Sistem */}
-        {collapsed ? (
+        {isRail ? (
           <div className="my-1.5 mx-2 h-px bg-slate-200 dark:bg-slate-700" />
         ) : (
           <div className="px-2.5 pt-3 pb-1 text-[9px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
@@ -240,9 +273,16 @@ export const Sidebar: React.FC<SidebarProps> = ({
           type="button"
           id="nav-setting"
           title={isSettingsOpen ? 'Tutup Pengaturan' : 'Buka Pengaturan'}
-          onClick={() => { setOpenMenu(null); onToggleSettings(); }}
-          className={`w-full flex items-center gap-2.5 py-2.5 rounded-xl font-black text-[11px] uppercase tracking-wide cursor-pointer transition-colors ${
-            collapsed ? 'justify-center px-0' : 'px-2.5'
+          onClick={() => {
+            setOpenMenu(null);
+            onToggleSettings();
+            /* Tanpa ini modal pengaturan terbuka di balik drawer. */
+            if (isMobile) onMobileClose?.();
+          }}
+          className={`w-full flex items-center gap-2.5 rounded-xl font-black text-[11px] uppercase tracking-wide cursor-pointer transition-colors ${
+                      isMobile ? 'py-3.5' : 'py-2.5'
+                    } ${
+            isRail ? 'justify-center px-0' : 'px-2.5'
           } ${
             isSettingsOpen
               ? 'bg-blue-600 ring-blue-400 text-white ring-1 shadow-sm'
@@ -252,7 +292,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           <Settings className={`w-4 h-4 shrink-0 transition-transform duration-300 ${
             isSettingsOpen ? 'rotate-90 text-white' : 'text-blue-500'
           }`} />
-          {!collapsed && <span className="flex-1 text-left">PENGATURAN</span>}
+          {!isRail && <span className="flex-1 text-left">PENGATURAN</span>}
         </button>
       </div>
 
@@ -269,5 +309,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </div>
       )}
     </nav>
+    </>
   );
 };
