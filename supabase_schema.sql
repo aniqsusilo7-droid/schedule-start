@@ -180,3 +180,21 @@ DO $$ BEGIN
     END IF;
 END $$;
 INSERT INTO jadwal (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+CREATE TABLE IF NOT EXISTS kas_grup (
+    id BIGINT PRIMARY KEY DEFAULT 1,
+    data JSONB DEFAULT '{}'::jsonb,
+    updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+ALTER TABLE kas_grup ENABLE ROW LEVEL SECURITY;
+DO $$ BEGIN
+    IF NOT EXISTS (
+        SELECT FROM pg_policies 
+        WHERE tablename = 'kas_grup' 
+        AND policyname = 'Allow all access to kas_grup'
+    ) THEN
+        CREATE POLICY "Allow all access to kas_grup" ON kas_grup FOR ALL USING (true) WITH CHECK (true);
+    END IF;
+END $$;
+INSERT INTO kas_grup (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
