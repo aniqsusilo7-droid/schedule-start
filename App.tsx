@@ -8,8 +8,10 @@ import { Demonomer } from './components/Demonomer';
 import { Silo } from './components/Silo';
 import { Catatan } from './components/Catatan';
 import { Kesepakatan } from './components/Kesepakatan';
-import { Jadwal } from './components/Jadwal';
-import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp } from 'lucide-react';
+import { Jadwal, GroupKey, GROUP_THEMES } from './components/Jadwal';
+import { KasGrup } from './components/KasGrup';
+import { Sidebar, SidebarView, GroupedView } from './components/Sidebar';
+import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp, Wallet, ChevronRight } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { Reorder } from 'framer-motion';
 import { Fie2002TrendModal, Fie2002TrendEntry } from './components/Fie2002TrendModal';
@@ -17,6 +19,37 @@ import { DraggableModal } from './components/DraggableModal';
 
 const GRADES: GradeType[] = ['SM', 'SLK', 'SLP', 'SE', 'SR'];
 const STAGE_OPTIONS = ['Sample Blowing', 'Sample Washing', 'Sample Air Slurry'];
+
+/* Label & ikon tiap halaman, dipakai breadcrumb di header. */
+const VIEW_META: Record<SidebarView, { label: string; Icon: React.ComponentType<{ className?: string }>; color: string }> = {
+  scheduler: { label: 'POLYMER',       Icon: LayoutGrid, color: 'text-blue-500' },
+  demonomer: { label: 'DEMONOMER',     Icon: Activity,   color: 'text-teal-500' },
+  silo:      { label: 'SILO',          Icon: Database,   color: 'text-cyan-500' },
+  jadwal:    { label: 'JADWAL BACKUP', Icon: Calendar,   color: 'text-amber-500' },
+  kas:       { label: 'KAS GRUP',      Icon: Wallet,     color: 'text-violet-500' },
+  catatan:   { label: 'CATATAN',       Icon: FileText,   color: 'text-emerald-500' },
+};
+
+const Breadcrumb: React.FC<{ view: SidebarView; group: GroupKey }> = ({ view, group }) => {
+  const meta = VIEW_META[view];
+  const showGroup = view === 'jadwal' || view === 'kas';
+  return (
+    <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
+      <meta.Icon className={`w-3.5 h-3.5 ${meta.color}`} />
+      <span className="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
+        {meta.label}
+      </span>
+      {showGroup && (
+        <>
+          <ChevronRight className="w-3 h-3 text-slate-400" />
+          <span className={`text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${GROUP_THEMES[group].activeTabBg}`}>
+            {group}
+          </span>
+        </>
+      )}
+    </div>
+  );
+};
 
 // Helper to generate 7-day default sample trend history for FIE2002 (168 hours)
 const generateDefaultFie2002History = (baseVal: number = 125): Fie2002TrendEntry[] => {
@@ -951,7 +984,31 @@ const HEADER_COLOR_SCHEMES = [
 
 const App: React.FC = () => {
   // --- State ---
-  const [currentView, setCurrentView] = useState<'scheduler' | 'demonomer' | 'silo' | 'catatan' | 'jadwal'>('scheduler');
+  const [currentView, setCurrentView] = useState<SidebarView>('scheduler');
+
+  /* Grup shift aktif. Tiap grup adalah halaman tersendiri, jadi kombinasi
+     currentView + currentGroup yang menentukan halaman mana yang tampil. */
+  const [currentGroup, setCurrentGroup] = useState<GroupKey>(() => {
+    const saved = localStorage.getItem('lastActiveGroup');
+    return (saved as GroupKey) || 'GRUP D';
+  });
+
+  const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(
+    () => localStorage.getItem('sidebarCollapsed') === '1'
+  );
+
+  useEffect(() => {
+    localStorage.setItem('lastActiveGroup', currentGroup);
+  }, [currentGroup]);
+
+  useEffect(() => {
+    localStorage.setItem('sidebarCollapsed', sidebarCollapsed ? '1' : '0');
+  }, [sidebarCollapsed]);
+
+  const handleSelectGroup = useCallback((view: GroupedView, group: GroupKey) => {
+    setCurrentView(view);
+    setCurrentGroup(group);
+  }, []);
   const [isDemonomerPopupOpen, setIsDemonomerPopupOpen] = useState(false);
   
   const [stoppedAt, setStoppedAt] = useState<number | null>(() => {
@@ -3056,51 +3113,9 @@ const App: React.FC = () => {
             </div>
           </div>
 
-          {/* Right Section: Navigation Tabs (Matching Jadwal/Catatan/Setting Style) */}
+          {/* Right Section: Breadcrumb — navigasi pindah seluruhnya ke sidebar kanan */}
           <div className="flex shrink-0">
-              <nav aria-label="Main Navigation" className="flex items-center gap-1.5 bg-white dark:bg-slate-800 p-1.5 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden">
-                  {/* Tab 1: Polymer */}
-                  <button 
-                      id="tab-polymer"
-                      onClick={() => setCurrentView('scheduler')} 
-                      className={`py-1.5 px-3 rounded-lg font-black text-xs tracking-tight uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
-                          currentView === 'scheduler' 
-                              ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-400' 
-                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80'
-                      }`}
-                  >
-                      <LayoutGrid className={`w-3.5 h-3.5 ${currentView === 'scheduler' ? 'text-white' : 'text-blue-500'}`} />
-                      <span>POLYMER</span>
-                  </button>
-
-                  {/* Tab 2: Demonomer */}
-                  <button 
-                      id="tab-demonomer"
-                      onClick={() => setCurrentView('demonomer')} 
-                      className={`py-1.5 px-3 rounded-lg font-black text-xs tracking-tight uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
-                          currentView === 'demonomer' 
-                              ? 'bg-teal-600 text-white shadow-sm ring-1 ring-teal-400' 
-                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80'
-                      }`}
-                  >
-                      <Activity className={`w-3.5 h-3.5 ${currentView === 'demonomer' ? 'text-white' : 'text-teal-500'}`} />
-                      <span>DEMONOMER</span>
-                  </button>
-
-                  {/* Tab 3: Silo */}
-                  <button 
-                      id="tab-silo"
-                      onClick={() => setCurrentView('silo')} 
-                      className={`py-1.5 px-3 rounded-lg font-black text-xs tracking-tight uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
-                          currentView === 'silo' 
-                              ? 'bg-cyan-600 text-white shadow-sm ring-1 ring-cyan-400' 
-                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80'
-                      }`}
-                  >
-                      <Database className={`w-3.5 h-3.5 ${currentView === 'silo' ? 'text-white' : 'text-cyan-500'}`} />
-                      <span>SILO</span>
-                  </button>
-              </nav>
+              <Breadcrumb view={currentView} group={currentGroup} />
           </div>
         </div>
     </header>
@@ -3555,58 +3570,6 @@ const App: React.FC = () => {
   );
 };
 
-  const renderNavTabsWidget = () => {
-      return (
-          <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 p-1.5 overflow-hidden">
-              <div className="grid grid-cols-3 gap-1.5">
-                  {/* Tab Jadwal */}
-                  <button 
-                      id="nav-tab-jadwal"
-                      onClick={() => setCurrentView('jadwal')}
-                      className={`py-2 px-1 rounded-lg font-black text-[0.75em] tracking-tight uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
-                          currentView === 'jadwal'
-                              ? 'bg-amber-500 text-white shadow-sm ring-1 ring-amber-400'
-                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80'
-                      }`}
-                      title="Buka Halaman Jadwal"
-                  >
-                      <Calendar className={`w-3.5 h-3.5 ${currentView === 'jadwal' ? 'text-white' : 'text-amber-500'}`} />
-                      <span>JADWAL</span>
-                  </button>
-
-                  {/* Tab Catatan */}
-                  <button 
-                      id="nav-tab-catatan"
-                      onClick={() => setCurrentView('catatan')}
-                      className={`py-2 px-1 rounded-lg font-black text-[0.75em] tracking-tight uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
-                          currentView === 'catatan'
-                              ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-400'
-                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80'
-                      }`}
-                      title="Buka Halaman Catatan"
-                  >
-                      <FileText className={`w-3.5 h-3.5 ${currentView === 'catatan' ? 'text-white' : 'text-emerald-500'}`} />
-                      <span>CATATAN</span>
-                  </button>
-
-                  {/* Tab Setting */}
-                  <button 
-                      id="nav-tab-setting"
-                      onClick={() => setIsSettingsOpen(!isSettingsOpen)}
-                      className={`py-2 px-1 rounded-lg font-black text-[0.75em] tracking-tight uppercase flex items-center justify-center gap-1.5 transition-all cursor-pointer select-none ${
-                          isSettingsOpen
-                              ? 'bg-blue-600 text-white shadow-sm ring-1 ring-blue-400'
-                              : 'bg-slate-100 hover:bg-slate-200 dark:bg-slate-900/80 dark:hover:bg-slate-700 text-slate-700 dark:text-slate-200 border border-slate-200/80 dark:border-slate-700/80'
-                      }`}
-                      title={isSettingsOpen ? "Tutup Pengaturan" : "Buka Pengaturan"}
-                  >
-                      <Settings className={`w-3.5 h-3.5 ${isSettingsOpen ? 'rotate-90 text-white' : 'text-blue-500'} transition-transform duration-300`} />
-                      <span>SETTING</span>
-                  </button>
-              </div>
-          </div>
-      );
-  };
 
   const renderGradeSelectionWidget = () => {
       return (
@@ -4109,7 +4072,6 @@ const App: React.FC = () => {
 
           {/* RIGHT SIDE: 20% Widgets */}
           <div className="w-[20%] flex flex-col gap-2 h-full">
-              {renderNavTabsWidget()}
               {renderGradeSelectionWidget()}
               {renderSiloWidget()}
               {renderSteamWidget()}
@@ -4504,8 +4466,10 @@ const App: React.FC = () => {
 
   return (
     <div 
-        className={`min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col font-sans text-sm relative transition-colors duration-300 ${config.theme}`}
-        style={{ zoom: zoomLevel }}
+        className={`bg-slate-50 dark:bg-slate-950 flex flex-col font-sans text-sm relative transition-colors duration-300 ${config.theme}`}
+        /* min-height dibagi zoomLevel: `zoom` ikut mengecilkan 100vh, sehingga
+           min-h-screen menyisakan pita kosong di bawah saat zoom < 1. */
+        style={{ zoom: zoomLevel, minHeight: `${100 / zoomLevel}vh` }}
     >
       
       {/* ... [Full Screen Alert Overlay with Multi-Style Support] ... */}
@@ -5078,7 +5042,8 @@ const App: React.FC = () => {
           {/* Header */}
           {renderSection('header', 0)}
 
-          <div className="flex-1 flex flex-col min-h-0" style={currentView === 'scheduler' ? { zoom: 0.8 } : undefined}>
+          <div className="flex-1 flex flex-row min-h-0 gap-2">
+              <div className="flex-1 flex flex-col min-w-0 min-h-0 overflow-auto" style={currentView === 'scheduler' ? { zoom: 0.8 } : undefined}>
               {currentView === 'scheduler' && (
                   <>
                       <div className="flex-1 min-h-0">{renderSection('scheduler', 1)}</div>
@@ -5120,8 +5085,27 @@ const App: React.FC = () => {
               )}
 
               {currentView === 'jadwal' && (
-                <Jadwal />
+                <Jadwal key={currentGroup} activeGroup={currentGroup} />
               )}
+
+              {currentView === 'kas' && (
+                <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-800 p-4 lg:p-6 min-h-[500px]">
+                  <KasGrup key={currentGroup} activeGroup={currentGroup} />
+                </div>
+              )}
+              </div>
+
+              {/* Sidebar navigasi — satu-satunya tempat berpindah halaman */}
+              <Sidebar
+                currentView={currentView}
+                currentGroup={currentGroup}
+                collapsed={sidebarCollapsed}
+                onToggleCollapsed={() => setSidebarCollapsed(v => !v)}
+                onSelectView={setCurrentView}
+                onSelectGroup={handleSelectGroup}
+                isSettingsOpen={isSettingsOpen}
+                onToggleSettings={() => setIsSettingsOpen(o => !o)}
+              />
           </div>
       </div>
 
