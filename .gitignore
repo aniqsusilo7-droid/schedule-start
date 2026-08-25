@@ -1,0 +1,19 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# Supabase CLI local state (berisi kredensial project yang di-link)
+supabase/.temp/
+
+# Editor / OS
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
