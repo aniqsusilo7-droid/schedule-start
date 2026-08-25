@@ -91,3 +91,46 @@ export const getActiveShifts = (d: Date): ShiftSlot[] => {
     return start <= end ? m >= start && m < end : m >= start || m < end;
   });
 };
+/** Label jam kerja tiap shift, untuk ditampilkan di UI. */
+export const SHIFT_TIME_LABEL: Record<ShiftSlot, string> = {
+  I: '22:45 - 07:00',
+  II: '06:45 - 15:00',
+  III: '14:45 - 23:00',
+};
+
+export const ALL_SHIFT_GROUPS: ShiftGroup[] = ['A', 'B', 'C', 'D'];
+
+/** Tugas satu grup pada satu tanggal: memegang shift tertentu, atau libur. */
+export type ShiftDuty = ShiftSlot | 'off';
+
+export const getGroupDuty = (group: ShiftGroup, d: Date): ShiftDuty => {
+  const a = getShiftAssignment(d);
+  return SHIFT_SLOTS.find(slot => a[slot] === group) ?? 'off';
+};
+
+/**
+ * Grup tiap shift menurut jam saat ini, bukan sekadar tanggal kalender.
+ *
+ * Shift II dan III berjalan utuh dalam satu tanggal, jadi selalu memakai
+ * baris hari ini. Shift I menembus tengah malam (22:45-07:00) dan menurut
+ * konvensi di lapangan "Shift I tanggal D" adalah regu yang SELESAI pagi
+ * tanggal D — artinya regu yang masuk pukul 22:45 sudah milik tanggal
+ * besok.
+ *
+ * Hanya Shift I yang digeser. Menggeser seluruh kartu akan membuat Shift III
+ * salah selama 15 menit serah terima 22:45-23:00, karena regu Shift III yang
+ * sedang pulang masih milik tanggal hari ini.
+ */
+export const getShiftGroupsNow = (now: Date): Record<ShiftSlot, ShiftGroup> => {
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  const today = getShiftAssignment(now);
+
+  const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
+  const shiftIDay = minutes >= SHIFT_HOURS.I.start ? tomorrow : now;
+
+  return {
+    I: getShiftAssignment(shiftIDay).I,
+    II: today.II,
+    III: today.III,
+  };
+};

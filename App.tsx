@@ -10,10 +10,11 @@ import { Catatan } from './components/Catatan';
 import { Kesepakatan } from './components/Kesepakatan';
 import { Jadwal, GroupKey, GROUP_THEMES } from './components/Jadwal';
 import { KasGrup } from './components/KasGrup';
+import { JadwalShift } from './components/JadwalShift';
 import { Sidebar, SidebarView, GroupedView } from './components/Sidebar';
 import { useMediaQuery, DESKTOP_QUERY } from './utils/useMediaQuery';
-import { getShiftAssignment, getActiveShifts, SHIFT_SLOTS, ShiftGroup } from './utils/shiftSchedule';
-import { Settings, RefreshCw, AlertTriangle, Calendar, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp, Wallet, Menu } from 'lucide-react';
+import { getShiftGroupsNow, getActiveShifts, SHIFT_SLOTS, ShiftGroup } from './utils/shiftSchedule';
+import { Settings, RefreshCw, AlertTriangle, Calendar, CalendarDays, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp, Wallet, Menu } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { Reorder } from 'framer-motion';
 import { Fie2002TrendModal, Fie2002TrendEntry } from './components/Fie2002TrendModal';
@@ -32,6 +33,7 @@ const VIEW_META: Record<SidebarView, { label: string; Icon: React.ComponentType<
   scheduler: { label: 'POLYMER',       Icon: LayoutGrid, color: 'text-blue-500' },
   demonomer: { label: 'DEMONOMER',     Icon: Activity,   color: 'text-teal-500' },
   silo:      { label: 'SILO',          Icon: Database,   color: 'text-cyan-500' },
+  jadwalShift: { label: 'JADWAL SHIFT', Icon: CalendarDays, color: 'text-rose-500' },
   jadwal:    { label: 'JADWAL BACKUP', Icon: Calendar,   color: 'text-amber-500' },
   kas:       { label: 'KAS GRUP',      Icon: Wallet,     color: 'text-violet-500' },
   catatan:   { label: 'CATATAN',       Icon: FileText,   color: 'text-emerald-500' },
@@ -48,7 +50,9 @@ const SHIFT_GROUP_COLOR: Record<ShiftGroup, string> = {
 /** Grup yang memegang tiap shift hari ini. Berganti otomatis tiap tanggal,
     dan menyorot shift yang sedang berjalan menurut jam saat ini. */
 const ShiftToday: React.FC<{ date: Date; className?: string }> = ({ date, className = '' }) => {
-  const assignment = getShiftAssignment(date);
+  /* Bukan sekadar baris tanggal hari ini: Shift I menembus tengah malam,
+     jadi grupnya ditentukan oleh jam, bukan tanggal kalender. */
+  const assignment = getShiftGroupsNow(date);
   const active = getActiveShifts(date);
   /* Dua shift aktif berarti sedang dalam 15 menit serah terima. */
   const isHandover = active.length > 1;
@@ -5358,6 +5362,10 @@ const App: React.FC = () => {
 
               {currentView === 'catatan' && (
                 <Catatan onBack={() => setCurrentView('scheduler')} />
+              )}
+
+              {currentView === 'jadwalShift' && (
+                <JadwalShift now={now} />
               )}
 
               {currentView === 'jadwal' && (
