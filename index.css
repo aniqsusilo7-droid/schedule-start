@@ -38,3 +38,31 @@ body {
 .animate-blink {
   animation: blink 0.8s step-end infinite;
 }
+
+/* Panel Cycle Time menempati setengah dashboard. Skala berdasarkan lebar
+   panel membuat angka tetap muat meski font tabel global diperbesar. */
+.cycle-time-container {
+  container-type: inline-size;
+}
+
+.cycle-time-table {
+  font-size: clamp(15px, 3.5cqi, var(--cycle-time-font-max, 24px));
+}
+
+.cycle-time-input::-webkit-calendar-picker-indicator {
+  width: 0.75em;
+  height: 0.75em;
+  margin: 0;
+  padding: 0;
+  opacity: 0.55;
+}
+
+@container (max-width: 620px) {
+  .cycle-time-header {
+    letter-spacing: 0.02em;
+  }
+
+  .cycle-time-input::-webkit-calendar-picker-indicator {
+    display: none;
+  }
+}

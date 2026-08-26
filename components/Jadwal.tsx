@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { 
   Calendar, Plus, Trash2, Edit3, RotateCcw, Save, Copy, 
-  Check, X, ChevronRight, Layers, FileSpreadsheet, Sparkles, AlertCircle, Clock, User, ArrowRight,
+  Check, X, ChevronRight, FileSpreadsheet, Sparkles, AlertCircle, Clock, User, ArrowRight,
   CheckSquare, Square
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
@@ -814,9 +814,6 @@ export const Jadwal: React.FC<JadwalProps> = ({ activeGroup }) => {
 
       {/* Sheet Tabs Bar (Excel Style Bottom / Top Navigation) */}
       <div className="flex items-center gap-1.5 overflow-x-auto pb-1 border-b border-slate-300 dark:border-slate-800 select-none no-scrollbar">
-        <span className="text-xs font-black text-slate-500 dark:text-slate-400 uppercase tracking-wider px-2 shrink-0 flex items-center gap-1">
-          <Layers className="w-3.5 h-3.5 text-slate-400" /> DAFTAR TABEL ({activeGroup}):
-        </span>
         {tables.map(tbl => {
           const isActive = tbl.id === activeTable.id;
           return (
@@ -917,19 +914,19 @@ export const Jadwal: React.FC<JadwalProps> = ({ activeGroup }) => {
         )}
 
         {/* TABLE GRID AREA WITH HORIZONTAL SCROLL */}
-        <div className="overflow-x-auto overflow-y-auto max-h-[72vh] p-0.5">
-          <table className="w-full border-collapse min-w-[700px]">
+        <div className={`overflow-x-auto overflow-y-auto max-h-[72vh] p-0.5 ${currentTheme.colHeaderBg}`}>
+          <table className="w-full border-collapse min-w-[700px] bg-white dark:bg-slate-900">
             
             {/* COLUMN HEADERS (PERSONNEL NAMES) */}
             <thead>
               <tr className={`${currentTheme.colHeaderBg} ${currentTheme.colHeaderText} divide-x divide-slate-300 dark:divide-slate-700 border-b-2 border-slate-300 dark:border-slate-700`}>
-                <th className="p-2.5 text-center text-[11px] font-black w-12 bg-black/5 dark:bg-black/20 select-none">
+                <th className={`sticky top-0 z-40 p-2.5 text-center text-[11px] font-black w-12 select-none shadow-[0_2px_0_rgba(15,23,42,0.18)] ${currentTheme.colHeaderBg} ${currentTheme.colHeaderText}`}>
                   NO
                 </th>
                 {activeTable.columns.map((col) => (
                   <th
                     key={col.id}
-                    className="p-2.5 text-center font-black text-xs md:text-sm tracking-wider uppercase min-w-[150px] max-w-[220px] relative group transition-colors"
+                    className={`sticky top-0 z-30 p-2.5 text-center font-black text-xs md:text-sm tracking-wider uppercase min-w-[150px] max-w-[220px] relative group transition-colors shadow-[0_2px_0_rgba(15,23,42,0.18)] ${currentTheme.colHeaderBg} ${currentTheme.colHeaderText}`}
                   >
                     <div className="flex items-center justify-between gap-1 px-1">
                       {editingColumnId === col.id ? (

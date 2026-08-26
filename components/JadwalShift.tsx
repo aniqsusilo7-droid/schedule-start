@@ -4,7 +4,7 @@ import {
   Moon, Sun, Sunset, Coffee, Users, RotateCcw, Info,
 } from 'lucide-react';
 import {
-  getShiftAssignment, getShiftGroupsNow, getGroupDuty, getActiveShifts,
+  getShiftAssignment, getShiftGroupsNow, getAdministrativeShiftDate, getGroupDuty, getActiveShifts,
   SHIFT_SLOTS, SHIFT_TIME_LABEL, ALL_SHIFT_GROUPS,
   ShiftGroup, ShiftSlot, ShiftDuty,
 } from '../utils/shiftSchedule';
@@ -127,6 +127,7 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
     return () => clearInterval(t);
   }, [nowProp]);
   const now = nowProp ?? selfNow;
+  const administrativeDate = getAdministrativeShiftDate(now);
 
   const [viewMode, setViewMode] = useState<ViewMode>(
     () => (localStorage.getItem('shiftViewMode') as ViewMode) || 'month'
@@ -135,11 +136,11 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
     const saved = localStorage.getItem('shiftFocusGroup');
     return saved && (ALL_SHIFT_GROUPS as string[]).includes(saved) ? (saved as ShiftGroup) : null;
   });
-  const [year, setYear] = useState(() => new Date().getFullYear());
-  const [month, setMonth] = useState(() => new Date().getMonth());
+  const [year, setYear] = useState(() => administrativeDate.getFullYear());
+  const [month, setMonth] = useState(() => administrativeDate.getMonth());
   /* Input tahun disimpan sebagai teks supaya bisa dikosongkan saat mengetik
      tanpa langsung dipaksa jadi angka. */
-  const [yearDraft, setYearDraft] = useState<string>(() => String(new Date().getFullYear()));
+  const [yearDraft, setYearDraft] = useState<string>(() => String(administrativeDate.getFullYear()));
 
   useEffect(() => localStorage.setItem('shiftViewMode', viewMode), [viewMode]);
   useEffect(() => {
@@ -148,11 +149,10 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
   }, [focusGroup]);
   useEffect(() => setYearDraft(String(year)), [year]);
 
-  /* Panel "Hari Ini" menjawab siapa yang SEDANG jaga, jadi Shift I harus
-     ikut koreksi tengah malam — beda dari sel kalender di bawah yang memang
-     menampilkan roster per tanggal. Grup libur tetap dari baris hari ini. */
+  /* Panel "Hari Ini" mengikuti tanggal administratif, termasuk grup libur.
+     Shift I tanggal berikutnya masuk pukul 22:45 untuk serah terima. */
   const todayGroups = getShiftGroupsNow(now);
-  const todayOff = getShiftAssignment(now).off;
+  const todayOff = getShiftAssignment(administrativeDate).off;
   const activeSlots = getActiveShifts(now);
 
   const shiftMonth = useCallback((delta: number) => {
@@ -164,7 +164,7 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
   const shiftYear = useCallback((delta: number) => setYear(y => clampYear(y + delta)), []);
 
   const goToday = useCallback(() => {
-    const t = new Date();
+    const t = getAdministrativeShiftDate(new Date());
     setYear(t.getFullYear());
     setMonth(t.getMonth());
   }, []);
@@ -217,7 +217,7 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
   const MonthCell: React.FC<{ date: Date | null }> = ({ date }) => {
     if (!date) return <div className="rounded-xl bg-transparent" />;
 
-    const isToday = isSameDay(date, now);
+    const isToday = isSameDay(date, administrativeDate);
     const assignment = getShiftAssignment(date);
     const isSunday = date.getDay() === 0;
 
@@ -293,7 +293,7 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
   /** Kalender kecil satu bulan, dipakai pada tampilan tahun. */
   const MiniMonth: React.FC<{ monthIndex: number }> = ({ monthIndex }) => {
     const cells = buildMonthCells(year, monthIndex);
-    const isCurrentMonth = now.getFullYear() === year && now.getMonth() === monthIndex;
+    const isCurrentMonth = administrativeDate.getFullYear() === year && administrativeDate.getMonth() === monthIndex;
 
     return (
       <div className={`rounded-2xl border p-2.5 bg-white dark:bg-slate-900 ${
@@ -323,7 +323,7 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
         <div className="grid grid-cols-7 gap-0.5">
           {cells.map((date, i) => {
             if (!date) return <span key={i} />;
-            const isToday = isSameDay(date, now);
+            const isToday = isSameDay(date, administrativeDate);
 
             if (focusGroup) {
               const meta = DUTY[getGroupDuty(focusGroup, date)];
@@ -505,7 +505,7 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
           <div className="shrink-0 px-3.5 py-2 bg-slate-100 dark:bg-slate-800/70 border-b border-slate-200 dark:border-slate-800 flex items-center justify-center gap-2">
             <CalendarDays className="w-3.5 h-3.5 text-rose-500" />
             <span className="text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300">
-              Hari Ini — {now.toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
+              Hari Ini — {administrativeDate.toLocaleDateString('id-ID', { weekday: 'long', day: '2-digit', month: 'long', year: 'numeric' })}
             </span>
           </div>
           <div className="flex-1 grid grid-cols-2 sm:grid-cols-4">
