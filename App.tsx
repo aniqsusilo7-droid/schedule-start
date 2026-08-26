@@ -4543,8 +4543,8 @@ const App: React.FC = () => {
                <div className="hidden lg:grid grid-cols-1 lg:grid-cols-2 gap-2 xl:gap-4">
                    {/* 1. CYCLE TIME WIDGET */}
                    <div className="flex min-w-0 flex-col overflow-hidden shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 cycle-time-container">
-                        <div className={`${GRADE_COLORS[config.currentGrade] || 'bg-indigo-600'} text-white font-bold text-[0.7em] px-2 py-0.5 text-center rounded-t-xl flex items-center justify-center gap-1.5 uppercase tracking-tight transition-colors`}>
-                            <Calculator className="w-3 h-3" />
+                        <div className={`${GRADE_COLORS[config.currentGrade] || 'bg-indigo-600'} min-h-[2.25em] text-white font-bold text-[0.91em] px-3 py-1 text-center rounded-t-xl flex items-center justify-center gap-1.5 uppercase tracking-tight transition-colors`}>
+                            <Calculator className="w-3.5 h-3.5" />
                             HITUNG CYCLE TIME
                         </div>
                         <div className={`${GRADE_COLORS[config.currentGrade] ? GRADE_COLORS[config.currentGrade].replace('bg-', 'bg-').concat('/10') : 'bg-white dark:bg-slate-800'} min-w-0 rounded-b-xl p-1 flex flex-col gap-1 transition-colors`}>
@@ -4745,7 +4745,8 @@ const App: React.FC = () => {
                teks tak terbaca, jadi dipaksa 1. */
             zoom: isDesktop ? zoomLevel : 1,
             minHeight: `${100 / (isDesktop ? zoomLevel : 1)}vh`,
-        }}
+            '--app-viewport-height': `${100 / (isDesktop ? zoomLevel : 1)}vh`,
+        } as React.CSSProperties}
     >
       
       {/* ... [Full Screen Alert Overlay with Multi-Style Support] ... */}
@@ -5314,7 +5315,7 @@ const App: React.FC = () => {
       )}
 
       {/* Dynamic Layout Rendering */}
-      <div className={`flex-1 flex flex-row min-h-0 gap-2 ${currentView === 'scheduler' ? 'overflow-auto lg:overflow-hidden p-1' : 'overflow-auto p-2'}`}>
+      <div className={`flex-1 flex flex-row min-h-0 gap-2 ${currentView === 'scheduler' ? 'overflow-auto lg:overflow-visible p-1' : 'overflow-auto lg:overflow-visible p-2'}`}>
 
           {/* Kolom kiri: header + konten. Sidebar jadi saudara kandungnya,
               bukan anak di bawah header, supaya tingginya sampai atas. */}

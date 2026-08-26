@@ -192,7 +192,7 @@ export const Kesepakatan: React.FC<KesepakatanProps> = ({ currentGrade, shiftGro
     return (
         <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden">
             {/* Widget Header */}
-            <div className={`${theme.headerBg} text-white font-bold text-[0.91em] px-3 py-1 text-center flex items-center justify-between gap-2 uppercase tracking-tight transition-colors`}>
+            <div className={`${theme.headerBg} min-h-[2.25em] text-white font-bold text-[0.91em] px-3 py-1 text-center flex items-center justify-between gap-2 uppercase tracking-tight transition-colors`}>
                 <div className="flex items-center gap-1.5">
                     <Handshake className="w-3.5 h-3.5" />
                     KESEPAKATAN SHIFT
