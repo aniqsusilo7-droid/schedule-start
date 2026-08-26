@@ -13,11 +13,13 @@ import { JadwalShift } from './components/JadwalShift';
 import { Sidebar, SidebarView, GroupedView } from './components/Sidebar';
 import { useMediaQuery, DESKTOP_QUERY } from './utils/useMediaQuery';
 import { getShiftGroupsNow, getAdministrativeShiftDate, getActiveShifts, SHIFT_SLOTS, ShiftGroup } from './utils/shiftSchedule';
-import { Settings, RefreshCw, AlertTriangle, Calendar, CalendarDays, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp, Wallet, Menu } from 'lucide-react';
+import { Settings, RefreshCw, AlertTriangle, Calendar, CalendarDays, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, ArrowRightLeft, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp, Wallet, Menu } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { Reorder } from 'framer-motion';
 import { Fie2002TrendModal, Fie2002TrendEntry } from './components/Fie2002TrendModal';
 import { DraggableModal } from './components/DraggableModal';
+import { UnitConverter } from './components/UnitConverter';
+import { NumberTicker } from './components/NumberTicker';
 
 const GRADES: GradeType[] = ['SM', 'SLK', 'SLP', 'SE', 'SR'];
 const STAGE_OPTIONS = ['Sample Blowing', 'Sample Washing', 'Sample Air Slurry'];
@@ -36,6 +38,7 @@ const VIEW_META: Record<SidebarView, { label: string; Icon: React.ComponentType<
   jadwal:    { label: 'JADWAL BACKUP', Icon: Calendar,   color: 'text-amber-500' },
   kas:       { label: 'KAS GRUP',      Icon: Wallet,     color: 'text-violet-500' },
   catatan:   { label: 'CATATAN',       Icon: FileText,   color: 'text-emerald-500' },
+  unitConverter: { label: 'KONVERSI UNIT', Icon: ArrowRightLeft, color: 'text-cyan-500' },
 };
 
 /* Warna grup mengikuti tema grup di halaman Jadwal/Kas agar konsisten. */
@@ -3285,19 +3288,26 @@ const App: React.FC = () => {
                          {nextStartItem && nextStartSeconds !== null ? (
                             <div className="flex flex-col items-center gap-1 w-full">
                                <div className="flex items-center gap-1.5">
-                                  <span className={`flex items-baseline gap-1 leading-none ${
+                                  <span className={`flex items-center gap-1 leading-none ${
                                      isNextStartImminent ? 'text-red-400' : 'text-amber-300'
                                   }`}>
                                      {nextStartMinutes !== null && nextStartMinutes > 0 && (
                                         <>
-                                           <span className="font-mono font-black text-[1.5em] tracking-tight">{nextStartMinutes}</span>
-                                           <span className="text-[0.5em] font-bold uppercase tracking-wider opacity-75">menit</span>
+                                           <NumberTicker
+                                              value={nextStartMinutes}
+                                              startOnView={false}
+                                              className="font-mono font-black text-[1.5em] tracking-tight"
+                                           />
+                                           <span className="self-center text-[0.5em] font-bold uppercase leading-none tracking-wider opacity-75">menit</span>
                                         </>
                                      )}
-                                     <span className="font-mono font-black text-[1.5em] tracking-tight">
-                                        {nextStartRemSeconds?.toString().padStart(2, '0')}
-                                     </span>
-                                     <span className="text-[0.5em] font-bold uppercase tracking-wider opacity-75">detik</span>
+                                     <NumberTicker
+                                        value={nextStartRemSeconds ?? 0}
+                                        pad={2}
+                                        startOnView={false}
+                                        className="font-mono font-black text-[1.5em] tracking-tight"
+                                     />
+                                     <span className="self-center text-[0.5em] font-bold uppercase leading-none tracking-wider opacity-75">detik</span>
                                   </span>
                                </div>
                                <div className="flex items-center gap-1.5 text-[0.5em] font-bold uppercase tracking-wider text-slate-400">
@@ -3338,7 +3348,7 @@ const App: React.FC = () => {
           </div>
 
           {/* Right Section: Breadcrumb — navigasi pindah seluruhnya ke sidebar kanan */}
-          <div className="flex shrink-0 lg:flex-1 items-center lg:items-stretch justify-end lg:justify-center gap-2 order-2 lg:order-3">
+          <div className="flex shrink-0 lg:flex-1 items-center lg:items-stretch justify-end gap-2 order-2 lg:order-3">
               <ShiftToday date={now} className="hidden lg:flex" />
               <Breadcrumb view={currentView} group={currentGroup} />
 
@@ -4668,7 +4678,10 @@ const App: React.FC = () => {
                    </div>
 
                    {/* 2. KESEPAKATAN WIDGET */}
-                   <Kesepakatan currentGrade={activeDemonomerGrade} />
+                   <Kesepakatan
+                      currentGrade={activeDemonomerGrade}
+                      shiftGroups={getShiftGroupsNow(now)}
+                   />
                </div>
 
                {/* 3. CONFLICT TIMELINE TABLE */}
@@ -5367,6 +5380,10 @@ const App: React.FC = () => {
                 <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-800 p-4 lg:p-6 min-h-[500px]">
                   <KasGrup key={currentGroup} activeGroup={currentGroup} />
                 </div>
+              )}
+
+              {currentView === 'unitConverter' && (
+                <UnitConverter />
               )}
               </div>
           </div>
