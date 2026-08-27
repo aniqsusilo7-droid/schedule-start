@@ -206,7 +206,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
           ? `fixed top-0 right-0 bottom-0 z-[95] w-[272px] max-w-[85vw] bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-slate-800 flex flex-col shadow-2xl transition-transform duration-200 ease-out ${
               mobileOpen ? 'translate-x-0' : 'translate-x-full'
             }`
-          : 'sticky top-1 self-start shrink-0 relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col shadow-sm transition-[width] duration-200 ease-out'
+          : 'sticky top-1 z-[55] self-start shrink-0 relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-col shadow-sm transition-[width] duration-200 ease-out'
       }
       style={isMobile ? undefined : {
         width: isRail ? 58 : 236,
@@ -365,7 +365,7 @@ export const Sidebar: React.FC<SidebarProps> = ({
       {/* Flyout sub-menu saat rail terlipat */}
       {flyoutItem && (
         <div
-          className="absolute right-[calc(100%+8px)] z-50 w-[190px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl p-1.5"
+          className="absolute right-[calc(100%+8px)] z-[56] w-[190px] bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 rounded-xl shadow-2xl p-1.5"
           style={{ top: flyoutTop }}
         >
           <div className="px-2 py-1.5 text-[10px] font-black uppercase tracking-widest text-slate-400">

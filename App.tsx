@@ -3485,8 +3485,11 @@ const App: React.FC = () => {
           if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
               try {
                   const secondsUntilStart = Math.max(0, Math.ceil((fullScreenAlertItem.startTime.getTime() - now.getTime()) / 1000));
+                  const openModeReminder = fullScreenAlertItem.config?.mode === 'OPEN'
+                      ? ' CEK HWD LEVEL SEBELUM START.'
+                      : '';
                   const notif = new Notification(`⚠️ PERINGATAN: START REAKTOR ${fullScreenAlertItem.reactorId}`, {
-                      body: `Reaktor ${fullScreenAlertItem.reactorId} (Batch ${fullScreenAlertItem.batchNumber} - ${fullScreenAlertItem.grade}) akan segera START dalam ${secondsUntilStart} detik!`,
+                      body: `Reaktor ${fullScreenAlertItem.reactorId} (Batch ${fullScreenAlertItem.batchNumber} - ${fullScreenAlertItem.grade}) akan segera START dalam ${secondsUntilStart} detik!${openModeReminder}`,
                       icon: '/favicon.ico',
                       tag: `reactor-alert-${fullScreenAlertItem.id}`,
                       requireInteraction: true
@@ -5072,13 +5075,15 @@ const App: React.FC = () => {
               isToday: true,
               status: 'future' as const,
               grade: 'SM' as GradeType,
-              deltaMinutes: 0
+              deltaMinutes: 0,
+              config: { mode: 'OPEN' as const }
           } : fullScreenAlertItem;
 
           if (!activeItem) return null;
 
           const reactorObj = REACTORS.find(r => r.id === activeItem.reactorId);
           const secondsLeft = Math.max(0, Math.ceil((activeItem.startTime.getTime() - now.getTime()) / 1000));
+          const isOpenModeAlert = activeItem.config?.mode === 'OPEN';
 
           const handleDismiss = () => {
               if (isTesting) {
@@ -5121,6 +5126,17 @@ const App: React.FC = () => {
                           >
                               ✕ TUTUP PREVIEW
                           </button>
+                      </div>
+                  )}
+
+                  {isOpenModeAlert && (
+                      <div
+                          role="alert"
+                          aria-live="assertive"
+                          className={`absolute left-1/2 z-[10001] flex w-max max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-3 rounded-xl border-2 border-black bg-yellow-300 px-4 py-2.5 text-center text-sm font-black uppercase tracking-wider text-slate-950 shadow-2xl sm:px-5 sm:text-lg ${isTesting ? 'top-16' : 'top-4'}`}
+                      >
+                          <AlertTriangle aria-hidden="true" className="h-6 w-6 shrink-0 text-red-700" />
+                          <span><span className="mr-2 rounded bg-slate-950 px-2 py-1 text-yellow-300">Mode Open</span> Cek HWD Level Sebelum Start</span>
                       </div>
                   )}
 
