@@ -3,7 +3,6 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { REACTORS, GRADE_COLORS } from './constants';
 import { AppState, ScheduleItem, ItemConfig, GradeType, SiloState, SiloData, DemonomerData, AlarmSoundType, AlertStyleType } from './types';
 import { addMinutes, formatDate, formatTime, getBatchDate } from './utils/dateUtils';
-import { Clock } from './components/Clock';
 import { Demonomer } from './components/Demonomer';
 import { Silo } from './components/Silo';
 import { Catatan } from './components/Catatan';
@@ -13,12 +12,14 @@ import { KasGrup } from './components/KasGrup';
 import { JadwalShift } from './components/JadwalShift';
 import { Sidebar, SidebarView, GroupedView } from './components/Sidebar';
 import { useMediaQuery, DESKTOP_QUERY } from './utils/useMediaQuery';
-import { getShiftGroupsNow, getActiveShifts, SHIFT_SLOTS, ShiftGroup } from './utils/shiftSchedule';
-import { Settings, RefreshCw, AlertTriangle, Calendar, CalendarDays, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp, Wallet, Menu } from 'lucide-react';
+import { getShiftGroupsNow, getAdministrativeShiftDate, getActiveShifts, SHIFT_SLOTS, ShiftGroup } from './utils/shiftSchedule';
+import { Settings, RefreshCw, AlertTriangle, Calendar, CalendarDays, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, ArrowRightLeft, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp, Wallet, Menu } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { Reorder } from 'framer-motion';
 import { Fie2002TrendModal, Fie2002TrendEntry } from './components/Fie2002TrendModal';
 import { DraggableModal } from './components/DraggableModal';
+import { UnitConverter } from './components/UnitConverter';
+import { NumberTicker } from './components/NumberTicker';
 
 const GRADES: GradeType[] = ['SM', 'SLK', 'SLP', 'SE', 'SR'];
 const STAGE_OPTIONS = ['Sample Blowing', 'Sample Washing', 'Sample Air Slurry'];
@@ -37,6 +38,7 @@ const VIEW_META: Record<SidebarView, { label: string; Icon: React.ComponentType<
   jadwal:    { label: 'JADWAL BACKUP', Icon: Calendar,   color: 'text-amber-500' },
   kas:       { label: 'KAS GRUP',      Icon: Wallet,     color: 'text-violet-500' },
   catatan:   { label: 'CATATAN',       Icon: FileText,   color: 'text-emerald-500' },
+  unitConverter: { label: 'KONVERSI UNIT', Icon: ArrowRightLeft, color: 'text-cyan-500' },
 };
 
 /* Warna grup mengikuti tema grup di halaman Jadwal/Kas agar konsisten. */
@@ -50,10 +52,14 @@ const SHIFT_GROUP_COLOR: Record<ShiftGroup, string> = {
 /** Grup yang memegang tiap shift hari ini. Berganti otomatis tiap tanggal,
     dan menyorot shift yang sedang berjalan menurut jam saat ini. */
 const ShiftToday: React.FC<{ date: Date; className?: string }> = ({ date, className = '' }) => {
-  /* Bukan sekadar baris tanggal hari ini: Shift I menembus tengah malam,
-     jadi grupnya ditentukan oleh jam, bukan tanggal kalender. */
+  /* Roster memakai tanggal administratif yang berganti pukul 23:00. Shift I
+     tanggal berikutnya masuk 15 menit lebih awal untuk serah terima. */
   const assignment = getShiftGroupsNow(date);
+  const administrativeDate = getAdministrativeShiftDate(date);
   const active = getActiveShifts(date);
+  const [hours, minutes, seconds] = date
+    .toLocaleTimeString('en-GB', { hour12: false })
+    .split(':');
   /* Dua shift aktif berarti sedang dalam 15 menit serah terima. */
   const isHandover = active.length > 1;
 
@@ -64,10 +70,23 @@ const ShiftToday: React.FC<{ date: Date; className?: string }> = ({ date, classN
 
       {/* Tanggal: dipindah ke sini dari bawah judul agar jadi satu kartu. */}
       <div className="flex items-center justify-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-700">
-        <Calendar className="w-[1.2em] h-[1.2em] text-slate-400 dark:text-slate-500 shrink-0" />
+        <Calendar className="w-[0.85em] h-[0.85em] text-slate-400 dark:text-slate-500 shrink-0" />
         <span className="text-[0.95em] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 whitespace-nowrap leading-none">
-          {formatDate(date)}
+          {formatDate(administrativeDate)}
         </span>
+        <span aria-hidden="true" className="h-[1.1em] w-px bg-slate-300 dark:bg-slate-700" />
+        <time
+          dateTime={date.toISOString()}
+          aria-label={`Pukul ${hours}:${minutes}:${seconds}`}
+          className="flex items-center gap-1 font-mono font-black text-[0.95em] tracking-wider text-slate-700 dark:text-slate-200 whitespace-nowrap leading-none tabular-nums"
+        >
+          <ClockIcon className="w-[0.85em] h-[0.85em] text-cyan-500 shrink-0" />
+          <span>{hours}</span>
+          <span className="text-cyan-500 animate-pulse">:</span>
+          <span>{minutes}</span>
+          <span className="text-cyan-500 animate-pulse">:</span>
+          <span className="text-cyan-600 dark:text-cyan-400">{seconds}</span>
+        </time>
         {isHandover && (
           <span className="text-[0.42em] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-400 text-amber-950 whitespace-nowrap">
             Serah Terima
@@ -3226,12 +3245,10 @@ const App: React.FC = () => {
           
           {/* Left Section: Widget */}
           <div className="flex shrink-0 lg:flex-1 order-3 lg:order-1 w-full lg:w-auto">
-               {/* Widget: Interval & Time */}
+               {/* Widget: interval dan countdown start berikutnya. */}
                <div className="flex flex-col lg:flex-row bg-slate-800 rounded-lg p-1 shadow-md w-full lg:w-auto gap-1 lg:gap-0">
-                    {/* Baris 1 di HP: interval + jam berdampingan */}
-                    <div className="flex w-full lg:contents">
                       {/* Interval */}
-                      <div className="flex shrink-0 px-2 lg:px-4 py-1.5 flex-col items-center justify-center border-r border-slate-700/50 min-w-[86px] lg:min-w-[125px] relative overflow-hidden group">
+                      <div className="flex w-full lg:w-auto shrink-0 px-2 lg:px-4 py-1.5 flex-col items-center justify-center border-b lg:border-b-0 lg:border-r border-slate-700/50 min-w-[86px] lg:min-w-[125px] relative overflow-hidden group">
                          {/* Subtle pulsing bg */}
                          <div className="absolute inset-0 bg-cyan-500/5 dark:bg-cyan-400/5 rounded-l-lg pointer-events-none"></div>
                          
@@ -3243,36 +3260,6 @@ const App: React.FC = () => {
                              {config.intervalHours.toString().padStart(2, '0')}:{config.intervalMinutes.toString().padStart(2, '0')}
                          </div>
                       </div>
-                      {/* Time */}
-                      <div className="w-full lg:w-auto px-2 lg:px-4 py-1.5 flex flex-col items-center justify-center min-w-0 lg:min-w-[210px] relative overflow-hidden group">
-                         {/* Subtle background glow that pulses */}
-                         <div className="absolute inset-0 bg-blue-500/5 dark:bg-blue-400/5 rounded-r-lg animate-pulse pointer-events-none"></div>
-                         
-                         <span className="text-[0.5em] text-slate-400 font-bold uppercase tracking-wider mb-1 flex items-center gap-1.5 z-10">
-                            <ClockIcon className="w-3 h-3 text-cyan-400 animate-[spin_60s_linear_infinite]" />
-                            CURRENT TIME
-                         </span>
-                         <div className="bg-white dark:bg-slate-700 w-full mx-2 text-slate-900 dark:text-white px-2.5 py-1 rounded shadow-inner font-mono font-black text-[1.5em] tracking-widest leading-none flex items-center justify-center transition-all duration-300 border border-slate-200 dark:border-slate-600 hover:border-cyan-400/50 hover:shadow-cyan-500/10 dark:hover:shadow-cyan-400/10 z-10">
-                             {(() => {
-                                 const timeStr = now.toLocaleTimeString('en-GB', { hour12: false });
-                                 const parts = timeStr.split(':');
-                                 if (parts.length === 3) {
-                                     return (
-                                         <div className="flex items-center">
-                                             <span>{parts[0]}</span>
-                                             <span className="animate-pulse text-cyan-500 mx-0.5 font-bold">:</span>
-                                             <span>{parts[1]}</span>
-                                             <span className="animate-pulse text-cyan-500 mx-0.5 font-bold">:</span>
-                                             <span className="text-cyan-500 dark:text-cyan-400 font-bold">{parts[2]}</span>
-                                         </div>
-                                     );
-                                 }
-                                 return timeStr;
-                             })()}
-                             <span className="text-[0.45em] ml-1 text-cyan-500 dark:text-cyan-400 font-black">s</span>
-                         </div>
-                      </div>
-                    </div>
 
                       {/* Countdown: start reaktor berikutnya */}
                       <div className="w-full lg:w-auto px-2 lg:px-3 py-1.5 flex items-stretch gap-2 border-t lg:border-t-0 lg:border-l border-slate-700/50 min-w-0 lg:min-w-[230px] relative overflow-hidden">
@@ -3301,19 +3288,26 @@ const App: React.FC = () => {
                          {nextStartItem && nextStartSeconds !== null ? (
                             <div className="flex flex-col items-center gap-1 w-full">
                                <div className="flex items-center gap-1.5">
-                                  <span className={`flex items-baseline gap-1 leading-none ${
+                                  <span className={`flex items-center gap-1 leading-none ${
                                      isNextStartImminent ? 'text-red-400' : 'text-amber-300'
                                   }`}>
                                      {nextStartMinutes !== null && nextStartMinutes > 0 && (
                                         <>
-                                           <span className="font-mono font-black text-[1.5em] tracking-tight">{nextStartMinutes}</span>
-                                           <span className="text-[0.5em] font-bold uppercase tracking-wider opacity-75">menit</span>
+                                           <NumberTicker
+                                              value={nextStartMinutes}
+                                              startOnView={false}
+                                              className="font-mono font-black text-[1.5em] tracking-tight"
+                                           />
+                                           <span className="self-center text-[0.5em] font-bold uppercase leading-none tracking-wider opacity-75">menit</span>
                                         </>
                                      )}
-                                     <span className="font-mono font-black text-[1.5em] tracking-tight">
-                                        {nextStartRemSeconds?.toString().padStart(2, '0')}
-                                     </span>
-                                     <span className="text-[0.5em] font-bold uppercase tracking-wider opacity-75">detik</span>
+                                     <NumberTicker
+                                        value={nextStartRemSeconds ?? 0}
+                                        pad={2}
+                                        startOnView={false}
+                                        className="font-mono font-black text-[1.5em] tracking-tight"
+                                     />
+                                     <span className="self-center text-[0.5em] font-bold uppercase leading-none tracking-wider opacity-75">detik</span>
                                   </span>
                                </div>
                                <div className="flex items-center gap-1.5 text-[0.5em] font-bold uppercase tracking-wider text-slate-400">
@@ -3354,7 +3348,7 @@ const App: React.FC = () => {
           </div>
 
           {/* Right Section: Breadcrumb — navigasi pindah seluruhnya ke sidebar kanan */}
-          <div className="flex shrink-0 lg:flex-1 items-center lg:items-stretch justify-end lg:justify-center gap-2 order-2 lg:order-3">
+          <div className="flex shrink-0 lg:flex-1 items-center lg:items-stretch justify-end gap-2 order-2 lg:order-3">
               <ShiftToday date={now} className="hidden lg:flex" />
               <Breadcrumb view={currentView} group={currentGroup} />
 
@@ -4539,29 +4533,36 @@ const App: React.FC = () => {
   const renderCatalyst = () => {
       if (currentView !== 'scheduler') return null;
 
+      const cycleTimeInputClass = 'cycle-time-input appearance-none min-w-0 h-[2.3em] px-0.5 py-0 bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-[1.15em] leading-none rounded focus:ring-2 focus:ring-blue-500/30 transition-all shadow-sm tabular-nums';
+
       return (
            <div className="flex flex-col gap-4" style={{ fontSize: `${config.tableFontSize}px` }}>
                 
                {/* Hitung Cycle Time & Kesepakatan Shift disembunyikan di HP:
                    keduanya tabel lebar yang tidak terbaca di layar sempit. */}
-               <div className="hidden lg:grid grid-cols-1 lg:grid-cols-2 gap-4">
+               <div className="hidden lg:grid grid-cols-1 lg:grid-cols-2 gap-2 xl:gap-4">
                    {/* 1. CYCLE TIME WIDGET */}
-                   <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 cycle-time-container">
-                        <div className={`${GRADE_COLORS[config.currentGrade] || 'bg-indigo-600'} text-white font-bold text-[0.7em] px-3 py-1 text-center rounded-t-xl flex items-center justify-center gap-2 uppercase tracking-tight transition-colors`}>
-                            <Calculator className="w-3 h-3" />
+                   <div className="flex min-w-0 flex-col overflow-hidden shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 cycle-time-container">
+                        <div className={`${GRADE_COLORS[config.currentGrade] || 'bg-indigo-600'} min-h-[2.25em] text-white font-bold text-[0.91em] px-3 py-1 text-center rounded-t-xl flex items-center justify-center gap-1.5 uppercase tracking-tight transition-colors`}>
+                            <Calculator className="w-3.5 h-3.5" />
                             HITUNG CYCLE TIME
                         </div>
-                        <div className={`${GRADE_COLORS[config.currentGrade] ? GRADE_COLORS[config.currentGrade].replace('bg-', 'bg-').concat('/10') : 'bg-white dark:bg-slate-800'} rounded-b-xl p-1.5 flex flex-col gap-1.5 transition-colors`}>
-                            <table className="w-full border-collapse text-center font-bold text-[1.1em]">
+                        <div className={`${GRADE_COLORS[config.currentGrade] ? GRADE_COLORS[config.currentGrade].replace('bg-', 'bg-').concat('/10') : 'bg-white dark:bg-slate-800'} min-w-0 rounded-b-xl p-1 flex flex-col gap-1 transition-colors`}>
+                            <table
+                              className="cycle-time-table w-full table-fixed border-collapse text-center font-bold"
+                              style={{
+                                '--cycle-time-font-max': `${Math.max(15, Math.min(config.tableFontSize * 1.1, 26))}px`,
+                              } as React.CSSProperties}
+                            >
                                 <thead>
                                     <tr>
-                                        <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">NS START</th>
-                                        <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">READY BLOWING</th>
-                                        <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">BLOWING START</th>
-                                        <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">BLOWING HOLD</th>
-                                        <th className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em]">BLOWING COMPLETE</th>
+                                        <th className="cycle-time-header border-b-2 border-slate-200 dark:border-slate-700 px-0.5 py-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em] leading-tight">NS START</th>
+                                        <th className="cycle-time-header border-b-2 border-slate-200 dark:border-slate-700 px-0.5 py-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em] leading-tight">READY BLOWING</th>
+                                        <th className="cycle-time-header border-b-2 border-slate-200 dark:border-slate-700 px-0.5 py-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em] leading-tight">BLOWING START</th>
+                                        <th className="cycle-time-header border-b-2 border-slate-200 dark:border-slate-700 px-0.5 py-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em] leading-tight">BLOWING HOLD</th>
+                                        <th className="cycle-time-header border-b-2 border-slate-200 dark:border-slate-700 px-0.5 py-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em] leading-tight">BLOWING COMPLETE</th>
                                         <th 
-                                            className="border-b-2 border-slate-200 dark:border-slate-700 p-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em] cursor-pointer hover:text-blue-500 transition-colors"
+                                            className="cycle-time-header border-b-2 border-slate-200 dark:border-slate-700 px-0.5 py-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em] leading-tight cursor-pointer hover:text-blue-500 transition-colors"
                                             onClick={() => {
                                                 setTempFormula(demonomerData.cycleTimeFormula);
                                                 setIsFormulaModalOpen(true);
@@ -4601,45 +4602,45 @@ const App: React.FC = () => {
 
                                         return (
                                             <tr key={row.id} className="border-b border-slate-100 dark:border-slate-700/50 last:border-0 hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
-                                                <td className="p-0.5">
+                                                <td className="p-[2px]">
                                                     <input 
                                                         type="time" 
-                                                        className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-[1.5em] rounded-md py-1 focus:ring-2 focus:ring-blue-500/30 transition-all shadow-sm flex justify-center" 
+                                                        className={cycleTimeInputClass}
                                                         value={row.ns} 
                                                         onChange={(e) => handleCycleTimeChange(row.id, 'ns', e.target.value)}
                                                     />
                                                 </td>
-                                                <td className="p-1">
+                                                <td className="p-[2px]">
                                                     <input 
                                                         type="time" 
-                                                        className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-black text-[1.5em] rounded-md py-1 focus:ring-4 focus:ring-blue-500/30 transition-all shadow-sm flex justify-center" 
+                                                        className={cycleTimeInputClass}
                                                         value={row.readyBlowing} 
                                                         onChange={(e) => handleCycleTimeChange(row.id, 'readyBlowing', e.target.value)}
                                                     />
                                                 </td>
-                                                <td className="p-0.5">
+                                                <td className="p-[2px]">
                                                     <input 
                                                         type="time" 
-                                                        className="bg-green-50 dark:bg-green-900/20 text-green-900 dark:text-green-100 outline-none w-full text-center font-bold text-[1.5em] rounded py-1 focus:ring-2 focus:ring-green-500/50 flex justify-center" 
+                                                        className={`${cycleTimeInputClass} !bg-green-50 dark:!bg-green-900/20 !text-green-900 dark:!text-green-100 focus:!ring-green-500/50`}
                                                         value={row.blowing} 
                                                         onChange={(e) => handleCycleTimeChange(row.id, 'blowing', e.target.value)}
                                                     />
                                                 </td>
-                                                <td className="p-0.5">
-                                                    <div className="bg-orange-50 dark:bg-orange-900/20 text-orange-900 dark:text-orange-100 w-full text-center font-bold text-[1.15em] rounded py-1 flex items-center justify-center">
+                                                <td className="p-[2px]">
+                                                    <div className="h-[2.3em] bg-orange-50 dark:bg-orange-900/20 text-orange-900 dark:text-orange-100 w-full text-center font-bold text-[1.1em] leading-none rounded flex items-center justify-center tabular-nums">
                                                         {blowingHold || '-'}
                                                     </div>
                                                 </td>
-                                                <td className="p-0.5">
+                                                <td className="p-[2px]">
                                                     <input 
                                                         type="time" 
-                                                        className="bg-blue-50 dark:bg-blue-900/20 text-blue-900 dark:text-blue-100 outline-none w-full text-center font-bold text-[1.5em] rounded py-1 focus:ring-2 focus:ring-blue-500/50 flex justify-center" 
+                                                        className={cycleTimeInputClass}
                                                         value={row.blowingComplete} 
                                                         onChange={(e) => handleCycleTimeChange(row.id, 'blowingComplete', e.target.value)}
                                                     />
                                                 </td>
-                                                <td className="p-0.5">
-                                                    <div className="bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-100 w-full text-center font-black text-[2.2em] rounded py-1 border-2 border-red-500/20 flex items-center justify-center">
+                                                <td className="p-[2px]">
+                                                    <div className="h-[2.3em] bg-red-50 dark:bg-red-900/20 text-red-900 dark:text-red-100 w-full text-center font-black text-[1.55em] leading-none rounded border border-red-500/20 flex items-center justify-center tabular-nums">
                                                         {cycleTime || '-'}
                                                     </div>
                                                 </td>
@@ -4649,7 +4650,7 @@ const App: React.FC = () => {
                                     })}
                                 </tbody>
                             </table>
-                            <div className="flex justify-end mt-1">
+                            <div className="flex justify-end mt-0.5">
                                 <button 
                                     onClick={() => {
                                         if (window.confirm("Apakah Anda yakin ingin mengosongkan semua data cycle time?")) {
@@ -4665,10 +4666,10 @@ const App: React.FC = () => {
                                             updateGlobalSetting({ cycle_time_data: clearedData });
                                         }
                                     }}
-                                    className="px-4 py-1.5 bg-red-100 dark:bg-red-950/30 text-red-600 dark:text-red-400 font-bold rounded-lg border border-dashed border-red-300 dark:border-red-800 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center justify-center gap-1 text-[0.75em]"
+                                    className="px-3 py-1 bg-red-100 dark:bg-red-950/30 text-red-600 dark:text-red-400 font-bold rounded-md border border-dashed border-red-300 dark:border-red-800 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center justify-center gap-1 text-[0.75em]"
                                     title="Kosongkan semua data cycle time"
                                 >
-                                    <Trash2 className="w-3.5 h-3.5" />
+                                    <Trash2 className="w-3 h-3" />
                                     CLEAR DATA
                                 </button>
                             </div>
@@ -4677,7 +4678,10 @@ const App: React.FC = () => {
                    </div>
 
                    {/* 2. KESEPAKATAN WIDGET */}
-                   <Kesepakatan currentGrade={activeDemonomerGrade} />
+                   <Kesepakatan
+                      currentGrade={activeDemonomerGrade}
+                      shiftGroups={getShiftGroupsNow(now)}
+                   />
                </div>
 
                {/* 3. CONFLICT TIMELINE TABLE */}
@@ -4741,7 +4745,8 @@ const App: React.FC = () => {
                teks tak terbaca, jadi dipaksa 1. */
             zoom: isDesktop ? zoomLevel : 1,
             minHeight: `${100 / (isDesktop ? zoomLevel : 1)}vh`,
-        }}
+            '--app-viewport-height': `${100 / (isDesktop ? zoomLevel : 1)}vh`,
+        } as React.CSSProperties}
     >
       
       {/* ... [Full Screen Alert Overlay with Multi-Style Support] ... */}
@@ -5310,7 +5315,7 @@ const App: React.FC = () => {
       )}
 
       {/* Dynamic Layout Rendering */}
-      <div className={`flex-1 flex flex-row min-h-0 gap-2 ${currentView === 'scheduler' ? 'overflow-auto lg:overflow-hidden p-1' : 'overflow-auto p-2'}`}>
+      <div className={`flex-1 flex flex-row min-h-0 gap-2 ${currentView === 'scheduler' ? 'overflow-auto lg:overflow-visible p-1' : 'overflow-auto lg:overflow-visible p-2'}`}>
 
           {/* Kolom kiri: header + konten. Sidebar jadi saudara kandungnya,
               bukan anak di bawah header, supaya tingginya sampai atas. */}
@@ -5376,6 +5381,10 @@ const App: React.FC = () => {
                 <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-800 p-4 lg:p-6 min-h-[500px]">
                   <KasGrup key={currentGroup} activeGroup={currentGroup} />
                 </div>
+              )}
+
+              {currentView === 'unitConverter' && (
+                <UnitConverter />
               )}
               </div>
           </div>

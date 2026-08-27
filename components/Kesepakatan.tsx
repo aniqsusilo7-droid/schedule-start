@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Handshake, Clock, Edit3, Save, Plus, Trash2, X } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import type { ShiftGroup, ShiftSlot } from '../utils/shiftSchedule';
 
 interface Shift {
     name: string;
@@ -83,12 +84,22 @@ const DEFAULT_THEME: GradeStyle = {
     titleInputText: 'text-emerald-800 dark:text-white',
 };
 
+const SHIFT_SLOT_BY_INDEX: ShiftSlot[] = ['I', 'II', 'III'];
+
+const GROUP_BADGE_STYLE: Record<ShiftGroup, string> = {
+    A: 'bg-blue-600 text-white border-blue-400/50',
+    B: 'bg-emerald-600 text-white border-emerald-400/50',
+    C: 'bg-purple-600 text-white border-purple-400/50',
+    D: 'bg-amber-400 text-amber-950 border-amber-300/70',
+};
+
 interface KesepakatanProps {
     onBack?: () => void; // kept for compatibility, but we won't need it if it's always inline
     currentGrade?: string;
+    shiftGroups?: Record<ShiftSlot, ShiftGroup>;
 }
 
-export const Kesepakatan: React.FC<KesepakatanProps> = ({ currentGrade }) => {
+export const Kesepakatan: React.FC<KesepakatanProps> = ({ currentGrade, shiftGroups }) => {
     const theme = (currentGrade && GRADE_THEMES[currentGrade]) || DEFAULT_THEME;
     const DEFAULT_DATA: KesepakatanData = {
         shifts: [
@@ -181,7 +192,7 @@ export const Kesepakatan: React.FC<KesepakatanProps> = ({ currentGrade }) => {
     return (
         <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden">
             {/* Widget Header */}
-            <div className={`${theme.headerBg} text-white font-bold text-[0.91em] px-3 py-1 text-center flex items-center justify-between gap-2 uppercase tracking-tight transition-colors`}>
+            <div className={`${theme.headerBg} min-h-[2.25em] text-white font-bold text-[0.91em] px-3 py-1 text-center flex items-center justify-between gap-2 uppercase tracking-tight transition-colors`}>
                 <div className="flex items-center gap-1.5">
                     <Handshake className="w-3.5 h-3.5" />
                     KESEPAKATAN SHIFT
@@ -204,10 +215,14 @@ export const Kesepakatan: React.FC<KesepakatanProps> = ({ currentGrade }) => {
 
                 {/* Shifts List */}
                 <div className="flex flex-col gap-1 border border-slate-150 dark:border-slate-700/50 rounded-lg overflow-hidden">
-                    {data.shifts.map((shift, idx) => (
+                    {data.shifts.map((shift, idx) => {
+                        const slot = SHIFT_SLOT_BY_INDEX[idx];
+                        const group = slot ? shiftGroups?.[slot] : undefined;
+
+                        return (
                         <div key={idx} className="flex flex-col border-b border-slate-150 dark:border-slate-700/50 last:border-0">
                             {/* Shift Title Block */}
-                            <div className={`${theme.shiftBg} py-1.5 text-center font-bold text-[0.98em] ${theme.shiftText} uppercase tracking-wide border-b border-slate-150 dark:border-slate-700/50 transition-colors`}>
+                            <div className={`${theme.shiftBg} flex flex-wrap items-center justify-center gap-2 py-1.5 text-center font-bold text-[0.98em] ${theme.shiftText} uppercase tracking-wide border-b border-slate-150 dark:border-slate-700/50 transition-colors`}>
                                 {isEditing ? (
                                     <div className="flex gap-2 justify-center px-2">
                                         <input 
@@ -230,7 +245,12 @@ export const Kesepakatan: React.FC<KesepakatanProps> = ({ currentGrade }) => {
                                         />
                                     </div>
                                 ) : (
-                                    `${shift.name} ( ${shift.time} )`
+                                    <span>{`${shift.name} ( ${shift.time} )`}</span>
+                                )}
+                                {group && (
+                                    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[0.82em] font-black leading-none tracking-wider shadow-sm ${GROUP_BADGE_STYLE[group]}`}>
+                                        GRUP {group}
+                                    </span>
                                 )}
                             </div>
 
@@ -273,7 +293,8 @@ export const Kesepakatan: React.FC<KesepakatanProps> = ({ currentGrade }) => {
                                 </div>
                             </div>
                         </div>
-                    ))}
+                        );
+                    })}
                 </div>
 
                 {/* Additional Notes Box */}

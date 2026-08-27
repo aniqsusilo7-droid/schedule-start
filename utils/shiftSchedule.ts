@@ -82,6 +82,18 @@ const SHIFT_HOURS: Record<ShiftSlot, { start: number; end: number }> = {
   III: { start: 14 * 60 + 45, end: 23 * 60 },
 };
 
+/** Hari kerja administratif berganti pukul 23:00, bukan pukul 00:00. */
+const ADMINISTRATIVE_DAY_START = 23 * 60;
+
+export const getAdministrativeShiftDate = (now: Date): Date => {
+  const shiftDate = new Date(now.getTime());
+  const minutes = now.getHours() * 60 + now.getMinutes();
+  if (minutes >= ADMINISTRATIVE_DAY_START) {
+    shiftDate.setDate(shiftDate.getDate() + 1);
+  }
+  return shiftDate;
+};
+
 /** Shift yang sedang berjalan. Dua nilai berarti sedang serah terima. */
 export const getActiveShifts = (d: Date): ShiftSlot[] => {
   const m = d.getHours() * 60 + d.getMinutes();
@@ -111,26 +123,24 @@ export const getGroupDuty = (group: ShiftGroup, d: Date): ShiftDuty => {
 /**
  * Grup tiap shift menurut jam saat ini, bukan sekadar tanggal kalender.
  *
- * Shift II dan III berjalan utuh dalam satu tanggal, jadi selalu memakai
- * baris hari ini. Shift I menembus tengah malam (22:45-07:00) dan menurut
- * konvensi di lapangan "Shift I tanggal D" adalah regu yang SELESAI pagi
- * tanggal D — artinya regu yang masuk pukul 22:45 sudah milik tanggal
- * besok.
- *
- * Hanya Shift I yang digeser. Menggeser seluruh kartu akan membuat Shift III
- * salah selama 15 menit serah terima 22:45-23:00, karena regu Shift III yang
- * sedang pulang masih milik tanggal hari ini.
+ * Seluruh roster berpindah ke tanggal berikutnya tepat pukul 23:00, sesuai
+ * pergantian hari administratif di lapangan. Shift I punya pengecualian
+ * kecil: regu tanggal berikutnya sudah mulai masuk pukul 22:45 untuk masa
+ * serah terima, sementara Shift II dan III masih memakai tanggal lama sampai
+ * pukul 23:00.
  */
 export const getShiftGroupsNow = (now: Date): Record<ShiftSlot, ShiftGroup> => {
   const minutes = now.getHours() * 60 + now.getMinutes();
-  const today = getShiftAssignment(now);
+  const shiftDate = getAdministrativeShiftDate(now);
+  const assignment = getShiftAssignment(shiftDate);
 
   const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);
-  const shiftIDay = minutes >= SHIFT_HOURS.I.start ? tomorrow : now;
+  const isShiftIHandover = minutes >= SHIFT_HOURS.I.start && minutes < ADMINISTRATIVE_DAY_START;
+  const shiftIDay = isShiftIHandover ? tomorrow : shiftDate;
 
   return {
     I: getShiftAssignment(shiftIDay).I,
-    II: today.II,
-    III: today.III,
+    II: assignment.II,
+    III: assignment.III,
   };
 };
