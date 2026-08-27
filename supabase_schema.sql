@@ -198,3 +198,50 @@ DO $$ BEGIN
     END IF;
 END $$;
 INSERT INTO kas_grup (id) VALUES (1) ON CONFLICT (id) DO NOTHING;
+
+-- ==============================================================================================
+-- AUDIT LOG PERUBAHAN OPERASIONAL (INSERT-ONLY)
+--
+-- Tabel ini terpisah dari data operasional. Jalankan blok ini sekali di Supabase SQL Editor
+-- sebelum mengaktifkan menu Riwayat Perubahan di aplikasi.
+-- ==============================================================================================
+CREATE TABLE IF NOT EXISTS audit_logs (
+    id BIGSERIAL PRIMARY KEY,
+    event_type TEXT NOT NULL,
+    entity_type TEXT NOT NULL,
+    entity_id TEXT,
+    summary TEXT NOT NULL,
+    changed_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    administrative_date DATE,
+    active_shifts TEXT[] NOT NULL DEFAULT ARRAY[]::TEXT[],
+    shift_groups JSONB NOT NULL DEFAULT '{}'::jsonb,
+    before_data JSONB,
+    after_data JSONB
+);
+
+CREATE INDEX IF NOT EXISTS audit_logs_changed_at_idx ON audit_logs (changed_at DESC);
+CREATE INDEX IF NOT EXISTS audit_logs_event_type_idx ON audit_logs (event_type);
+CREATE INDEX IF NOT EXISTS audit_logs_administrative_date_idx ON audit_logs (administrative_date);
+
+ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
+
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT FROM pg_policies
+        WHERE tablename = 'audit_logs'
+        AND policyname = 'Allow read access to audit_logs'
+    ) THEN
+        CREATE POLICY "Allow read access to audit_logs"
+            ON audit_logs FOR SELECT USING (true);
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT FROM pg_policies
+        WHERE tablename = 'audit_logs'
+        AND policyname = 'Allow insert access to audit_logs'
+    ) THEN
+        CREATE POLICY "Allow insert access to audit_logs"
+            ON audit_logs FOR INSERT WITH CHECK (true);
+    END IF;
+END $$;
