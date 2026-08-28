@@ -13,13 +13,15 @@ import { JadwalShift } from './components/JadwalShift';
 import { Sidebar, SidebarView, GroupedView } from './components/Sidebar';
 import { useMediaQuery, DESKTOP_QUERY } from './utils/useMediaQuery';
 import { getShiftGroupsNow, getAdministrativeShiftDate, getActiveShifts, SHIFT_SLOTS, ShiftGroup } from './utils/shiftSchedule';
-import { Settings, RefreshCw, AlertTriangle, Calendar, CalendarDays, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, ArrowRightLeft, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp, Wallet, Menu } from 'lucide-react';
+import { Settings, RefreshCw, AlertTriangle, Calendar, CalendarDays, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, ArrowRightLeft, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp, Wallet, Menu, History } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { Reorder } from 'framer-motion';
 import { Fie2002TrendModal, Fie2002TrendEntry } from './components/Fie2002TrendModal';
 import { DraggableModal } from './components/DraggableModal';
 import { UnitConverter } from './components/UnitConverter';
 import { NumberTicker } from './components/NumberTicker';
+import { AuditLog } from './components/AuditLog';
+import { AuditLogInput, cloneAuditValue, createAuditRow } from './utils/auditLog';
 
 const GRADES: GradeType[] = ['SM', 'SLK', 'SLP', 'SE', 'SR'];
 const STAGE_OPTIONS = ['Sample Blowing', 'Sample Washing', 'Sample Air Slurry'];
@@ -39,6 +41,7 @@ const VIEW_META: Record<SidebarView, { label: string; Icon: React.ComponentType<
   kas:       { label: 'KAS GRUP',      Icon: Wallet,     color: 'text-violet-500' },
   catatan:   { label: 'CATATAN',       Icon: FileText,   color: 'text-emerald-500' },
   unitConverter: { label: 'KONVERSI UNIT', Icon: ArrowRightLeft, color: 'text-cyan-500' },
+  auditLog: { label: 'RIWAYAT PERUBAHAN', Icon: History, color: 'text-orange-500' },
 };
 
 /* Warna grup mengikuti tema grup di halaman Jadwal/Kas agar konsisten. */
@@ -1205,8 +1208,19 @@ const App: React.FC = () => {
   };
 
   const handleConfirmGradeChange = () => {
+    const previousGrade = demonomerGrade;
     setDemonomerGrade(tempSelectedGradeForChange);
     handleConfigChange('gradeMode', 'gradeChange');
+    if (previousGrade !== tempSelectedGradeForChange) {
+      void writeAuditLog({
+        eventType: 'grade.changed',
+        entityType: 'demonomer_grade',
+        entityId: 'demonomer',
+        summary: `Grade demonomer diubah dari ${previousGrade} menjadi ${tempSelectedGradeForChange}`,
+        beforeData: { grade: previousGrade },
+        afterData: { grade: tempSelectedGradeForChange },
+      });
+    }
     setIsGradeChangeModalOpen(false);
   };
 
@@ -1431,6 +1445,7 @@ const App: React.FC = () => {
   const supabaseColumnsRef = useRef<Set<string>>(new Set());
   const isCatalystModalOpenRef = useRef(false);
   const isDemonomerPopupOpenRef = useRef(false);
+  const pendingAuditRef = useRef<Map<string, { input: AuditLogInput; timer: ReturnType<typeof setTimeout> }>>(new Map());
 
   // Store active alarm sound in ref to avoid stale closures during first interaction
   const alarmSoundRef = useRef(config.alarmSound);
@@ -1875,7 +1890,7 @@ const App: React.FC = () => {
   // --- Real-time / Periodic Saver Helpers ---
   
   // Save specific global setting to DB
-  const updateGlobalSetting = async (updates: Partial<any>) => {
+  const updateGlobalSetting = async (updates: Partial<any>): Promise<boolean> => {
       // Optimistic update
       try {
           // Sync to Firebase
@@ -1908,14 +1923,66 @@ const App: React.FC = () => {
                       } else if (error.message.includes('alert_style')) {
                           console.warn("Database column 'alert_style' is missing. Saved locally and to Firebase fallback.");
                       }
-                      return;
+                      return false;
                   }
                   console.error("Failed to update settings in Supabase:", error);
+                  return false;
               }
           }
+          return true;
       } catch (err) {
           console.error("Unexpected error updating settings:", err);
+          return false;
       }
+  };
+
+  /**
+   * Menulis audit tanpa pernah menggagalkan penyimpanan operasional.
+   * Jika tabel audit belum dimigrasikan, aplikasi tetap bekerja seperti biasa.
+   */
+  const writeAuditLog = async (input: AuditLogInput): Promise<boolean> => {
+      try {
+          const { error } = await supabase
+              .from('audit_logs')
+              .insert(createAuditRow(input, new Date()));
+          if (error) {
+              console.warn('[Audit] Log tidak tersimpan:', error.message);
+              return false;
+          }
+          return true;
+      } catch (error) {
+          console.warn('[Audit] Log tidak tersimpan:', error);
+          return false;
+      }
+  };
+
+  /**
+   * Input angka/waktu sering memicu onChange untuk setiap karakter. Gabungkan
+   * perubahan beruntun menjadi satu kejadian log agar riwayat tetap terbaca:
+   * nilai sebelum berasal dari edit pertama, sesudah dari edit terakhir.
+   */
+  const queueAuditLog = (key: string, input: AuditLogInput) => {
+      const pending = pendingAuditRef.current.get(key);
+      if (pending) {
+          clearTimeout(pending.timer);
+          const merged: AuditLogInput = {
+              ...pending.input,
+              summary: input.summary,
+              afterData: cloneAuditValue(input.afterData),
+          };
+          const timer = setTimeout(() => {
+              pendingAuditRef.current.delete(key);
+              void writeAuditLog(merged);
+          }, 900);
+          pendingAuditRef.current.set(key, { input: merged, timer });
+          return;
+      }
+
+      const timer = setTimeout(() => {
+          pendingAuditRef.current.delete(key);
+          void writeAuditLog(input);
+      }, 900);
+      pendingAuditRef.current.set(key, { input, timer });
   };
 
   // --- Dynamic Calculation Logic (Shared with Demonomer) ---
@@ -1941,6 +2008,7 @@ const App: React.FC = () => {
 
   // --- Handlers ---
   const handleConfigChange = (key: keyof AppState, value: any) => {
+    const previousValue = config[key];
     setConfig((prev) => ({ ...prev, [key]: value }));
 
     // Map AppState keys to DB columns
@@ -1967,8 +2035,55 @@ const App: React.FC = () => {
     };
 
     if (dbMap[key]) {
-        updateGlobalSetting({ [dbMap[key]!]: value });
+        const previousJson = JSON.stringify(cloneAuditValue(previousValue));
+        const nextJson = JSON.stringify(cloneAuditValue(value));
+        if (previousJson === nextJson) return;
+
+        const eventType = key === 'currentGrade'
+          ? 'grade.changed'
+          : key === 'gradeMode'
+            ? 'grade_mode.changed'
+            : 'settings.updated';
+        const entityType = key === 'currentGrade' || key === 'gradeMode' ? 'grade' : 'app_settings';
+        const summary = key === 'currentGrade'
+          ? `Grade utama diubah dari ${previousValue || '—'} menjadi ${value}`
+          : key === 'gradeMode'
+            ? `Mode grade diubah menjadi ${value === 'gradeChange' ? 'Grade Change' : 'Normal'}`
+            : `Pengaturan ${String(key)} diubah`;
+
+        void updateGlobalSetting({ [dbMap[key]!]: value }).then(saved => {
+            if (saved) {
+                void writeAuditLog({
+                    eventType,
+                    entityType,
+                    entityId: String(key),
+                    summary,
+                    beforeData: { [key]: cloneAuditValue(previousValue) },
+                    afterData: { [key]: cloneAuditValue(value) },
+                });
+            }
+        });
     }
+  };
+
+  const handleDemonomerGradeChange = (grade: GradeType) => {
+      if (config.gradeMode === 'normal') {
+          handleConfigChange('currentGrade', grade);
+          return;
+      }
+
+      const previousGrade = demonomerGrade;
+      setDemonomerGrade(grade);
+      if (previousGrade !== grade) {
+          void writeAuditLog({
+              eventType: 'grade.changed',
+              entityType: 'demonomer_grade',
+              entityId: 'demonomer',
+              summary: `Grade demonomer diubah dari ${previousGrade} menjadi ${grade}`,
+              beforeData: { grade: previousGrade },
+              afterData: { grade },
+          });
+      }
   };
 
   // Zoom Handlers
@@ -2036,6 +2151,11 @@ const App: React.FC = () => {
   const handleApply = async () => {
       try {
           const newStartTime = new Date(tempBaseStartTime).toISOString();
+          const previousScheduleState = {
+              baseBatchNumber: config.baseBatchNumber,
+              baseStartTime: config.baseStartTime,
+              overrideCount: Object.keys(config.itemConfigs).length,
+          };
           
           // Sync to Firebase
           await syncAppSettingsToFirebase({
@@ -2045,13 +2165,15 @@ const App: React.FC = () => {
           await clearAllOverridesFromFirebase();
           
           // Update Supabase
-          await supabase.from('app_settings').update({
+          const { error: settingsError } = await supabase.from('app_settings').update({
               base_batch_number: tempBaseBatchNumber,
               base_start_time: newStartTime,
           }).eq('id', 1);
+          if (settingsError) throw settingsError;
 
           // Clear overrides to ensure a fresh cycle
-          await supabase.from('schedule_overrides').delete().neq('id', 'placeholder');
+          const { error: clearError } = await supabase.from('schedule_overrides').delete().neq('id', 'placeholder');
+          if (clearError) throw clearError;
 
           // Update Local State
           setConfig(prev => ({
@@ -2062,6 +2184,18 @@ const App: React.FC = () => {
           }));
           
           setDismissedAlerts(new Set());
+          void writeAuditLog({
+              eventType: 'schedule.reset',
+              entityType: 'schedule_sequence',
+              entityId: 'global',
+              summary: `Sequence schedule diterapkan mulai batch #${tempBaseBatchNumber}`,
+              beforeData: previousScheduleState,
+              afterData: {
+                  baseBatchNumber: tempBaseBatchNumber,
+                  baseStartTime: newStartTime,
+                  overrideCount: 0,
+              },
+          });
           console.log("Settings Applied and Sequence Reset successfully");
       } catch (error) {
           console.error("Error applying settings:", error);
@@ -2164,6 +2298,11 @@ const App: React.FC = () => {
               return;
           }
           const newStartTime = parsedDate.toISOString();
+          const previousScheduleState = {
+              baseBatchNumber: config.baseBatchNumber,
+              baseStartTime: config.baseStartTime,
+              overrideCount: Object.keys(config.itemConfigs).length,
+          };
           
           // Sync to Firebase
           await syncAppSettingsToFirebase({
@@ -2181,7 +2320,8 @@ const App: React.FC = () => {
           if (error) throw error;
 
           // Clear overrides to ensure a fresh cycle
-          await supabase.from('schedule_overrides').delete().neq('id', 'placeholder');
+          const { error: clearError } = await supabase.from('schedule_overrides').delete().neq('id', 'placeholder');
+          if (clearError) throw clearError;
 
           // Update Local State
           setConfig(prev => ({
@@ -2194,6 +2334,18 @@ const App: React.FC = () => {
           setDismissedAlerts(new Set());
           setIsResetModalOpen(false);
           setSelectedItem(null);
+          void writeAuditLog({
+              eventType: 'schedule.reset',
+              entityType: 'schedule_sequence',
+              entityId: 'global',
+              summary: `Sequence schedule di-reset mulai batch #${resetParams.batch}`,
+              beforeData: previousScheduleState,
+              afterData: {
+                  baseBatchNumber: resetParams.batch,
+                  baseStartTime: newStartTime,
+                  overrideCount: 0,
+              },
+          });
       } catch (error) {
           console.error("Error resetting sequence:", error);
           setDbSchemaError("Gagal mereset sequence. Silakan periksa koneksi atau console.");
@@ -2202,12 +2354,24 @@ const App: React.FC = () => {
 
   // --- Catalyst Handlers ---
   const handleCatalystChange = (row: 'f' | 'h' | 'g', field: 'netto' | 'bruto', val: string) => {
+    const previousValue = catalystData[row]?.[field];
     const newData = {
       ...catalystData,
       [row]: { ...catalystData[row], [field]: val }
     };
     setCatalystData(newData);
-    updateGlobalSetting({ catalyst_data: newData });
+    void updateGlobalSetting({ catalyst_data: newData }).then(saved => {
+      if (saved && JSON.stringify(cloneAuditValue(previousValue)) !== JSON.stringify(cloneAuditValue(val))) {
+        queueAuditLog(`catalyst:${row}:${field}`, {
+          eventType: 'steam_adjust.updated',
+          entityType: 'steam_adjust',
+          entityId: `${row}.${field}`,
+          summary: `Steam adjust ${row.toUpperCase()} ${field} diubah`,
+          beforeData: { row, field, value: cloneAuditValue(previousValue) },
+          afterData: { row, field, value: cloneAuditValue(val) },
+        });
+      }
+    });
   };
 
   const openCatalystModal = () => {
@@ -2235,8 +2399,20 @@ const App: React.FC = () => {
           ...catalystData,
           presets: tempCatalystPresets
       };
+      const previousCatalystData = catalystData;
       setCatalystData(updatedCatalystData);
-      updateGlobalSetting({ catalyst_data: updatedCatalystData });
+      void updateGlobalSetting({ catalyst_data: updatedCatalystData }).then(saved => {
+        if (saved) {
+          void writeAuditLog({
+            eventType: 'steam_adjust.updated',
+            entityType: 'steam_adjust_presets',
+            entityId: 'presets',
+            summary: 'Preset steam adjust per grade disimpan',
+            beforeData: { presets: cloneAuditValue(previousCatalystData.presets || null) },
+            afterData: { presets: cloneAuditValue(updatedCatalystData.presets) },
+          });
+        }
+      });
       setIsCatalystModalOpen(false);
   };
 
@@ -2251,8 +2427,20 @@ const App: React.FC = () => {
           g: { ...catalystData.g, netto: preset.G || '' }
       };
 
+      const previousCatalystData = catalystData;
       setCatalystData(newCata);
-      updateGlobalSetting({ catalyst_data: newCata });
+      void updateGlobalSetting({ catalyst_data: newCata }).then(saved => {
+        if (saved) {
+          void writeAuditLog({
+            eventType: 'steam_adjust.updated',
+            entityType: 'steam_adjust',
+            entityId: `preset:${grade}`,
+            summary: `Preset steam adjust grade ${grade} diterapkan`,
+            beforeData: { catalyst: cloneAuditValue(previousCatalystData) },
+            afterData: { catalyst: cloneAuditValue(newCata) },
+          });
+        }
+      });
       setIsCatalystModalOpen(false);
   };
 
@@ -2287,9 +2475,21 @@ const App: React.FC = () => {
 
   const handleCycleTimeChange = (id: number, field: string, value: string) => {
       lastCycleTimeUpdateRef.current = Date.now();
+      const previousRow = cycleTimeData.find(row => row.id === id);
       const newData = cycleTimeData.map(row => row.id === id ? { ...row, [field]: value } : row);
       setCycleTimeData(newData);
-      updateGlobalSetting({ cycle_time_data: newData });
+      void updateGlobalSetting({ cycle_time_data: newData }).then(saved => {
+          if (saved) {
+              queueAuditLog(`cycle-time:${id}:${field}`, {
+                  eventType: 'cycle_time.updated',
+                  entityType: 'cycle_time',
+                  entityId: String(id),
+                  summary: `Cycle time baris ${id}: ${field} diubah`,
+                  beforeData: previousRow,
+                  afterData: newData.find(row => row.id === id),
+              });
+          }
+      });
   };
 
   // --- Silo Handlers ---
@@ -2310,7 +2510,7 @@ const App: React.FC = () => {
   };
 
   // 2. Commit Handler: Executed when user confirms inside the Modal
-  const handleConfirmSiloStart = () => {
+  const handleConfirmSiloStart = async () => {
       if (!startSiloData) return;
 
       const previousSiloId = siloState.activeSilo;
@@ -2344,13 +2544,31 @@ const App: React.FC = () => {
       };
 
       setSiloState(newSiloState);
-      updateGlobalSetting({ silo_state: newSiloState });
+      const saved = await updateGlobalSetting({ silo_state: newSiloState });
+      if (saved) {
+          void writeAuditLog({
+              eventType: 'silo.switched',
+              entityType: 'silo_state',
+              entityId: newSiloId,
+              summary: `Silo aktif berganti${previousSiloId ? ` dari Silo ${previousSiloId}` : ''} ke Silo ${newSiloId}`,
+              beforeData: {
+                  activeSilo: previousSiloId,
+                  silo: previousSiloId ? cloneAuditValue(siloState.silos[previousSiloId]) : null,
+              },
+              afterData: {
+                  activeSilo: newSiloId,
+                  silo: cloneAuditValue(updatedSilos[newSiloId]),
+                  previousSilo: previousSiloId ? cloneAuditValue(updatedSilos[previousSiloId]) : null,
+              },
+          });
+      }
 
       // Close Modal
       setStartSiloData(null);
   };
 
   const handleSiloDataChange = (siloId: 'O' | 'P' | 'Q', field: keyof SiloData, value: any) => {
+      const previousValue = siloState.silos[siloId][field];
       const newSiloState = {
           ...siloState,
           silos: {
@@ -2362,14 +2580,38 @@ const App: React.FC = () => {
           }
       };
       setSiloState(newSiloState);
-      updateGlobalSetting({ silo_state: newSiloState });
+      void updateGlobalSetting({ silo_state: newSiloState }).then(saved => {
+          if (saved && JSON.stringify(cloneAuditValue(previousValue)) !== JSON.stringify(cloneAuditValue(value))) {
+              queueAuditLog(`silo:${siloId}:${field}`, {
+                  eventType: 'silo.updated',
+                  entityType: 'silo',
+                  entityId: siloId,
+                  summary: `Silo ${siloId}: ${String(field)} diubah`,
+                  beforeData: { field, value: cloneAuditValue(previousValue) },
+                  afterData: { field, value: cloneAuditValue(value) },
+              });
+          }
+      });
   };
 
   // --- Demonomer Handlers ---
   const handleDemonomerChange = (field: keyof DemonomerData, value: any) => {
+      const previousValue = demonomerData[field];
       const newData = { ...demonomerData, [field]: value };
       setDemonomerData(newData);
-      updateGlobalSetting({ demonomer_data: newData });
+      void updateGlobalSetting({ demonomer_data: newData }).then(saved => {
+          if (saved && JSON.stringify(cloneAuditValue(previousValue)) !== JSON.stringify(cloneAuditValue(value))) {
+              const isCycleFormula = field === 'cycleTimeFormula';
+              queueAuditLog(`demonomer:${field}`, {
+                  eventType: isCycleFormula ? 'cycle_time.updated' : 'steam_adjust.updated',
+                  entityType: isCycleFormula ? 'cycle_time' : 'steam_adjust',
+                  entityId: String(field),
+                  summary: `${isCycleFormula ? 'Cycle time' : 'Steam adjust'}: ${String(field)} diubah`,
+                  beforeData: { field, value: cloneAuditValue(previousValue) },
+                  afterData: { field, value: cloneAuditValue(value) },
+              });
+          }
+      });
 
       if (field === 'f2002') {
           const numVal = typeof value === 'number' ? value : parseFloat(value) || 0;
@@ -2511,6 +2753,26 @@ const App: React.FC = () => {
         stageInfo: editForm.stageInfo
       };
 
+      const previousConfig = config.itemConfigs[selectedItem.id] || selectedItem.config || null;
+      const auditBeforeItems: Record<string, unknown> = {
+        [selectedItem.id]: {
+          reactorId: selectedItem.reactorId,
+          batchNumber: selectedItem.batchNumber,
+          startTime: selectedItem.startTime.toISOString(),
+          grade: selectedItem.grade,
+          config: cloneAuditValue(previousConfig),
+        },
+      };
+      const auditAfterItems: Record<string, unknown> = {
+        [selectedItem.id]: {
+          reactorId: selectedItem.reactorId,
+          batchNumber: selectedItem.batchNumber,
+          startTime: newDate.toISOString(),
+          grade: editForm.grade,
+          config: cloneAuditValue(newConfig),
+        },
+      };
+
       const newConfigs = { ...config.itemConfigs };
       const dbUpserts: any[] = [];
 
@@ -2539,6 +2801,20 @@ const App: React.FC = () => {
           };
 
           newConfigs[item.id] = frozenConfig;
+          auditBeforeItems[item.id] = {
+            reactorId: item.reactorId,
+            batchNumber: item.batchNumber,
+            startTime: item.startTime.toISOString(),
+            grade: item.grade,
+            config: cloneAuditValue(existingConfig || null),
+          };
+          auditAfterItems[item.id] = {
+            reactorId: item.reactorId,
+            batchNumber: item.batchNumber,
+            startTime: frozenConfig.overrideTime,
+            grade: frozenConfig.grade || item.grade,
+            config: cloneAuditValue(frozenConfig),
+          };
           dbUpserts.push({
             id: item.id,
             override_time: frozenConfig.overrideTime,
@@ -2609,6 +2885,22 @@ const App: React.FC = () => {
 
       if (error) {
           console.error("Error saving overrides:", error);
+      } else {
+          const delay = editForm.manualDelayMinutes || 0;
+          void writeAuditLog({
+              eventType: 'schedule.updated',
+              entityType: 'schedule_override',
+              entityId: selectedItem.id,
+              summary: `Jadwal #${selectedItem.batchNumber} Reaktor ${selectedItem.reactorId} disimpan${delay ? ` dengan delay ${delay} menit` : ''}`,
+              beforeData: {
+                  items: auditBeforeItems,
+                  interval: editForm.hasCustomInterval ? { hours: config.intervalHours, minutes: config.intervalMinutes } : null,
+              },
+              afterData: {
+                  items: auditAfterItems,
+                  interval: editForm.hasCustomInterval ? { hours: editForm.customIntervalHours, minutes: editForm.customIntervalMinutes } : null,
+              },
+          });
       }
 
       closeRescheduleModal();
@@ -2632,6 +2924,19 @@ const App: React.FC = () => {
           .eq('id', selectedItem.id);
       
       if (error) console.error("Error clearing override:", error);
+      else {
+          void writeAuditLog({
+              eventType: 'schedule.override_cleared',
+              entityType: 'schedule_override',
+              entityId: selectedItem.id,
+              summary: `Override jadwal #${selectedItem.batchNumber} Reaktor ${selectedItem.reactorId} dihapus`,
+              beforeData: {
+                  startTime: selectedItem.startTime.toISOString(),
+                  config: cloneAuditValue(config.itemConfigs[selectedItem.id] || selectedItem.config || null),
+              },
+              afterData: null,
+          });
+      }
 
       closeRescheduleModal();
     }
@@ -3180,8 +3485,11 @@ const App: React.FC = () => {
           if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
               try {
                   const secondsUntilStart = Math.max(0, Math.ceil((fullScreenAlertItem.startTime.getTime() - now.getTime()) / 1000));
+                  const openModeReminder = fullScreenAlertItem.config?.mode === 'OPEN'
+                      ? ' CEK HWD LEVEL SEBELUM START.'
+                      : '';
                   const notif = new Notification(`⚠️ PERINGATAN: START REAKTOR ${fullScreenAlertItem.reactorId}`, {
-                      body: `Reaktor ${fullScreenAlertItem.reactorId} (Batch ${fullScreenAlertItem.batchNumber} - ${fullScreenAlertItem.grade}) akan segera START dalam ${secondsUntilStart} detik!`,
+                      body: `Reaktor ${fullScreenAlertItem.reactorId} (Batch ${fullScreenAlertItem.batchNumber} - ${fullScreenAlertItem.grade}) akan segera START dalam ${secondsUntilStart} detik!${openModeReminder}`,
                       icon: '/favicon.ico',
                       tag: `reactor-alert-${fullScreenAlertItem.id}`,
                       requireInteraction: true
@@ -4661,9 +4969,21 @@ const App: React.FC = () => {
                                                 { id: 4, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' },
                                                 { id: 5, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' }
                                             ];
+                                            const previousCycleTimeData = cycleTimeData;
                                             lastCycleTimeUpdateRef.current = Date.now();
                                             setCycleTimeData(clearedData);
-                                            updateGlobalSetting({ cycle_time_data: clearedData });
+                                            void updateGlobalSetting({ cycle_time_data: clearedData }).then(saved => {
+                                                if (saved) {
+                                                    void writeAuditLog({
+                                                        eventType: 'cycle_time.updated',
+                                                        entityType: 'cycle_time',
+                                                        entityId: 'all',
+                                                        summary: 'Seluruh data cycle time dikosongkan',
+                                                        beforeData: previousCycleTimeData,
+                                                        afterData: clearedData,
+                                                    });
+                                                }
+                                            });
                                         }
                                     }}
                                     className="px-3 py-1 bg-red-100 dark:bg-red-950/30 text-red-600 dark:text-red-400 font-bold rounded-md border border-dashed border-red-300 dark:border-red-800 hover:bg-red-200 dark:hover:bg-red-900/50 transition-colors flex items-center justify-center gap-1 text-[0.75em]"
@@ -4699,13 +5019,7 @@ const App: React.FC = () => {
           case 'demonomer': content = (
             <Demonomer 
                 currentGrade={config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade} 
-                onGradeChange={(g) => {
-                    if (config.gradeMode === 'normal') {
-                        handleConfigChange('currentGrade', g);
-                    } else {
-                        setDemonomerGrade(g);
-                    }
-                }}
+                onGradeChange={handleDemonomerGradeChange}
                 data={demonomerData}
                 onDataChange={handleDemonomerChange}
                 gradeMode={config.gradeMode}
@@ -4761,13 +5075,15 @@ const App: React.FC = () => {
               isToday: true,
               status: 'future' as const,
               grade: 'SM' as GradeType,
-              deltaMinutes: 0
+              deltaMinutes: 0,
+              config: { mode: 'OPEN' as const }
           } : fullScreenAlertItem;
 
           if (!activeItem) return null;
 
           const reactorObj = REACTORS.find(r => r.id === activeItem.reactorId);
           const secondsLeft = Math.max(0, Math.ceil((activeItem.startTime.getTime() - now.getTime()) / 1000));
+          const isOpenModeAlert = activeItem.config?.mode === 'OPEN';
 
           const handleDismiss = () => {
               if (isTesting) {
@@ -4810,6 +5126,17 @@ const App: React.FC = () => {
                           >
                               ✕ TUTUP PREVIEW
                           </button>
+                      </div>
+                  )}
+
+                  {isOpenModeAlert && (
+                      <div
+                          role="alert"
+                          aria-live="assertive"
+                          className={`absolute left-1/2 z-[10001] flex w-max max-w-[calc(100%-2rem)] -translate-x-1/2 items-center gap-3 rounded-xl border-2 border-black bg-yellow-300 px-4 py-2.5 text-center text-sm font-black uppercase tracking-wider text-slate-950 shadow-2xl sm:px-5 sm:text-lg ${isTesting ? 'top-16' : 'top-4'}`}
+                      >
+                          <AlertTriangle aria-hidden="true" className="h-6 w-6 shrink-0 text-red-700" />
+                          <span><span className="mr-2 rounded bg-slate-950 px-2 py-1 text-yellow-300">Mode Open</span> Cek HWD Level Sebelum Start</span>
                       </div>
                   )}
 
@@ -5339,13 +5666,7 @@ const App: React.FC = () => {
               {currentView === 'demonomer' && (
                 <Demonomer 
                     currentGrade={config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade} 
-                    onGradeChange={(g) => {
-                        if (config.gradeMode === 'normal') {
-                            handleConfigChange('currentGrade', g);
-                        } else {
-                            setDemonomerGrade(g);
-                        }
-                    }}
+                    onGradeChange={handleDemonomerGradeChange}
                     data={demonomerData}
                     onDataChange={handleDemonomerChange}
                     gradeMode={config.gradeMode}
@@ -5385,6 +5706,10 @@ const App: React.FC = () => {
 
               {currentView === 'unitConverter' && (
                 <UnitConverter />
+              )}
+
+              {currentView === 'auditLog' && (
+                <AuditLog />
               )}
               </div>
           </div>
@@ -5430,13 +5755,7 @@ const App: React.FC = () => {
                       <div className="flex-1 overflow-y-auto p-4 sm:p-5 max-h-[78vh]">
                           <Demonomer 
                               currentGrade={config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade} 
-                              onGradeChange={(g) => {
-                                  if (config.gradeMode === 'normal') {
-                                      handleConfigChange('currentGrade', g);
-                                  } else {
-                                      setDemonomerGrade(g);
-                                  }
-                              }}
+                              onGradeChange={handleDemonomerGradeChange}
                               data={demonomerData}
                               onDataChange={handleDemonomerChange}
                               gradeMode={config.gradeMode}

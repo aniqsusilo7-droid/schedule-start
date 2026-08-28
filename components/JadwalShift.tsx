@@ -1,7 +1,7 @@
-import React, { useMemo, useState, useEffect, useCallback } from 'react';
+import React, { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import {
   CalendarDays, CalendarRange, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
-  Moon, Sun, Sunset, Coffee, Users, RotateCcw, Info,
+  Moon, Sun, Sunset, Coffee, Users, RotateCcw, Info, Check, ChevronDown,
 } from 'lucide-react';
 import {
   getShiftAssignment, getShiftGroupsNow, getAdministrativeShiftDate, getGroupDuty, getActiveShifts,
@@ -22,8 +22,116 @@ const MONTHS = [
   'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
 ];
 const MONTHS_SHORT = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
-const DOW = ['Min', 'Sen', 'Sel', 'Rab', 'Kam', 'Jum', 'Sab'];
+const DOW = [
+  { short: 'Min', full: 'Minggu' },
+  { short: 'Sen', full: 'Senin' },
+  { short: 'Sel', full: 'Selasa' },
+  { short: 'Rab', full: 'Rabu' },
+  { short: 'Kam', full: 'Kamis' },
+  { short: 'Jum', full: 'Jumat' },
+  { short: 'Sab', full: 'Sabtu' },
+];
 const DOW_MINI = ['M', 'S', 'S', 'R', 'K', 'J', 'S'];
+
+const YEAR_OPTIONS = Array.from(
+  { length: MAX_YEAR - MIN_YEAR + 1 },
+  (_, index) => ({ value: MIN_YEAR + index, label: String(MIN_YEAR + index) })
+);
+
+interface PickerOption {
+  value: number;
+  label: string;
+}
+
+/** Dropdown aplikasi sendiri agar tampilan konsisten di semua browser. */
+const CustomDropdown: React.FC<{
+  value: number;
+  options: PickerOption[];
+  onChange: (value: number) => void;
+  ariaLabel: string;
+  widthClassName: string;
+}> = ({ value, options, onChange, ariaLabel, widthClassName }) => {
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const listRef = useRef<HTMLDivElement>(null);
+  const selected = options.find(option => option.value === value);
+
+  useEffect(() => {
+    if (!open) return;
+    const closeOnOutsideClick = (event: MouseEvent) => {
+      if (rootRef.current && !rootRef.current.contains(event.target as Node)) setOpen(false);
+    };
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('mousedown', closeOnOutsideClick);
+    document.addEventListener('keydown', closeOnEscape);
+    return () => {
+      document.removeEventListener('mousedown', closeOnOutsideClick);
+      document.removeEventListener('keydown', closeOnEscape);
+    };
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
+    requestAnimationFrame(() => {
+      listRef.current
+        ?.querySelector<HTMLElement>('[data-selected="true"]')
+        ?.scrollIntoView({ block: 'nearest' });
+    });
+  }, [open]);
+
+  return (
+    <div ref={rootRef} className={`relative ${widthClassName}`}>
+      <button
+        type="button"
+        aria-label={ariaLabel}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        onClick={() => setOpen(current => !current)}
+        className="flex w-full items-center justify-between gap-2 rounded-xl border border-slate-200 bg-slate-100 px-3 py-2 text-xs font-black uppercase tracking-wider text-slate-700 outline-none transition hover:bg-slate-200 focus-visible:ring-2 focus-visible:ring-rose-400 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200 dark:hover:bg-slate-700"
+      >
+        <span className="truncate tabular-nums">{selected?.label ?? value}</span>
+        <ChevronDown aria-hidden="true" className={`h-4 w-4 shrink-0 transition-transform ${open ? 'rotate-180' : ''}`} />
+      </button>
+
+      {open && (
+        <div
+          ref={listRef}
+          role="listbox"
+          aria-label={ariaLabel}
+          className="absolute left-0 top-[calc(100%+6px)] z-[60] max-h-72 w-full min-w-max overflow-y-auto rounded-xl border border-slate-200 bg-white p-1.5 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
+        >
+          {options.map(option => {
+            const isSelected = option.value === value;
+            return (
+              <button
+                key={option.value}
+                type="button"
+                role="option"
+                aria-selected={isSelected}
+                data-selected={isSelected}
+                style={options.length > 50 ? { contentVisibility: 'auto', containIntrinsicSize: '32px' } : undefined}
+                onClick={() => {
+                  onChange(option.value);
+                  setOpen(false);
+                }}
+                className={`flex w-full items-center justify-between gap-4 rounded-lg px-3 py-2 text-left text-xs font-black uppercase tracking-wide tabular-nums transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-rose-400 ${
+                  isSelected
+                    ? 'bg-rose-500 text-white'
+                    : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800'
+                }`}
+              >
+                {option.label}
+                <Check aria-hidden="true" className={`h-3.5 w-3.5 ${isSelected ? 'opacity-100' : 'opacity-0'}`} />
+              </button>
+            );
+          })}
+        </div>
+      )}
+    </div>
+  );
+};
 
 /* Warna grup dibuat sama dengan kartu shift di header dan sub-menu sidebar,
    supaya satu grup selalu punya warna yang sama di seluruh aplikasi. */
@@ -138,16 +246,12 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
   });
   const [year, setYear] = useState(() => administrativeDate.getFullYear());
   const [month, setMonth] = useState(() => administrativeDate.getMonth());
-  /* Input tahun disimpan sebagai teks supaya bisa dikosongkan saat mengetik
-     tanpa langsung dipaksa jadi angka. */
-  const [yearDraft, setYearDraft] = useState<string>(() => String(administrativeDate.getFullYear()));
 
   useEffect(() => localStorage.setItem('shiftViewMode', viewMode), [viewMode]);
   useEffect(() => {
     if (focusGroup) localStorage.setItem('shiftFocusGroup', focusGroup);
     else localStorage.removeItem('shiftFocusGroup');
   }, [focusGroup]);
-  useEffect(() => setYearDraft(String(year)), [year]);
 
   /* Panel "Hari Ini" mengikuti tanggal administratif, termasuk grup libur.
      Shift I tanggal berikutnya masuk pukul 22:45 untuk serah terima. */
@@ -169,12 +273,6 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
     setMonth(t.getMonth());
   }, []);
 
-  const commitYearDraft = () => {
-    const parsed = parseInt(yearDraft, 10);
-    if (Number.isNaN(parsed)) setYearDraft(String(year));
-    else setYear(clampYear(parsed));
-  };
-
   const monthCells = useMemo(() => buildMonthCells(year, month), [year, month]);
   const statDates = useMemo(
     () => (viewMode === 'year' ? daysOfYear(year) : daysOfMonth(year, month)),
@@ -195,7 +293,7 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
       <button
         type="button"
         onClick={() => setFocusGroup(group)}
-        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all active:scale-95 cursor-pointer ${
+        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-[background-color,color,box-shadow,transform] active:scale-95 cursor-pointer ${
           isActive
             ? group
               ? `${GROUP_SOLID[group]} ring-2 ${GROUP_RING[group]} shadow-sm`
@@ -227,20 +325,24 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
       const meta = DUTY[duty];
       return (
         <div
-          className={`relative rounded-xl border p-2 min-h-[74px] flex flex-col justify-between transition-shadow ${meta.cell} ${
+          className={`relative rounded-xl border p-2 min-h-[82px] flex items-center justify-center transition-shadow ${meta.cell} ${
             isToday ? 'ring-2 ring-offset-2 ring-slate-900 dark:ring-white dark:ring-offset-slate-950 shadow-lg' : ''
           }`}
         >
-          <div className="flex items-start justify-between gap-1">
-            <span className={`text-sm font-black leading-none ${isSunday && duty === 'off' ? 'text-rose-500' : ''}`}>
-              {date.getDate()}
-            </span>
-            <meta.Icon className="w-3.5 h-3.5 shrink-0 opacity-80" />
+          <span className={`absolute left-2 top-2 text-lg sm:text-xl font-black leading-none tabular-nums ${isSunday && duty === 'off' ? 'text-rose-500' : ''}`}>
+            {date.getDate()}
+          </span>
+          <meta.Icon className="absolute right-2 top-2 w-3.5 h-3.5 opacity-80" />
+          <div className="flex flex-col items-center justify-center gap-1.5 text-center">
+            <div className="text-sm sm:text-base font-black uppercase tracking-wide leading-none">
+              {meta.label}
+            </div>
+            {duty !== 'off' && (
+              <div className="text-[11px] sm:text-xs font-extrabold tracking-wide opacity-85 leading-none">
+                {SHIFT_TIME_LABEL[duty]}
+              </div>
+            )}
           </div>
-          <div className="text-[11px] font-black uppercase tracking-wider leading-none">{meta.label}</div>
-          {duty !== 'off' && (
-            <div className="text-[9px] font-bold tracking-wide opacity-80 leading-none">{SHIFT_TIME_LABEL[duty]}</div>
-          )}
         </div>
       );
     }
@@ -380,59 +482,57 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
   return (
     <div className="w-full flex flex-col gap-4 p-2 md:p-4 bg-slate-100 dark:bg-slate-950 rounded-2xl text-slate-900 dark:text-slate-100">
 
-      {/* Bar judul + aksi */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <div className="p-2.5 bg-rose-500/20 text-rose-500 rounded-xl border border-rose-500/40 shrink-0">
-            <CalendarDays className="w-5 h-5" />
+      {/* Header, navigasi periode, dan filter grup dalam satu kartu. */}
+      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-visible">
+        <div className="flex flex-wrap items-center justify-between gap-3 p-3.5">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="p-2.5 bg-rose-500/20 text-rose-500 rounded-xl border border-rose-500/40 shrink-0">
+              <CalendarDays className="w-5 h-5" />
+            </div>
+            <div className="min-w-0">
+              <h2 className="text-base md:text-lg font-black tracking-wide uppercase">
+                Jadwal Shift
+              </h2>
+            </div>
           </div>
-          <div className="min-w-0">
-            <h2 className="text-base font-black tracking-wide uppercase flex items-center gap-2 flex-wrap">
-              Jadwal Shift
-              <span className="text-[10px] bg-rose-500 text-white font-extrabold px-2 py-0.5 rounded-full uppercase tracking-wider">
-                {periodLabel}
-              </span>
-            </h2>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            {/* Pilih tampilan */}
+            <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
+              {([['month', 'Bulan', CalendarDays], ['year', 'Tahun', CalendarRange]] as const).map(([mode, label, Icon]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setViewMode(mode)}
+                  className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-[background-color,color,box-shadow] cursor-pointer ${
+                    viewMode === mode
+                      ? 'bg-rose-500 text-white shadow-sm'
+                      : 'text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700'
+                  }`}
+                >
+                  <Icon className="w-3.5 h-3.5" />{label}
+                </button>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={goToday}
+              className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-700 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs rounded-xl shadow-sm transition-[background-color,transform] active:scale-95 cursor-pointer"
+            >
+              <RotateCcw className="w-3.5 h-3.5" /> Hari Ini
+            </button>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 flex-wrap">
-          {/* Pilih tampilan */}
-          <div className="flex items-center gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-            {([['month', 'Bulan', CalendarDays], ['year', 'Tahun', CalendarRange]] as const).map(([mode, label, Icon]) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => setViewMode(mode)}
-                className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black uppercase tracking-wider transition-all cursor-pointer ${
-                  viewMode === mode
-                    ? 'bg-rose-500 text-white shadow-sm'
-                    : 'text-slate-500 dark:text-slate-400 hover:bg-white dark:hover:bg-slate-700'
-                }`}
-              >
-                <Icon className="w-3.5 h-3.5" />{label}
-              </button>
-            ))}
-          </div>
-
-          <button
-            type="button"
-            onClick={goToday}
-            className="flex items-center gap-1.5 px-3.5 py-2 bg-slate-700 hover:bg-slate-800 dark:bg-slate-800 dark:hover:bg-slate-700 text-white font-bold text-xs rounded-xl shadow-sm transition-all active:scale-95 cursor-pointer"
-          >
-            <RotateCcw className="w-3.5 h-3.5" /> Hari Ini
-          </button>
-        </div>
-      </div>
-
-      {/* Navigasi periode */}
-      <div className="flex flex-wrap items-center justify-between gap-3 bg-white dark:bg-slate-900 p-2.5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-        <div className="flex items-center gap-1.5 flex-wrap">
+        <div className="flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 dark:border-slate-800 px-3.5 py-2.5">
+          <div className="flex items-center gap-1.5 flex-wrap">
           <button
             type="button"
             onClick={() => shiftYear(-1)}
             title="Tahun sebelumnya"
-            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+            aria-label="Tahun sebelumnya"
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-rose-400"
           >
             <ChevronsLeft className="w-4 h-4" />
           </button>
@@ -442,33 +542,29 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
               type="button"
               onClick={() => shiftMonth(-1)}
               title="Bulan sebelumnya"
-              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+              aria-label="Bulan sebelumnya"
+              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-rose-400"
             >
               <ChevronLeft className="w-4 h-4" />
             </button>
           )}
 
           {viewMode === 'month' && (
-            <select
+            <CustomDropdown
               value={month}
-              onChange={e => setMonth(Number(e.target.value))}
-              className="px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-black uppercase tracking-wider text-slate-700 dark:text-slate-200 cursor-pointer outline-none focus:ring-2 focus:ring-rose-400"
-            >
-              {MONTHS.map((m, i) => <option key={m} value={i}>{m}</option>)}
-            </select>
+              options={MONTHS.map((label, value) => ({ value, label }))}
+              onChange={setMonth}
+              ariaLabel="Pilih bulan"
+              widthClassName="w-36"
+            />
           )}
 
-          {/* Tahun bebas diketik — pola shift sama tiap tahun, jadi tidak
-              ada batas daftar tahun yang perlu disiapkan. */}
-          <input
-            type="number"
-            value={yearDraft}
-            min={MIN_YEAR}
-            max={MAX_YEAR}
-            onChange={e => setYearDraft(e.target.value)}
-            onBlur={commitYearDraft}
-            onKeyDown={e => { if (e.key === 'Enter') (e.target as HTMLInputElement).blur(); }}
-            className="w-24 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-black tracking-wider text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-rose-400"
+          <CustomDropdown
+            value={year}
+            options={YEAR_OPTIONS}
+            onChange={setYear}
+            ariaLabel="Pilih tahun"
+            widthClassName="w-28"
           />
 
           {viewMode === 'month' && (
@@ -476,7 +572,8 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
               type="button"
               onClick={() => shiftMonth(1)}
               title="Bulan berikutnya"
-              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+              aria-label="Bulan berikutnya"
+              className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-rose-400"
             >
               <ChevronRight className="w-4 h-4" />
             </button>
@@ -486,18 +583,48 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
             type="button"
             onClick={() => shiftYear(1)}
             title="Tahun berikutnya"
-            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer"
+            aria-label="Tahun berikutnya"
+            className="p-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 transition-colors cursor-pointer focus-visible:ring-2 focus-visible:ring-rose-400"
           >
             <ChevronsRight className="w-4 h-4" />
           </button>
-        </div>
+          </div>
 
-        {/* Fokus grup */}
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <GroupChip group={null} />
-          {ALL_SHIFT_GROUPS.map(g => <GroupChip key={g} group={g} />)}
+          {/* Fokus grup */}
+          <div className="flex items-center gap-1.5 flex-wrap">
+            <GroupChip group={null} />
+            {ALL_SHIFT_GROUPS.map(g => <GroupChip key={g} group={g} />)}
+          </div>
         </div>
       </div>
+
+      {/* Kalender ditempatkan sebelum ringkasan agar tanggal menjadi fokus utama. */}
+      {viewMode === 'month' ? (
+        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-3 overflow-x-auto">
+          <div className="min-w-[680px]">
+            <div className="grid grid-cols-7 gap-1.5 mb-1.5">
+              {DOW.map((d, i) => (
+                <div
+                  key={d.full}
+                  className={`py-1.5 text-center text-[10px] md:text-xs font-black uppercase tracking-widest rounded-lg bg-slate-100 dark:bg-slate-800 ${
+                    i === 0 ? 'text-rose-500' : 'text-slate-500 dark:text-slate-400'
+                  }`}
+                >
+                  <span className="md:hidden">{d.short}</span>
+                  <span className="hidden md:inline">{d.full}</span>
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1.5">
+              {monthCells.map((date, i) => <MonthCell key={i} date={date} />)}
+            </div>
+          </div>
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-3">
+          {MONTHS.map((_, i) => <MiniMonth key={i} monthIndex={i} />)}
+        </div>
+      )}
 
       {/* Ringkasan hari ini */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-3">
@@ -589,32 +716,6 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
         </div>
       </div>
 
-      {/* Kalender */}
-      {viewMode === 'month' ? (
-        <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-3 overflow-x-auto">
-          <div className="min-w-[680px]">
-            <div className="grid grid-cols-7 gap-1.5 mb-1.5">
-              {DOW.map((d, i) => (
-                <div
-                  key={d}
-                  className={`py-1.5 text-center text-[10px] font-black uppercase tracking-widest rounded-lg bg-slate-100 dark:bg-slate-800 ${
-                    i === 0 ? 'text-rose-500' : 'text-slate-500 dark:text-slate-400'
-                  }`}
-                >
-                  {d}
-                </div>
-              ))}
-            </div>
-            <div className="grid grid-cols-7 gap-1.5">
-              {monthCells.map((date, i) => <MonthCell key={i} date={date} />)}
-            </div>
-          </div>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-3">
-          {MONTHS.map((_, i) => <MiniMonth key={i} monthIndex={i} />)}
-        </div>
-      )}
     </div>
   );
 };
