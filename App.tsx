@@ -6,13 +6,14 @@ import { addMinutes, formatDate, formatTime, getBatchDate } from './utils/dateUt
 import { Demonomer } from './components/Demonomer';
 import { Silo } from './components/Silo';
 import { Catatan } from './components/Catatan';
-import { Kesepakatan } from './components/Kesepakatan';
+import { ScheduleInfoCarousel } from './components/ScheduleInfoCarousel';
 import { Jadwal, GroupKey, GROUP_THEMES } from './components/Jadwal';
 import { KasGrup } from './components/KasGrup';
 import { JadwalShift } from './components/JadwalShift';
 import { Sidebar, SidebarView, GroupedView } from './components/Sidebar';
 import { useMediaQuery, DESKTOP_QUERY } from './utils/useMediaQuery';
 import { getShiftGroupsNow, getAdministrativeShiftDate, getActiveShifts, SHIFT_SLOTS, ShiftGroup } from './utils/shiftSchedule';
+import type { BackupQuotaResult } from './utils/backupSchedule';
 import { Settings, RefreshCw, AlertTriangle, Calendar, CalendarDays, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, ArrowRightLeft, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp, Wallet, Menu, History } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { Reorder } from 'framer-motion';
@@ -1099,6 +1100,8 @@ const App: React.FC = () => {
     return (saved as GroupKey) || 'GRUP D';
   });
 
+  const [backupFocusTarget, setBackupFocusTarget] = useState<(BackupQuotaResult & { requestId: number }) | null>(null);
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(
     () => localStorage.getItem('sidebarCollapsed') === '1'
   );
@@ -1114,6 +1117,17 @@ const App: React.FC = () => {
   const handleSelectGroup = useCallback((view: GroupedView, group: GroupKey) => {
     setCurrentView(view);
     setCurrentGroup(group);
+    setBackupFocusTarget(null);
+  }, []);
+
+  const handleOpenBackupQuota = useCallback((target: BackupQuotaResult) => {
+    setBackupFocusTarget({ ...target, requestId: Date.now() });
+    setCurrentGroup(target.group);
+    setCurrentView('jadwal');
+  }, []);
+
+  const handleBackupFocusHandled = useCallback(() => {
+    setBackupFocusTarget(null);
   }, []);
   const [isDemonomerPopupOpen, setIsDemonomerPopupOpen] = useState(false);
   
@@ -4998,9 +5012,10 @@ const App: React.FC = () => {
                    </div>
 
                    {/* 2. KESEPAKATAN WIDGET */}
-                   <Kesepakatan
+                   <ScheduleInfoCarousel
                       currentGrade={activeDemonomerGrade}
                       shiftGroups={getShiftGroupsNow(now)}
+                      onOpenBackup={handleOpenBackupQuota}
                    />
                </div>
 
@@ -5695,7 +5710,12 @@ const App: React.FC = () => {
               )}
 
               {currentView === 'jadwal' && (
-                <Jadwal key={currentGroup} activeGroup={currentGroup} />
+                <Jadwal
+                  key={currentGroup}
+                  activeGroup={currentGroup}
+                  focusTarget={backupFocusTarget?.group === currentGroup ? backupFocusTarget : null}
+                  onFocusTargetHandled={handleBackupFocusHandled}
+                />
               )}
 
               {currentView === 'kas' && (

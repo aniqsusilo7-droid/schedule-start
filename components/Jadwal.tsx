@@ -1,10 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { 
   Calendar, Plus, Trash2, Edit3, RotateCcw, Save, Copy, 
   Check, X, ChevronRight, FileSpreadsheet, Sparkles, AlertCircle, Clock, User, ArrowRight,
   CheckSquare, Square
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
+import { findNextEmptyBackupSlot, type BackupQuotaResult } from '../utils/backupSchedule';
 
 export interface OvertimeEntry {
   id: string;
@@ -310,14 +311,21 @@ const parseGroupData = (raw: any): GroupTablesData => {
 interface JadwalProps {
   /** Grup aktif dikendalikan dari sidebar di App.tsx */
   activeGroup: GroupKey;
+  focusTarget?: (BackupQuotaResult & { requestId: number }) | null;
+  onFocusTargetHandled?: () => void;
 }
 
-export const Jadwal: React.FC<JadwalProps> = ({ activeGroup }) => {
+export const Jadwal: React.FC<JadwalProps> = ({
+  activeGroup,
+  focusTarget,
+  onFocusTargetHandled,
+}) => {
 
   const [groupsData, setGroupsData] = useState<GroupTablesData>(() => {
     const saved = localStorage.getItem('overtime_schedule_groups') || localStorage.getItem('overtime_schedule_tables');
     return parseGroupData(saved);
   });
+  const handledFocusTargetRef = useRef<number | null>(null);
 
   const [activeTableIdPerGroup, setActiveTableIdPerGroup] = useState<Record<GroupKey, string>>({
     'GRUP A': groupsData['GRUP A']?.[0]?.id || '',
@@ -659,6 +667,35 @@ export const Jadwal: React.FC<JadwalProps> = ({ activeGroup }) => {
     setEntryPurpose(entry ? entry.purpose : '');
     setEntryNote(entry ? (entry.note || '') : '');
   };
+
+  useEffect(() => {
+    if (!focusTarget || handledFocusTargetRef.current === focusTarget.requestId) return;
+
+    const latestTarget = findNextEmptyBackupSlot(activeGroup, tables, focusTarget.durationHours);
+    if (!latestTarget) {
+      handledFocusTargetRef.current = focusTarget.requestId;
+      onFocusTargetHandled?.();
+      return;
+    }
+
+    if (activeTable.id !== latestTarget.tableId) {
+      setActiveTableId(latestTarget.tableId);
+      return;
+    }
+
+    const targetColumn = activeTable.columns.find(column => column.id === latestTarget.columnId);
+    if (!targetColumn) return;
+
+    const timer = window.setTimeout(() => {
+      handledFocusTargetRef.current = focusTarget.requestId;
+      const cellId = `backup-cell-${activeGroup}-${latestTarget.tableId}-${latestTarget.columnId}-${latestTarget.rowIndex}`;
+      document.getElementById(cellId)?.scrollIntoView({ behavior: 'smooth', block: 'center', inline: 'center' });
+      openCellModal(targetColumn.id, targetColumn.name, latestTarget.rowIndex);
+      onFocusTargetHandled?.();
+    }, 180);
+
+    return () => window.clearTimeout(timer);
+  }, [focusTarget?.requestId, activeGroup, activeTable.id, tables, onFocusTargetHandled]);
 
   // Save Overtime Entry
   const handleSaveEntry = () => {
@@ -1008,6 +1045,7 @@ export const Jadwal: React.FC<JadwalProps> = ({ activeGroup }) => {
                     return (
                       <td
                         key={col.id}
+                        id={`backup-cell-${activeGroup}-${activeTable.id}-${col.id}-${rowIndex}`}
                         className="p-0 align-top transition-all"
                       >
                         {isFilled ? (
@@ -1117,7 +1155,7 @@ export const Jadwal: React.FC<JadwalProps> = ({ activeGroup }) => {
               <div>
                 <h3 className="text-lg font-black tracking-wide uppercase flex items-center gap-2">
                   <Clock className="w-5 h-5" />
-                  {activeEntryModal.entryIndex !== undefined ? 'Edit Data Lembur' : 'Catat Lembur Baru'}
+                  {activeEntryModal.entry ? 'Edit Data Lembur' : 'Catat Lembur Baru'}
                 </h3>
                 <p className="text-xs font-bold text-amber-950/80">
                   Personel: <span className="text-white underline">{activeEntryModal.personName}</span>
