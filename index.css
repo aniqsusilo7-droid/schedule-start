@@ -39,6 +39,27 @@ body {
   animation: blink 0.8s step-end infinite;
 }
 
+@keyframes schedule-slide-enter {
+  from {
+    opacity: 0;
+    transform: translateX(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+.schedule-slide-enter {
+  animation: schedule-slide-enter 260ms ease-out;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .schedule-slide-enter {
+    animation: none;
+  }
+}
+
 /* Panel Cycle Time menempati setengah dashboard. Skala berdasarkan lebar
    panel membuat angka tetap muat meski font tabel global diperbesar. */
 .cycle-time-container {

@@ -97,9 +97,16 @@ interface KesepakatanProps {
     onBack?: () => void; // kept for compatibility, but we won't need it if it's always inline
     currentGrade?: string;
     shiftGroups?: Record<ShiftSlot, ShiftGroup>;
+    embedded?: boolean;
+    onEditingChange?: (isEditing: boolean) => void;
 }
 
-export const Kesepakatan: React.FC<KesepakatanProps> = ({ currentGrade, shiftGroups }) => {
+export const Kesepakatan: React.FC<KesepakatanProps> = ({
+    currentGrade,
+    shiftGroups,
+    embedded = false,
+    onEditingChange,
+}) => {
     const theme = (currentGrade && GRADE_THEMES[currentGrade]) || DEFAULT_THEME;
     const DEFAULT_DATA: KesepakatanData = {
         shifts: [
@@ -118,6 +125,10 @@ export const Kesepakatan: React.FC<KesepakatanProps> = ({ currentGrade, shiftGro
     const [data, setData] = useState<KesepakatanData>(DEFAULT_DATA);
     const [isEditing, setIsEditing] = useState(false);
     const [isLoading, setIsLoading] = useState(true);
+
+    useEffect(() => {
+        onEditingChange?.(isEditing);
+    }, [isEditing, onEditingChange]);
 
     useEffect(() => {
         fetchData();
@@ -176,30 +187,30 @@ export const Kesepakatan: React.FC<KesepakatanProps> = ({ currentGrade, shiftGro
     }, [data, isEditing, isLoading]);
 
     if (isLoading) return (
-        <div className="flex flex-col items-center justify-center min-h-[300px] gap-2 p-6 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div className={`flex min-h-[300px] flex-col items-center justify-center gap-2 bg-white p-6 dark:bg-slate-800 ${embedded ? 'h-full' : 'rounded-xl border border-slate-200 dark:border-slate-700'}`}>
             <div className={`w-8 h-8 border-4 ${theme.spinner} border-t-transparent rounded-full animate-spin`}></div>
             <div className="text-slate-400 font-black uppercase tracking-widest text-xs animate-pulse">Loading Kesepakatan...</div>
         </div>
     );
 
     if (!data) return (
-        <div className="p-6 text-center bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700">
+        <div className={`bg-white p-6 text-center dark:bg-slate-800 ${embedded ? 'h-full' : 'rounded-xl border border-slate-200 dark:border-slate-700'}`}>
             <div className="text-red-500 font-black text-lg uppercase mb-2">Error loading data</div>
             <button onClick={fetchData} className="px-4 py-1.5 bg-slate-800 text-white rounded-lg font-black uppercase text-xs">Retry</button>
         </div>
     );
 
     return (
-        <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 overflow-hidden">
+        <div className={`flex h-full flex-col overflow-hidden bg-white dark:bg-slate-800 ${embedded ? '' : 'rounded-xl border border-slate-200 shadow-sm dark:border-slate-700'}`}>
             {/* Widget Header */}
             <div className={`${theme.headerBg} min-h-[2.25em] text-white font-bold text-[0.91em] px-3 py-1 text-center flex items-center justify-between gap-2 uppercase tracking-tight transition-colors`}>
                 <div className="flex items-center gap-1.5">
-                    <Handshake className="w-3.5 h-3.5" />
+                    <Handshake className="w-3.5 h-3.5" aria-hidden="true" />
                     KESEPAKATAN SHIFT
                 </div>
                 <button 
                     onClick={() => isEditing ? handleSave(false) : setIsEditing(true)}
-                    className={`flex items-center gap-1 px-2.5 py-0.5 rounded font-black uppercase text-[1.1em] transition-all ${isEditing ? `bg-white ${theme.editText} ${theme.editHover}` : 'bg-white/20 text-white hover:bg-white/30'}`}
+                    className={`flex items-center gap-1 px-2.5 py-0.5 rounded font-black uppercase text-[1.1em] transition-colors ${isEditing ? `bg-white ${theme.editText} ${theme.editHover}` : 'bg-white/20 text-white hover:bg-white/30'}`}
                 >
                     {isEditing ? 'SELESAI' : 'EDIT'}
                 </button>
@@ -227,6 +238,7 @@ export const Kesepakatan: React.FC<KesepakatanProps> = ({ currentGrade, shiftGro
                                     <div className="flex gap-2 justify-center px-2">
                                         <input 
                                             value={shift.name} 
+                                            aria-label={`Nama ${shift.name}`}
                                             onChange={e => {
                                                 const newShifts = [...data.shifts];
                                                 newShifts[idx].name = e.target.value;
@@ -236,6 +248,7 @@ export const Kesepakatan: React.FC<KesepakatanProps> = ({ currentGrade, shiftGro
                                         />
                                         <input 
                                             value={shift.time} 
+                                            aria-label={`Rentang waktu ${shift.name}`}
                                             onChange={e => {
                                                 const newShifts = [...data.shifts];
                                                 newShifts[idx].time = e.target.value;
@@ -262,6 +275,7 @@ export const Kesepakatan: React.FC<KesepakatanProps> = ({ currentGrade, shiftGro
                                     {isEditing ? (
                                         <input 
                                             value={shift.closeMode} 
+                                            aria-label={`Waktu mulai close mode ${shift.name}`}
                                             onChange={e => {
                                                 const newShifts = [...data.shifts];
                                                 newShifts[idx].closeMode = e.target.value;
@@ -280,6 +294,7 @@ export const Kesepakatan: React.FC<KesepakatanProps> = ({ currentGrade, shiftGro
                                     {isEditing ? (
                                         <input 
                                             value={shift.openMode} 
+                                            aria-label={`Waktu mulai open mode ${shift.name}`}
                                             onChange={e => {
                                                 const newShifts = [...data.shifts];
                                                 newShifts[idx].openMode = e.target.value;
@@ -305,6 +320,7 @@ export const Kesepakatan: React.FC<KesepakatanProps> = ({ currentGrade, shiftGro
                                 <div className="flex w-full items-center gap-1.5">
                                     <input 
                                         value={note} 
+                                        aria-label={`Catatan tambahan ${idx + 1}`}
                                         onChange={e => {
                                             const newNotes = [...data.additionalNotes];
                                             newNotes[idx] = e.target.value;
@@ -318,8 +334,10 @@ export const Kesepakatan: React.FC<KesepakatanProps> = ({ currentGrade, shiftGro
                                             setData({...data, additionalNotes: newNotes});
                                         }} 
                                         className="p-1 bg-red-50 hover:bg-red-100 dark:bg-red-950/20 dark:hover:bg-red-900/30 text-red-600 dark:text-red-400 rounded transition-colors"
+                                        aria-label={`Hapus catatan ${idx + 1}`}
+                                        title={`Hapus catatan ${idx + 1}`}
                                     >
-                                        <Trash2 className="w-3.5 h-3.5" />
+                                        <Trash2 className="w-3.5 h-3.5" aria-hidden="true" />
                                     </button>
                                 </div>
                             ) : (
@@ -335,7 +353,7 @@ export const Kesepakatan: React.FC<KesepakatanProps> = ({ currentGrade, shiftGro
                             onClick={() => setData({...data, additionalNotes: [...data.additionalNotes, "CATATAN BARU"]})} 
                             className="py-1.5 border border-dashed border-sky-400 dark:border-sky-700 rounded text-sky-600 dark:text-sky-400 font-bold uppercase flex items-center justify-center gap-1 hover:bg-sky-50 dark:hover:bg-sky-950/20 transition-colors text-[0.91em]"
                         >
-                            <Plus className="w-3.5 h-3.5" /> TAMBAH CATATAN
+                            <Plus className="w-3.5 h-3.5" aria-hidden="true" /> TAMBAH CATATAN
                         </button>
                     )}
                 </div>
@@ -345,6 +363,7 @@ export const Kesepakatan: React.FC<KesepakatanProps> = ({ currentGrade, shiftGro
                     {isEditing ? (
                         <input 
                             value={data.footerNote} 
+                            aria-label="Catatan penanggung jawab shift"
                             onChange={e => setData({...data, footerNote: e.target.value})} 
                             className="bg-white text-slate-800 px-3 py-1 rounded border border-yellow-600 font-bold text-[0.98rem] uppercase w-full text-center" 
                         />
