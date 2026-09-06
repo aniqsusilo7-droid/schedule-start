@@ -5,7 +5,6 @@ import { AppState, ScheduleItem, ItemConfig, GradeType, SiloState, SiloData, Dem
 import { addMinutes, formatDate, formatTime, getBatchDate } from './utils/dateUtils';
 import { Demonomer } from './components/Demonomer';
 import { Silo } from './components/Silo';
-import { Catatan } from './components/Catatan';
 import { ScheduleInfoCarousel } from './components/ScheduleInfoCarousel';
 import { Jadwal, GroupKey, GROUP_THEMES } from './components/Jadwal';
 import { KasGrup } from './components/KasGrup';
@@ -40,7 +39,6 @@ const VIEW_META: Record<SidebarView, { label: string; Icon: React.ComponentType<
   jadwalShift: { label: 'JADWAL SHIFT', Icon: CalendarDays, color: 'text-rose-500' },
   jadwal:    { label: 'JADWAL BACKUP', Icon: Calendar,   color: 'text-amber-500' },
   kas:       { label: 'KAS GRUP',      Icon: Wallet,     color: 'text-violet-500' },
-  catatan:   { label: 'CATATAN',       Icon: FileText,   color: 'text-emerald-500' },
   unitConverter: { label: 'KONVERSI UNIT', Icon: ArrowRightLeft, color: 'text-cyan-500' },
   auditLog: { label: 'RIWAYAT PERUBAHAN', Icon: History, color: 'text-orange-500' },
 };
@@ -5699,10 +5697,6 @@ const App: React.FC = () => {
                         onSiloSelect={handleSiloSwitch}
                     />
                 </div>
-              )}
-
-              {currentView === 'catatan' && (
-                <Catatan onBack={() => setCurrentView('scheduler')} />
               )}
 
               {currentView === 'jadwalShift' && (
