@@ -1,11 +1,11 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
-  LayoutGrid, Activity, Database, Calendar, CalendarDays, Wallet, FileText, Settings,
+  LayoutGrid, Activity, Database, Calendar, CalendarDays, Wallet, Settings,
   ArrowRightLeft, Calculator, ExternalLink, ChevronDown, PanelRightClose, PanelRightOpen, X
 } from 'lucide-react';
 import { GroupKey, ALL_GROUPS } from './Jadwal';
 
-export type SidebarView = 'scheduler' | 'demonomer' | 'silo' | 'jadwalShift' | 'jadwal' | 'kas' | 'catatan' | 'unitConverter' | 'auditLog';
+export type SidebarView = 'scheduler' | 'demonomer' | 'silo' | 'jadwalShift' | 'jadwal' | 'kas' | 'unitConverter' | 'auditLog';
 
 /** View yang punya sub-menu grup shift. */
 export type GroupedView = 'jadwal' | 'kas';
@@ -52,7 +52,6 @@ const SECTIONS: MenuSection[] = [
       { id: 'jadwalShift', label: 'JADWAL SHIFT', Icon: CalendarDays, activeBg: 'bg-rose-500', activeRing: 'ring-rose-300', iconColor: 'text-rose-500' },
       { id: 'jadwal',  label: 'JADWAL BACKUP', Icon: Calendar, activeBg: 'bg-amber-500',   activeRing: 'ring-amber-300',   iconColor: 'text-amber-500',   hasGroups: true },
       { id: 'kas',     label: 'KAS GRUP',      Icon: Wallet,   activeBg: 'bg-violet-600',  activeRing: 'ring-violet-400',  iconColor: 'text-violet-500',  hasGroups: true },
-      { id: 'catatan', label: 'CATATAN',       Icon: FileText, activeBg: 'bg-emerald-600', activeRing: 'ring-emerald-400', iconColor: 'text-emerald-500' },
     ],
   },
   {
