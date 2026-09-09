@@ -3549,7 +3549,9 @@ const App: React.FC = () => {
           if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
               try {
                   const secondsUntilStart = Math.max(0, Math.ceil((fullScreenAlertItem.startTime.getTime() - now.getTime()) / 1000));
-                  const openModeReminder = fullScreenAlertItem.config?.mode === 'OPEN'
+                  const openModeReminder = fullScreenAlertItem.config?.mode === 'OPEN' &&
+                      fullScreenAlertItem.status === 'future' &&
+                      fullScreenAlertItem.startTime.getTime() > now.getTime()
                       ? ' CEK HWD LEVEL SEBELUM START.'
                       : '';
                   const notif = new Notification(`⚠️ PERINGATAN: START REAKTOR ${fullScreenAlertItem.reactorId}`, {
@@ -4414,21 +4416,6 @@ const App: React.FC = () => {
              supaya isi sel tidak saling tindih. */
           style={{ fontSize: `${isDesktop ? config.tableFontSize : Math.min(config.tableFontSize, 13)}px` }}
         >
-          {isMobileScheduleReadOnly && (
-            <div
-              role="status"
-              className="lg:hidden flex items-start gap-2 rounded-xl border border-amber-300 bg-amber-50 px-3 py-2.5 text-amber-900 shadow-sm dark:border-amber-700 dark:bg-amber-950/40 dark:text-amber-200"
-            >
-              <ShieldAlert className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
-              <div className="leading-snug">
-                <p className="font-black uppercase tracking-wide">Mode hanya baca di HP</p>
-                <p className="mt-0.5 text-[0.9em] font-semibold opacity-90">
-                  Schedule Start Reactor tidak dapat diubah. Jadwal Backup dan Kas Grup tetap dapat diedit.
-                </p>
-              </div>
-            </div>
-          )}
-
           {/* LEFT SIDE: 80% Table */}
           <div className="w-full lg:w-[80%] flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
             
@@ -5248,6 +5235,9 @@ const App: React.FC = () => {
           const reactorObj = REACTORS.find(r => r.id === activeItem.reactorId);
           const secondsLeft = Math.max(0, Math.ceil((activeItem.startTime.getTime() - now.getTime()) / 1000));
           const isOpenModeAlert = activeItem.config?.mode === 'OPEN';
+          const shouldShowOpenModeReminder = isOpenModeAlert &&
+              activeItem.status === 'future' &&
+              activeItem.startTime.getTime() > now.getTime();
 
           const handleDismiss = () => {
               if (isTesting) {
@@ -5293,7 +5283,7 @@ const App: React.FC = () => {
                       </div>
                   )}
 
-                  {isOpenModeAlert && (
+                  {shouldShowOpenModeReminder && (
                       <div
                           role="alert"
                           aria-live="assertive"
