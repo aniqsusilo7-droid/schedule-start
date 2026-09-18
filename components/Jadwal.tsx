@@ -6,11 +6,20 @@ import {
 } from 'lucide-react';
 import { supabase } from '../supabaseClient';
 import { findNextEmptyBackupSlot, type BackupQuotaResult } from '../utils/backupSchedule';
+import {
+  getOvertimeDisplayData,
+  getOvertimeDisplayPurpose,
+  getOvertimeStatus,
+  type OvertimeStatusOverride,
+} from '../utils/overtimeStatus';
 
 export interface OvertimeEntry {
   id: string;
-  date: string; // e.g. "10/05/2026"
-  purpose: string; // e.g. "BU hikmal 15-19"
+  date: string;
+  purpose: string;
+  startTime?: string;
+  endTime?: string;
+  statusOverride?: OvertimeStatusOverride;
   createdAt?: number;
   note?: string;
 }
@@ -372,9 +381,18 @@ export const Jadwal: React.FC<JadwalProps> = ({
 
   const [entryDate, setEntryDate] = useState('');
   const [entryPurpose, setEntryPurpose] = useState('');
+  const [entryStartTime, setEntryStartTime] = useState('');
+  const [entryEndTime, setEntryEndTime] = useState('');
+  const [entryStatusOverride, setEntryStatusOverride] = useState<OvertimeStatusOverride>('auto');
   const [entryNote, setEntryNote] = useState('');
+  const [statusClock, setStatusClock] = useState(() => new Date());
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const timer = window.setInterval(() => setStatusClock(new Date()), 60_000);
+    return () => window.clearInterval(timer);
+  }, []);
 
   // Generic Confirm Dialog Modal State
   const [confirmDialog, setConfirmDialog] = useState<{
@@ -659,12 +677,16 @@ export const Jadwal: React.FC<JadwalProps> = ({
   const openCellModal = (columnId: string, personName: string, entryIndex?: number, entry?: OvertimeEntry) => {
     const today = new Date();
     const formattedToday = `${today.getDate().toString().padStart(2, '0')}/${(today.getMonth() + 1).toString().padStart(2, '0')}/${today.getFullYear()}`;
+    const displayData = entry ? getOvertimeDisplayData(entry) : undefined;
 
     setActiveEntryModal({ columnId, personName, entryIndex, entry });
     setIsConfirmingDelete(false);
     setFormError(null);
     setEntryDate(entry ? entry.date : formattedToday);
-    setEntryPurpose(entry ? entry.purpose : '');
+    setEntryPurpose(displayData?.purpose || '');
+    setEntryStartTime(displayData?.startTime || '');
+    setEntryEndTime(displayData?.endTime || '');
+    setEntryStatusOverride(entry?.statusOverride || 'auto');
     setEntryNote(entry ? (entry.note || '') : '');
   };
 
@@ -700,8 +722,8 @@ export const Jadwal: React.FC<JadwalProps> = ({
   // Save Overtime Entry
   const handleSaveEntry = () => {
     if (!activeEntryModal) return;
-    if (!entryDate.trim() || !entryPurpose.trim()) {
-      setFormError('Mohon isi Tanggal dan Tujuan Lembur.');
+    if (!entryDate.trim() || !entryPurpose.trim() || !entryStartTime || !entryEndTime) {
+      setFormError('Mohon isi Tanggal, Tujuan Lembur, Jam Mulai, dan Jam Selesai.');
       return;
     }
 
@@ -711,6 +733,9 @@ export const Jadwal: React.FC<JadwalProps> = ({
       id: activeEntryModal.entry?.id || `ent_${Date.now()}`,
       date: entryDate.trim(),
       purpose: entryPurpose.trim(),
+      startTime: entryStartTime,
+      endTime: entryEndTime,
+      statusOverride: entryStatusOverride,
       note: entryNote.trim() || undefined,
       createdAt: activeEntryModal.entry?.createdAt || Date.now()
     };
@@ -1041,6 +1066,10 @@ export const Jadwal: React.FC<JadwalProps> = ({
                     const entry = col.entries[rowIndex];
                     const isFilled = !!entry;
                     const isSelected = isFilled && selectedEntryKeys.includes(`${col.id}:${entry.id}`);
+                    const displayData = entry ? getOvertimeDisplayData(entry) : undefined;
+                    const displayPurpose = entry ? getOvertimeDisplayPurpose(entry) : undefined;
+                    const overtimeStatus = entry ? getOvertimeStatus(entry, statusClock) : undefined;
+                    const isScheduled = overtimeStatus === 'scheduled';
 
                     return (
                       <td
@@ -1061,7 +1090,9 @@ export const Jadwal: React.FC<JadwalProps> = ({
                             className={`p-2.5 m-0.5 rounded-lg shadow-sm transition-all cursor-pointer text-center leading-snug group relative ${
                               isSelected
                                 ? 'bg-red-200 dark:bg-red-950/90 text-red-950 dark:text-red-100 border-2 border-red-600 ring-2 ring-red-400 font-extrabold'
-                                : `${currentTheme.cellFilledBg} font-extrabold text-xs border ${currentTheme.cellFilledBorder} hover:brightness-105 active:scale-98`
+                                : isScheduled
+                                  ? 'bg-transparent text-slate-700 dark:text-slate-200 font-extrabold text-xs border-2 border-dashed border-slate-400 dark:border-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 active:scale-98'
+                                  : `${currentTheme.cellFilledBg} font-extrabold text-xs border ${currentTheme.cellFilledBorder} hover:brightness-105 active:scale-98`
                             }`}
                             title={isSelectionMode ? "Klik untuk ceklis/unceklis" : "Klik untuk Edit / Hapus"}
                           >
@@ -1089,9 +1120,21 @@ export const Jadwal: React.FC<JadwalProps> = ({
                             <div className="font-mono text-[11px] tracking-tight font-black pl-4">
                               {entry.date}
                             </div>
-                            <div className="mt-0.5 text-xs uppercase font-extrabold break-words">
-                              {entry.purpose}
-                            </div>
+                            {isScheduled && (
+                              <div className="mx-auto mt-1 w-fit rounded-md border border-slate-400 dark:border-slate-500 px-1.5 py-0.5 text-[9px] font-black uppercase tracking-wide text-slate-600 dark:text-slate-300">
+                                Terjadwal
+                              </div>
+                            )}
+                            {displayData?.startTime && displayData.endTime && (
+                              <div className="mt-1 font-mono text-[11px] font-black">
+                                {displayData.startTime} - {displayData.endTime}
+                              </div>
+                            )}
+                            {displayPurpose && (
+                              <div className="mt-0.5 text-xs uppercase font-extrabold break-words">
+                                {displayPurpose}
+                              </div>
+                            )}
                             {entry.note && (
                               <div className="mt-1 text-[10px] font-medium italic truncate border-t border-black/20 dark:border-white/20 pt-0.5 opacity-90">
                                 💬 {entry.note}
@@ -1128,12 +1171,16 @@ export const Jadwal: React.FC<JadwalProps> = ({
         <div className="p-3 bg-slate-50 dark:bg-slate-900 border-t border-slate-200 dark:border-slate-800 flex flex-wrap items-center justify-between text-xs text-slate-500 dark:text-slate-400 gap-2">
           <div className="flex items-center gap-3">
             <span className="flex items-center gap-1.5 font-bold">
-              <span className="w-3 h-3 rounded-full bg-amber-400 inline-block border border-amber-500" /> 
-              Terisi (Sudah Lembur)
+              <span className={`w-3 h-3 rounded-full inline-block border ${currentTheme.cellFilledBg} ${currentTheme.cellFilledBorder}`} />
+              Selesai
             </span>
             <span className="flex items-center gap-1.5 font-bold">
-              <span className="w-3 h-3 rounded-full bg-slate-200 dark:bg-slate-700 inline-block border border-slate-300" /> 
-              Kosong (Urutan Berikutnya)
+              <span className="w-3 h-3 rounded-full bg-transparent inline-block border-2 border-dashed border-slate-400 dark:border-slate-600" />
+              Terjadwal
+            </span>
+            <span className="flex items-center gap-1.5 font-bold">
+              <span className="w-3 h-3 rounded-full bg-slate-200 dark:bg-slate-700 inline-block border border-slate-300" />
+              Kosong
             </span>
           </div>
 
@@ -1150,7 +1197,7 @@ export const Jadwal: React.FC<JadwalProps> = ({
       {/* 1. ADD / EDIT OVERTIME ENTRY MODAL */}
       {activeEntryModal && (
         <div className="fixed inset-0 z-[100] bg-black/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md border-2 border-amber-500/50 overflow-hidden">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md max-h-[calc(100vh-2rem)] border-2 border-amber-500/50 overflow-y-auto">
             <div className="bg-gradient-to-r from-amber-500 to-orange-600 text-slate-950 p-4 flex items-center justify-between">
               <div>
                 <h3 className="text-lg font-black tracking-wide uppercase flex items-center gap-2">
@@ -1193,44 +1240,57 @@ export const Jadwal: React.FC<JadwalProps> = ({
                 />
               </div>
 
-              {/* Purpose / Details Input */}
               <div className="space-y-1.5">
                 <label className="text-xs font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider block">
                   Tujuan / Rincian Lembur
                 </label>
-                <div className="flex flex-col gap-2">
+                <input
+                  type="text"
+                  value={entryPurpose}
+                  onChange={e => { setEntryPurpose(e.target.value); setFormError(null); }}
+                  placeholder="Ketik tujuan / nama..."
+                  className="w-full p-3 font-bold text-base bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl focus:border-amber-500 outline-none dark:text-white"
+                />
+              </div>
+
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <label className="text-xs font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider block">
+                    Jam Mulai
+                  </label>
                   <input
-                    type="text"
-                    value={entryPurpose}
-                    onChange={e => { setEntryPurpose(e.target.value); setFormError(null); }}
-                    placeholder="Ketik tujuan / nama..."
-                    className="w-full p-3 font-bold text-base bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl focus:border-amber-500 outline-none dark:text-white"
+                    type="time"
+                    value={entryStartTime}
+                    onChange={e => { setEntryStartTime(e.target.value); setFormError(null); }}
+                    className="w-full p-3 font-mono font-bold text-base bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl focus:border-amber-500 outline-none dark:text-white"
                   />
-                  <select
-                    onChange={e => {
-                      const time = e.target.value;
-                      if (!time) return;
-                      const current = entryPurpose.trim();
-                      const times = ["07:00 sd 11:00", "11:00 sd 15:00", "15:00 sd 19:00", "19:00 sd 23:00", "23:00 sd 07:00"];
-                      let cleanCurrent = current;
-                      times.forEach(t => {
-                         cleanCurrent = cleanCurrent.replace(t, '').trim();
-                      });
-                      
-                      setEntryPurpose(cleanCurrent ? `${cleanCurrent} ${time}` : time);
-                      setFormError(null);
-                      e.target.value = "";
-                    }}
-                    className="w-full p-3 font-bold text-base bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl focus:border-amber-500 outline-none dark:text-white cursor-pointer"
-                  >
-                    <option value="">+ Tambah Waktu Lembur...</option>
-                    <option value="07:00 sd 11:00">07:00 sd 11:00</option>
-                    <option value="11:00 sd 15:00">11:00 sd 15:00</option>
-                    <option value="15:00 sd 19:00">15:00 sd 19:00</option>
-                    <option value="19:00 sd 23:00">19:00 sd 23:00</option>
-                    <option value="23:00 sd 07:00">23:00 sd 07:00</option>
-                  </select>
                 </div>
+                <div className="space-y-1.5">
+                  <label className="text-xs font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider block">
+                    Jam Selesai
+                  </label>
+                  <input
+                    type="time"
+                    value={entryEndTime}
+                    onChange={e => { setEntryEndTime(e.target.value); setFormError(null); }}
+                    className="w-full p-3 font-mono font-bold text-base bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl focus:border-amber-500 outline-none dark:text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-xs font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider block">
+                  Status
+                </label>
+                <select
+                  value={entryStatusOverride}
+                  onChange={e => setEntryStatusOverride(e.target.value as OvertimeStatusOverride)}
+                  className="w-full p-3 font-bold text-sm bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl focus:border-amber-500 outline-none dark:text-white cursor-pointer"
+                >
+                  <option value="auto">Otomatis berdasarkan tanggal dan jam selesai</option>
+                  <option value="scheduled">Paksa tetap Terjadwal</option>
+                  <option value="completed">Tandai Selesai</option>
+                </select>
               </div>
 
               {/* Optional Note */}

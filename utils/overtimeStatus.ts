@@ -1,0 +1,121 @@
+export type OvertimeStatus = 'scheduled' | 'completed';
+export type OvertimeStatusOverride = 'auto' | OvertimeStatus;
+
+export interface OvertimeStatusEntry {
+  date: string;
+  purpose: string;
+  startTime?: string;
+  endTime?: string;
+  statusOverride?: OvertimeStatusOverride;
+}
+
+export interface OvertimeDisplayData {
+  purpose: string;
+  startTime?: string;
+  endTime?: string;
+}
+
+const LEGACY_TIME_RANGE = /(?:^|\s)(\d{1,2})(?::(\d{2}))?\s*(?:sd|s\/d|[-–])\s*(\d{1,2})(?::(\d{2}))?\s*$/i;
+
+const normalizeTime = (hour: string, minute?: string): string | undefined => {
+  const h = Number(hour);
+  const m = Number(minute ?? '0');
+  if (!Number.isInteger(h) || !Number.isInteger(m) || h < 0 || h > 23 || m < 0 || m > 59) {
+    return undefined;
+  }
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+};
+
+export const getOvertimeDisplayData = (entry: OvertimeStatusEntry): OvertimeDisplayData => {
+  if (entry.startTime && entry.endTime) {
+    return {
+      purpose: entry.purpose.trim(),
+      startTime: entry.startTime,
+      endTime: entry.endTime,
+    };
+  }
+
+  const match = entry.purpose.match(LEGACY_TIME_RANGE);
+  if (!match) return { purpose: entry.purpose.trim() };
+
+  const startTime = normalizeTime(match[1], match[2]);
+  const endTime = normalizeTime(match[3], match[4]);
+  if (!startTime || !endTime) return { purpose: entry.purpose.trim() };
+
+  return {
+    purpose: entry.purpose.slice(0, match.index).trim(),
+    startTime,
+    endTime,
+  };
+};
+
+export const getOvertimeDisplayPurpose = (entry: OvertimeStatusEntry): string | undefined => {
+  const purpose = getOvertimeDisplayData(entry).purpose;
+  return purpose || undefined;
+};
+
+const parseLocalDate = (value: string): Date | undefined => {
+  const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if (!match) return undefined;
+
+  const day = Number(match[1]);
+  const month = Number(match[2]);
+  const year = Number(match[3]);
+  const parsed = new Date(year, month - 1, day);
+
+  if (
+    parsed.getFullYear() !== year ||
+    parsed.getMonth() !== month - 1 ||
+    parsed.getDate() !== day
+  ) {
+    return undefined;
+  }
+
+  return parsed;
+};
+
+const minutesFromTime = (value: string): number | undefined => {
+  const match = value.match(/^(\d{2}):(\d{2})$/);
+  if (!match) return undefined;
+  const hour = Number(match[1]);
+  const minute = Number(match[2]);
+  if (hour > 23 || minute > 59) return undefined;
+  return hour * 60 + minute;
+};
+
+export const getOvertimeStatus = (
+  entry: OvertimeStatusEntry,
+  now: Date = new Date(),
+): OvertimeStatus => {
+  if (entry.statusOverride === 'scheduled' || entry.statusOverride === 'completed') {
+    return entry.statusOverride;
+  }
+
+  const overtimeDate = parseLocalDate(entry.date);
+  if (!overtimeDate) return 'scheduled';
+
+  const { startTime, endTime } = getOvertimeDisplayData(entry);
+  if (!startTime || !endTime) {
+    const nextDay = new Date(
+      overtimeDate.getFullYear(),
+      overtimeDate.getMonth(),
+      overtimeDate.getDate() + 1,
+    );
+    return now.getTime() >= nextDay.getTime() ? 'completed' : 'scheduled';
+  }
+
+  const startMinutes = minutesFromTime(startTime);
+  const endMinutes = minutesFromTime(endTime);
+  if (startMinutes === undefined || endMinutes === undefined) return 'scheduled';
+
+  const crossesMidnight = endMinutes <= startMinutes;
+  const completion = new Date(
+    overtimeDate.getFullYear(),
+    overtimeDate.getMonth(),
+    overtimeDate.getDate() + (crossesMidnight ? 1 : 0),
+    Math.floor(endMinutes / 60),
+    endMinutes % 60,
+  );
+
+  return now.getTime() >= completion.getTime() ? 'completed' : 'scheduled';
+};
