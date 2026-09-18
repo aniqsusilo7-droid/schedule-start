@@ -385,7 +385,6 @@ export const Jadwal: React.FC<JadwalProps> = ({
   const [entryPurpose, setEntryPurpose] = useState('');
   const [entryStartTime, setEntryStartTime] = useState('');
   const [entryEndTime, setEntryEndTime] = useState('');
-  const [entryStatusOverride, setEntryStatusOverride] = useState<OvertimeStatusOverride>('auto');
   const [entryNote, setEntryNote] = useState('');
   const [statusClock, setStatusClock] = useState(() => new Date());
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -688,7 +687,6 @@ export const Jadwal: React.FC<JadwalProps> = ({
     setEntryPurpose(displayData?.purpose || '');
     setEntryStartTime(displayData?.startTime || '');
     setEntryEndTime(displayData?.endTime || '');
-    setEntryStatusOverride(entry?.statusOverride || 'auto');
     setEntryNote(entry ? (entry.note || '') : '');
   };
 
@@ -737,7 +735,6 @@ export const Jadwal: React.FC<JadwalProps> = ({
       purpose: entryPurpose.trim(),
       startTime: entryStartTime,
       endTime: entryEndTime,
-      statusOverride: entryStatusOverride,
       note: entryNote.trim() || undefined,
       createdAt: activeEntryModal.entry?.createdAt || Date.now()
     };
@@ -1260,21 +1257,6 @@ export const Jadwal: React.FC<JadwalProps> = ({
                   {OVERTIME_TIME_PRESETS.map(preset => (
                     <option key={preset.value} value={preset.value}>{preset.label}</option>
                   ))}
-                </select>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider block">
-                  Status
-                </label>
-                <select
-                  value={entryStatusOverride}
-                  onChange={e => setEntryStatusOverride(e.target.value as OvertimeStatusOverride)}
-                  className="w-full p-3 font-bold text-sm bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl focus:border-amber-500 outline-none dark:text-white cursor-pointer"
-                >
-                  <option value="auto">Otomatis berdasarkan tanggal dan jam selesai</option>
-                  <option value="scheduled">Paksa tetap Terjadwal</option>
-                  <option value="completed">Tandai Selesai</option>
                 </select>
               </div>
 
