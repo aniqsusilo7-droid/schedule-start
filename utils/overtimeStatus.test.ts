@@ -39,6 +39,12 @@ test('status otomatis tetap terjadwal sebelum jam lembur selesai', () => {
   assert.equal(getOvertimeStatus(automaticEntry, new Date(2026, 8, 19, 22, 59)), 'scheduled');
 });
 
+test('tanggal satu digit tetap diproses oleh status otomatis', () => {
+  const entry = { ...automaticEntry, date: '7/09/2026' };
+  assert.equal(getOvertimeStatus(entry, new Date(2026, 8, 8, 0, 0)), 'completed');
+  assert.equal(getOvertimeStatus({ ...entry, date: '7/9/2026' }, new Date(2026, 8, 8, 0, 0)), 'completed');
+});
+
 test('status otomatis selesai tepat pada jam akhir lembur', () => {
   assert.equal(getOvertimeStatus(automaticEntry, new Date(2026, 8, 19, 23, 0)), 'completed');
 });
