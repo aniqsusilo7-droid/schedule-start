@@ -1,9 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  OVERTIME_TIME_PRESETS,
   getOvertimeDisplayData,
   getOvertimeDisplayPurpose,
   getOvertimeStatus,
+  parseOvertimeTimePreset,
 } from './overtimeStatus.ts';
 
 const automaticEntry = {
@@ -13,6 +15,25 @@ const automaticEntry = {
   endTime: '23:00',
   statusOverride: 'auto' as const,
 };
+
+test('preset jam lembur menyediakan lima pilihan lama', () => {
+  assert.deepEqual(OVERTIME_TIME_PRESETS, [
+    { value: '07:00|11:00', label: '07:00 sd 11:00', startTime: '07:00', endTime: '11:00' },
+    { value: '11:00|15:00', label: '11:00 sd 15:00', startTime: '11:00', endTime: '15:00' },
+    { value: '15:00|19:00', label: '15:00 sd 19:00', startTime: '15:00', endTime: '19:00' },
+    { value: '19:00|23:00', label: '19:00 sd 23:00', startTime: '19:00', endTime: '23:00' },
+    { value: '23:00|07:00', label: '23:00 sd 07:00', startTime: '23:00', endTime: '07:00' },
+  ]);
+});
+
+test('nilai preset diubah menjadi jam mulai dan selesai', () => {
+  assert.deepEqual(parseOvertimeTimePreset('15:00|19:00'), {
+    startTime: '15:00',
+    endTime: '19:00',
+  });
+  assert.equal(parseOvertimeTimePreset(''), undefined);
+  assert.equal(parseOvertimeTimePreset('08:00|12:00'), undefined);
+});
 
 test('status otomatis tetap terjadwal sebelum jam lembur selesai', () => {
   assert.equal(getOvertimeStatus(automaticEntry, new Date(2026, 8, 19, 22, 59)), 'scheduled');

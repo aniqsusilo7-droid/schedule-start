@@ -7,9 +7,11 @@ import {
 import { supabase } from '../supabaseClient';
 import { findNextEmptyBackupSlot, type BackupQuotaResult } from '../utils/backupSchedule';
 import {
+  OVERTIME_TIME_PRESETS,
   getOvertimeDisplayData,
   getOvertimeDisplayPurpose,
   getOvertimeStatus,
+  parseOvertimeTimePreset,
   type OvertimeStatusOverride,
 } from '../utils/overtimeStatus';
 
@@ -383,7 +385,6 @@ export const Jadwal: React.FC<JadwalProps> = ({
   const [entryPurpose, setEntryPurpose] = useState('');
   const [entryStartTime, setEntryStartTime] = useState('');
   const [entryEndTime, setEntryEndTime] = useState('');
-  const [entryStatusOverride, setEntryStatusOverride] = useState<OvertimeStatusOverride>('auto');
   const [entryNote, setEntryNote] = useState('');
   const [statusClock, setStatusClock] = useState(() => new Date());
   const [isConfirmingDelete, setIsConfirmingDelete] = useState(false);
@@ -686,7 +687,6 @@ export const Jadwal: React.FC<JadwalProps> = ({
     setEntryPurpose(displayData?.purpose || '');
     setEntryStartTime(displayData?.startTime || '');
     setEntryEndTime(displayData?.endTime || '');
-    setEntryStatusOverride(entry?.statusOverride || 'auto');
     setEntryNote(entry ? (entry.note || '') : '');
   };
 
@@ -722,8 +722,8 @@ export const Jadwal: React.FC<JadwalProps> = ({
   // Save Overtime Entry
   const handleSaveEntry = () => {
     if (!activeEntryModal) return;
-    if (!entryDate.trim() || !entryPurpose.trim() || !entryStartTime || !entryEndTime) {
-      setFormError('Mohon isi Tanggal, Tujuan Lembur, Jam Mulai, dan Jam Selesai.');
+    if (!entryDate.trim() || !entryStartTime || !entryEndTime) {
+      setFormError('Mohon isi Tanggal dan pilih Jam Lembur.');
       return;
     }
 
@@ -735,7 +735,6 @@ export const Jadwal: React.FC<JadwalProps> = ({
       purpose: entryPurpose.trim(),
       startTime: entryStartTime,
       endTime: entryEndTime,
-      statusOverride: entryStatusOverride,
       note: entryNote.trim() || undefined,
       createdAt: activeEntryModal.entry?.createdAt || Date.now()
     };
@@ -1242,67 +1241,34 @@ export const Jadwal: React.FC<JadwalProps> = ({
 
               <div className="space-y-1.5">
                 <label className="text-xs font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider block">
-                  Tujuan / Rincian Lembur
-                </label>
-                <input
-                  type="text"
-                  value={entryPurpose}
-                  onChange={e => { setEntryPurpose(e.target.value); setFormError(null); }}
-                  placeholder="Ketik tujuan / nama..."
-                  className="w-full p-3 font-bold text-base bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl focus:border-amber-500 outline-none dark:text-white"
-                />
-              </div>
-
-              <div className="grid grid-cols-2 gap-3">
-                <div className="space-y-1.5">
-                  <label className="text-xs font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider block">
-                    Jam Mulai
-                  </label>
-                  <input
-                    type="time"
-                    value={entryStartTime}
-                    onChange={e => { setEntryStartTime(e.target.value); setFormError(null); }}
-                    className="w-full p-3 font-mono font-bold text-base bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl focus:border-amber-500 outline-none dark:text-white"
-                  />
-                </div>
-                <div className="space-y-1.5">
-                  <label className="text-xs font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider block">
-                    Jam Selesai
-                  </label>
-                  <input
-                    type="time"
-                    value={entryEndTime}
-                    onChange={e => { setEntryEndTime(e.target.value); setFormError(null); }}
-                    className="w-full p-3 font-mono font-bold text-base bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl focus:border-amber-500 outline-none dark:text-white"
-                  />
-                </div>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-xs font-extrabold text-slate-600 dark:text-slate-300 uppercase tracking-wider block">
-                  Status
+                  Jam Lembur
                 </label>
                 <select
-                  value={entryStatusOverride}
-                  onChange={e => setEntryStatusOverride(e.target.value as OvertimeStatusOverride)}
-                  className="w-full p-3 font-bold text-sm bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl focus:border-amber-500 outline-none dark:text-white cursor-pointer"
+                  value={entryStartTime && entryEndTime ? `${entryStartTime}|${entryEndTime}` : ''}
+                  onChange={e => {
+                    const preset = parseOvertimeTimePreset(e.target.value);
+                    setEntryStartTime(preset?.startTime || '');
+                    setEntryEndTime(preset?.endTime || '');
+                    setFormError(null);
+                  }}
+                  className="w-full p-3 font-mono font-bold text-base bg-slate-50 dark:bg-slate-800 border-2 border-slate-300 dark:border-slate-700 rounded-xl focus:border-amber-500 outline-none dark:text-white cursor-pointer"
                 >
-                  <option value="auto">Otomatis berdasarkan tanggal dan jam selesai</option>
-                  <option value="scheduled">Paksa tetap Terjadwal</option>
-                  <option value="completed">Tandai Selesai</option>
+                  <option value="">Pilih jam lembur...</option>
+                  {OVERTIME_TIME_PRESETS.map(preset => (
+                    <option key={preset.value} value={preset.value}>{preset.label}</option>
+                  ))}
                 </select>
               </div>
 
-              {/* Optional Note */}
               <div className="space-y-1.5">
                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider block">
-                  Catatan Tambahan (Opsional)
+                  Backup Siapa
                 </label>
                 <input
                   type="text"
                   value={entryNote}
                   onChange={e => setEntryNote(e.target.value)}
-                  placeholder="e.g. Efek Gayuh / Pengganti Shift C"
+                  placeholder="Nama personel yang dibackup"
                   className="w-full p-2.5 text-xs font-medium bg-slate-50 dark:bg-slate-800 border border-slate-300 dark:border-slate-700 rounded-xl outline-none dark:text-white"
                 />
               </div>
