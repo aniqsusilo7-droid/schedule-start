@@ -77,7 +77,7 @@ export const getOvertimeDisplayPurpose = (entry: OvertimeStatusEntry): string | 
 };
 
 const parseLocalDate = (value: string): Date | undefined => {
-  const match = value.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  const match = value.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/);
   if (!match) return undefined;
 
   const day = Number(match[1]);
