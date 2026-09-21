@@ -12,6 +12,7 @@ import { JadwalShift } from './components/JadwalShift';
 import { Sidebar, SidebarView, GroupedView } from './components/Sidebar';
 import { useMediaQuery, DESKTOP_QUERY } from './utils/useMediaQuery';
 import { getShiftGroupsNow, getAdministrativeShiftDate, getActiveShifts, SHIFT_SLOTS, ShiftGroup } from './utils/shiftSchedule';
+import { shouldShowOpenModeReminder } from './utils/openModeReminder';
 import type { BackupQuotaResult } from './utils/backupSchedule';
 import { Settings, RefreshCw, AlertTriangle, Calendar, CalendarDays, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, ArrowRightLeft, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp, Wallet, Menu, History } from 'lucide-react';
 import { supabase } from './supabaseClient';
@@ -3549,9 +3550,7 @@ const App: React.FC = () => {
           if (typeof window !== 'undefined' && 'Notification' in window && Notification.permission === 'granted') {
               try {
                   const secondsUntilStart = Math.max(0, Math.ceil((fullScreenAlertItem.startTime.getTime() - now.getTime()) / 1000));
-                  const openModeReminder = fullScreenAlertItem.config?.mode === 'OPEN' &&
-                      fullScreenAlertItem.status === 'future' &&
-                      fullScreenAlertItem.startTime.getTime() > now.getTime()
+                  const openModeReminder = shouldShowOpenModeReminder(fullScreenAlertItem, now)
                       ? ' CEK HWD LEVEL SEBELUM START.'
                       : '';
                   const notif = new Notification(`⚠️ PERINGATAN: START REAKTOR ${fullScreenAlertItem.reactorId}`, {
@@ -4724,7 +4723,7 @@ const App: React.FC = () => {
                                   <div className="flex gap-1 items-center shrink-0">
                                   </div>
                                   
-                                  {!isSkipped && mode === 'OPEN' ? (
+                                  {shouldShowOpenModeReminder(item, now) ? (
                                       <div 
                                           className="flex-1 mx-1 self-center overflow-hidden whitespace-nowrap relative marquee-container select-none min-h-[20px] flex items-center" 
                                           style={{ fontSize: '0.7em' }}
@@ -5234,10 +5233,7 @@ const App: React.FC = () => {
 
           const reactorObj = REACTORS.find(r => r.id === activeItem.reactorId);
           const secondsLeft = Math.max(0, Math.ceil((activeItem.startTime.getTime() - now.getTime()) / 1000));
-          const isOpenModeAlert = activeItem.config?.mode === 'OPEN';
-          const shouldShowOpenModeReminder = isOpenModeAlert &&
-              activeItem.status === 'future' &&
-              activeItem.startTime.getTime() > now.getTime();
+          const showOpenModeReminder = shouldShowOpenModeReminder(activeItem, now);
 
           const handleDismiss = () => {
               if (isTesting) {
@@ -5283,7 +5279,7 @@ const App: React.FC = () => {
                       </div>
                   )}
 
-                  {shouldShowOpenModeReminder && (
+                  {showOpenModeReminder && (
                       <div
                           role="alert"
                           aria-live="assertive"
