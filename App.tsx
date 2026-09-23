@@ -13,7 +13,6 @@ import { Sidebar, SidebarView, GroupedView } from './components/Sidebar';
 import { useMediaQuery, DESKTOP_QUERY } from './utils/useMediaQuery';
 import { getShiftGroupsNow, getAdministrativeShiftDate, getActiveShifts, SHIFT_SLOTS, ShiftGroup } from './utils/shiftSchedule';
 import { shouldShowOpenModeReminder } from './utils/openModeReminder';
-import { MAX_SCHEDULE_COLUMNS, MIN_SCHEDULE_COLUMNS, stepScheduleColumnCount } from './utils/scheduleColumns';
 import type { BackupQuotaResult } from './utils/backupSchedule';
 import { Settings, RefreshCw, AlertTriangle, Calendar, CalendarDays, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, ArrowRightLeft, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp, Wallet, Menu, History } from 'lucide-react';
 import { supabase } from './supabaseClient';
@@ -4422,7 +4421,7 @@ const App: React.FC = () => {
              {/* MARQUEE BAR: Placed between header and table rows */}
              <div className={`w-full ${currentColorScheme.marqueeBg} border-b ${currentColorScheme.marqueeBorder} overflow-hidden h-10 relative flex items-center transition-all duration-1000`}>
                   
-                  <div data-testid="schedule-running-text-viewport" className="flex-1 min-w-0 overflow-hidden h-full relative flex items-center">
+                  <div className="flex-1 overflow-hidden h-full relative flex items-center">
                        <div className="absolute inset-0 flex items-center w-full">
                             <div className={`absolute left-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-r ${currentColorScheme.marqueeGradientFrom} to-transparent pointer-events-none transition-all duration-1000`}></div>
                             <div className={`absolute right-0 top-0 bottom-0 w-8 z-10 bg-gradient-to-l ${currentColorScheme.marqueeGradientFrom} to-transparent pointer-events-none transition-all duration-1000`}></div>
@@ -4454,49 +4453,6 @@ const App: React.FC = () => {
                             </div>
                        </div>
                   </div>
-
-                  {!isMobileScheduleReadOnly && (
-                    <div
-                      data-testid="schedule-columns-stepper"
-                      className={`relative z-20 flex h-full shrink-0 items-center gap-1 border-l ${currentColorScheme.marqueeBorder} ${currentColorScheme.marqueeBg} px-2 shadow-[-8px_0_12px_-10px_rgba(15,23,42,0.9)] transition-colors duration-1000`}
-                      role="group"
-                      aria-label="Jumlah kolom jadwal"
-                    >
-                      <button
-                        type="button"
-                        onClick={() => handleConfigChange(
-                          'columnsToDisplay',
-                          stepScheduleColumnCount(config.columnsToDisplay, -1),
-                        )}
-                        disabled={config.columnsToDisplay <= MIN_SCHEDULE_COLUMNS}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-current/20 bg-white/70 text-base font-black leading-none text-slate-700 shadow-sm transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-35 dark:bg-slate-800/80 dark:text-slate-100 dark:hover:bg-slate-700"
-                        aria-label="Kurangi jumlah kolom jadwal"
-                        title="Kurangi jumlah kolom"
-                      >
-                        −
-                      </button>
-                      <output
-                        className={`inline-flex h-7 min-w-7 items-center justify-center rounded-md px-1 font-mono text-[0.78em] font-black tabular-nums ${currentColorScheme.marqueeText}`}
-                        aria-live="polite"
-                        aria-label={`${config.columnsToDisplay} kolom jadwal`}
-                      >
-                        {config.columnsToDisplay}
-                      </output>
-                      <button
-                        type="button"
-                        onClick={() => handleConfigChange(
-                          'columnsToDisplay',
-                          stepScheduleColumnCount(config.columnsToDisplay, 1),
-                        )}
-                        disabled={config.columnsToDisplay >= MAX_SCHEDULE_COLUMNS}
-                        className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-current/20 bg-white/70 text-base font-black leading-none text-slate-700 shadow-sm transition-colors hover:bg-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:cursor-not-allowed disabled:opacity-35 dark:bg-slate-800/80 dark:text-slate-100 dark:hover:bg-slate-700"
-                        aria-label="Tambah jumlah kolom jadwal"
-                        title="Tambah jumlah kolom"
-                      >
-                        +
-                      </button>
-                    </div>
-                  )}
              </div>
 
             <div ref={schedulerScrollRef} className="overflow-x-auto lg:h-full">
