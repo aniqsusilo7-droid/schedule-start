@@ -3,6 +3,7 @@ import {
   CalendarDays, CalendarRange, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   Moon, Sun, Sunset, Coffee, Users, RotateCcw, Info, Check, ChevronDown,
 } from 'lucide-react';
+import { getNationalHoliday } from '../utils/nationalHolidays';
 import {
   getShiftAssignment, getShiftGroupsNow, getAdministrativeShiftDate, getGroupDuty, getActiveShifts,
   SHIFT_SLOTS, SHIFT_TIME_LABEL, ALL_SHIFT_GROUPS,
@@ -274,6 +275,12 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
   }, []);
 
   const monthCells = useMemo(() => buildMonthCells(year, month), [year, month]);
+  const monthHolidays = useMemo(() =>
+    daysOfMonth(year, month).flatMap(date => {
+      const name = getNationalHoliday(date);
+      return name ? [{ date, name }] : [];
+    }), [year, month]
+  );
   const statDates = useMemo(
     () => (viewMode === 'year' ? daysOfYear(year) : daysOfMonth(year, month)),
     [viewMode, year, month]
@@ -316,6 +323,8 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
     if (!date) return <div className="rounded-xl bg-transparent" />;
 
     const isToday = isSameDay(date, administrativeDate);
+    const holiday = getNationalHoliday(date);
+    const holidayDate = holiday ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : undefined;
     const assignment = getShiftAssignment(date);
     const isSunday = date.getDay() === 0;
 
@@ -325,7 +334,10 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
       const meta = DUTY[duty];
       return (
         <div
-          className={`relative rounded-xl border p-2 min-h-[82px] flex items-center justify-center transition-shadow ${meta.cell} ${
+          data-holiday-date={holidayDate}
+          className={`relative rounded-xl border p-2 pt-7 min-h-[98px] flex items-center justify-center transition-shadow ${meta.cell} ${
+            holiday ? 'outline outline-2 outline-rose-500 outline-offset-[-3px]' : ''
+          } ${
             isToday ? 'ring-2 ring-offset-2 ring-slate-900 dark:ring-white dark:ring-offset-slate-950 shadow-lg' : ''
           }`}
         >
@@ -342,6 +354,11 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
                 {SHIFT_TIME_LABEL[duty]}
               </div>
             )}
+            {holiday && (
+              <span title={holiday} className="rounded bg-rose-700 px-1 py-0.5 text-[9px] font-black leading-tight text-white">
+                LIBUR NASIONAL
+              </span>
+            )}
           </div>
         </div>
       );
@@ -350,15 +367,16 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
     /* Tanpa fokus: tampilkan keempat grup — tiga shift plus yang libur. */
     return (
       <div
+        data-holiday-date={holidayDate}
         className={`relative rounded-xl border p-1.5 min-h-[74px] flex flex-col gap-1 bg-white dark:bg-slate-900 ${
           isToday
             ? 'border-slate-900 dark:border-white ring-2 ring-slate-900 dark:ring-white shadow-lg'
-            : 'border-slate-200 dark:border-slate-800'
+            : holiday ? 'border-rose-500 ring-1 ring-rose-400' : 'border-slate-200 dark:border-slate-800'
         }`}
       >
         <div className="flex items-center justify-between gap-1 px-0.5">
           <span className={`text-xs font-black leading-none ${
-            isToday ? 'text-slate-900 dark:text-white' : isSunday ? 'text-rose-500' : 'text-slate-500 dark:text-slate-400'
+            holiday ? 'text-rose-600 dark:text-rose-400' : isToday ? 'text-slate-900 dark:text-white' : isSunday ? 'text-rose-500' : 'text-slate-500 dark:text-slate-400'
           }`}>
             {date.getDate()}
           </span>
@@ -388,6 +406,11 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
             );
           })}
         </div>
+        {holiday && (
+          <span title={holiday} className="self-start rounded bg-rose-700 px-1 py-0.5 text-[9px] font-black leading-tight text-white">
+            LIBUR NASIONAL
+          </span>
+        )}
       </div>
     );
   };
@@ -426,17 +449,22 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
           {cells.map((date, i) => {
             if (!date) return <span key={i} />;
             const isToday = isSameDay(date, administrativeDate);
+            const holiday = getNationalHoliday(date);
+            const holidayDate = holiday ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : undefined;
 
             if (focusGroup) {
               const meta = DUTY[getGroupDuty(focusGroup, date)];
               return (
                 <span
                   key={i}
-                  title={`${date.getDate()} ${MONTHS_SHORT[monthIndex]} ${year} — ${meta.label}`}
-                  className={`flex flex-col items-center justify-center gap-1 py-1.5 rounded-md border ${meta.cell} ${
-                    isToday ? 'ring-2 ring-slate-900 dark:ring-white' : ''
-                  }`}
+                  data-holiday-date={holidayDate}
+                  title={`${date.getDate()} ${MONTHS_SHORT[monthIndex]} ${year} — ${meta.label}${holiday ? ` — Libur Nasional: ${holiday}` : ''}`}
+                  aria-label={`${date.getDate()} ${MONTHS[monthIndex]} ${year}: ${meta.label}${holiday ? `; Libur Nasional: ${holiday}` : ''}`}
+                  className={`relative flex flex-col items-center justify-center gap-1 py-1.5 rounded-md border ${meta.cell} ${
+                    holiday ? 'outline outline-2 outline-rose-500 outline-offset-[-2px]' : ''
+                  } ${isToday ? 'ring-2 ring-slate-900 dark:ring-white' : ''}`}
                 >
+                  {holiday && <span aria-hidden="true" className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-rose-600 ring-1 ring-white" />}
                   <span className="text-xs font-black leading-none">{date.getDate()}</span>
                   <span className="text-[10px] font-black leading-none tracking-tight opacity-90">{meta.short}</span>
                 </span>
@@ -449,14 +477,17 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
             return (
               <span
                 key={i}
-                title={`${date.getDate()} ${MONTHS_SHORT[monthIndex]} ${year} — I: ${a.I}, II: ${a.II}, III: ${a.III}, Libur: ${a.off}`}
-                className={`flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-md border ${
+                data-holiday-date={holidayDate}
+                title={`${date.getDate()} ${MONTHS_SHORT[monthIndex]} ${year} — I: ${a.I}, II: ${a.II}, III: ${a.III}, Libur: ${a.off}${holiday ? ` — Libur Nasional: ${holiday}` : ''}`}
+                aria-label={`${date.getDate()} ${MONTHS[monthIndex]} ${year}: I ${a.I}, II ${a.II}, III ${a.III}, grup off ${a.off}${holiday ? `; Libur Nasional: ${holiday}` : ''}`}
+                className={`relative flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-md border ${
                   isToday
                     ? 'border-slate-900 dark:border-white bg-slate-100 dark:bg-slate-800'
-                    : 'border-slate-200 dark:border-slate-800'
+                    : holiday ? 'border-rose-500 bg-rose-50 dark:bg-rose-950/30' : 'border-slate-200 dark:border-slate-800'
                 }`}
               >
-                <span className="text-xs font-black leading-none text-slate-600 dark:text-slate-300">
+                {holiday && <span aria-hidden="true" className="absolute right-0.5 top-0.5 h-1.5 w-1.5 rounded-full bg-rose-600" />}
+                <span className={`text-xs font-black leading-none ${holiday ? 'text-rose-700 dark:text-rose-300' : 'text-slate-600 dark:text-slate-300'}`}>
                   {date.getDate()}
                 </span>
                 <span className="flex w-full gap-px">
@@ -601,6 +632,7 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
       {/* Kalender ditempatkan sebelum ringkasan agar tanggal menjadi fokus utama. */}
       {viewMode === 'month' ? (
         <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm p-3 overflow-x-auto">
+          <p className="mb-2 text-[10px] font-semibold text-slate-500 dark:text-slate-400 md:hidden">Geser kalender ke samping untuk melihat semua hari →</p>
           <div className="min-w-[680px]">
             <div className="grid grid-cols-7 gap-1.5 mb-1.5">
               {DOW.map((d, i) => (
@@ -619,6 +651,16 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
               {monthCells.map((date, i) => <MonthCell key={i} date={date} />)}
             </div>
           </div>
+          {monthHolidays.length > 0 && (
+            <div className="mt-3 rounded-xl border border-rose-300 bg-rose-50 p-2.5 text-xs dark:border-rose-900 dark:bg-rose-950/30">
+              <p className="mb-1.5 font-black uppercase tracking-wide text-rose-700 dark:text-rose-300">Libur Nasional {MONTHS[month]} {year}</p>
+              <ul className="space-y-1 text-slate-700 dark:text-slate-200">
+                {monthHolidays.map(({ date, name }) => (
+                  <li key={date.getDate()}><span className="font-black text-rose-700 dark:text-rose-300">{date.getDate()} {MONTHS[month]}</span> — {name}</li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 2xl:grid-cols-3 gap-3">
