@@ -2,6 +2,11 @@
 // bukan lampiran B yang berisi cuti bersama).
 // https://kemenkopmk.go.id/sites/default/files/pengumuman/2026-09/SKB%20Libur%20Nasional%20dan%20Cuti%20Bersama%20Tahun%202027.pdf
 // Tanggal Idulfitri dan Iduladha dapat ditetapkan lagi melalui keputusan Menag.
+// Penanda 2026 yang diminta pengguna; tidak mencakup cuti bersama.
+const NATIONAL_HOLIDAYS_2026: Record<string, string> = {
+  '2026-12-25': 'Hari Raya Natal',
+};
+
 const NATIONAL_HOLIDAYS_2027: Record<string, string> = {
   '2027-01-01': 'Tahun Baru 2027 Masehi',
   '2027-01-05': 'Isra Mikraj Nabi Muhammad SAW (1448 H)',
@@ -23,8 +28,27 @@ const NATIONAL_HOLIDAYS_2027: Record<string, string> = {
   '2027-12-26': 'Isra Mikraj Nabi Muhammad SAW (1449 H)',
 };
 
+// Libur internal ASC adalah penanda jadwal saja, bukan hari libur nasional.
+const COMPANY_HOLIDAYS: Record<string, string> = {
+  '2026-12-31': 'ASC',
+};
+
+export type ShiftCalendarHoliday = {
+  name: string;
+  label: 'LIBUR NASIONAL' | 'LIBUR ASC';
+  kind: 'national' | 'company';
+};
+
 /** Kalender sipil lokal: zona browser tidak boleh menggeser tanggal saat UTC berganti. */
 export const getNationalHoliday = (date: Date): string | undefined => {
   const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
-  return NATIONAL_HOLIDAYS_2027[key];
+  return NATIONAL_HOLIDAYS_2026[key] ?? NATIONAL_HOLIDAYS_2027[key];
+};
+
+export const getShiftCalendarHoliday = (date: Date): ShiftCalendarHoliday | undefined => {
+  const national = getNationalHoliday(date);
+  if (national) return { name: national, label: 'LIBUR NASIONAL', kind: 'national' };
+  const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`;
+  const company = COMPANY_HOLIDAYS[key];
+  return company ? { name: company, label: 'LIBUR ASC', kind: 'company' } : undefined;
 };

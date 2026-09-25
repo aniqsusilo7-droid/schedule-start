@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { getNationalHoliday } from './nationalHolidays.ts';
+import { getNationalHoliday, getShiftCalendarHoliday } from './nationalHolidays.ts';
 
 // Lampiran A SKB 3 Menteri 1205/2026, 3/2026, 2/2026 — hari libur nasional saja.
 const official2027: [string, string][] = [
@@ -30,6 +30,20 @@ test('menandai tepat 18 hari libur nasional 2027 berdasarkan SKB, termasuk yang 
     const [year, month, day] = isoDate.split('-').map(Number);
     assert.equal(getNationalHoliday(new Date(year, month - 1, day)), name, isoDate);
   }
+});
+
+test('25 Desember 2026 ditandai sebagai Natal tanpa menandai tanggal sekitarnya', () => {
+  assert.equal(getNationalHoliday(new Date(2026, 11, 25)), 'Hari Raya Natal');
+  assert.equal(getNationalHoliday(new Date(2026, 11, 24)), undefined);
+  assert.equal(getNationalHoliday(new Date(2026, 11, 26)), undefined);
+});
+
+test('31 Desember 2026 adalah libur ASC, bukan libur nasional', () => {
+  assert.deepEqual(getShiftCalendarHoliday(new Date(2026, 11, 31)), { name: 'ASC', label: 'LIBUR ASC', kind: 'company' });
+  assert.equal(getNationalHoliday(new Date(2026, 11, 31)), undefined);
+  assert.deepEqual(getShiftCalendarHoliday(new Date(2026, 11, 25)), { name: 'Hari Raya Natal', label: 'LIBUR NASIONAL', kind: 'national' });
+  assert.equal(getShiftCalendarHoliday(new Date(2026, 11, 30)), undefined);
+  assert.deepEqual(getShiftCalendarHoliday(new Date(2027, 0, 1)), { name: 'Tahun Baru 2027 Masehi', label: 'LIBUR NASIONAL', kind: 'national' });
 });
 
 test('tanggal cuti bersama dan hari biasa tidak ditandai sebagai libur nasional', () => {

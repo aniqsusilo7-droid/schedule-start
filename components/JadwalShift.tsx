@@ -3,7 +3,7 @@ import {
   CalendarDays, CalendarRange, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight,
   Moon, Sun, Sunset, Coffee, Users, RotateCcw, Info, Check, ChevronDown,
 } from 'lucide-react';
-import { getNationalHoliday } from '../utils/nationalHolidays';
+import { getShiftCalendarHoliday } from '../utils/nationalHolidays';
 import {
   getShiftAssignment, getShiftGroupsNow, getAdministrativeShiftDate, getGroupDuty, getActiveShifts,
   SHIFT_SLOTS, SHIFT_TIME_LABEL, ALL_SHIFT_GROUPS,
@@ -277,8 +277,8 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
   const monthCells = useMemo(() => buildMonthCells(year, month), [year, month]);
   const monthHolidays = useMemo(() =>
     daysOfMonth(year, month).flatMap(date => {
-      const name = getNationalHoliday(date);
-      return name ? [{ date, name }] : [];
+      const holiday = getShiftCalendarHoliday(date);
+      return holiday ? [{ date, ...holiday }] : [];
     }), [year, month]
   );
   const statDates = useMemo(
@@ -323,7 +323,7 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
     if (!date) return <div className="rounded-xl bg-transparent" />;
 
     const isToday = isSameDay(date, administrativeDate);
-    const holiday = getNationalHoliday(date);
+    const holiday = getShiftCalendarHoliday(date);
     const holidayDate = holiday ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : undefined;
     const assignment = getShiftAssignment(date);
     const isSunday = date.getDay() === 0;
@@ -355,8 +355,8 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
               </div>
             )}
             {holiday && (
-              <span title={holiday} className="rounded bg-rose-700 px-1 py-0.5 text-[9px] font-black leading-tight text-white">
-                LIBUR NASIONAL
+              <span title={holiday.name} className="rounded bg-rose-700 px-1 py-0.5 text-[9px] font-black leading-tight text-white">
+                {holiday.label}
               </span>
             )}
           </div>
@@ -407,8 +407,8 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
           })}
         </div>
         {holiday && (
-          <span title={holiday} className="self-start rounded bg-rose-700 px-1 py-0.5 text-[9px] font-black leading-tight text-white">
-            LIBUR NASIONAL
+          <span title={holiday.name} className="self-start rounded bg-rose-700 px-1 py-0.5 text-[9px] font-black leading-tight text-white">
+            {holiday.label}
           </span>
         )}
       </div>
@@ -449,7 +449,7 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
           {cells.map((date, i) => {
             if (!date) return <span key={i} />;
             const isToday = isSameDay(date, administrativeDate);
-            const holiday = getNationalHoliday(date);
+            const holiday = getShiftCalendarHoliday(date);
             const holidayDate = holiday ? `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}` : undefined;
 
             if (focusGroup) {
@@ -458,8 +458,8 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
                 <span
                   key={i}
                   data-holiday-date={holidayDate}
-                  title={`${date.getDate()} ${MONTHS_SHORT[monthIndex]} ${year} — ${meta.label}${holiday ? ` — Libur Nasional: ${holiday}` : ''}`}
-                  aria-label={`${date.getDate()} ${MONTHS[monthIndex]} ${year}: ${meta.label}${holiday ? `; Libur Nasional: ${holiday}` : ''}`}
+                  title={`${date.getDate()} ${MONTHS_SHORT[monthIndex]} ${year} — ${meta.label}${holiday ? ` — ${holiday.label === 'LIBUR NASIONAL' ? 'Libur Nasional' : 'Libur ASC'}: ${holiday.name}` : ''}`}
+                  aria-label={`${date.getDate()} ${MONTHS[monthIndex]} ${year}: ${meta.label}${holiday ? `; ${holiday.label === 'LIBUR NASIONAL' ? 'Libur Nasional' : 'Libur ASC'}: ${holiday.name}` : ''}`}
                   className={`relative flex flex-col items-center justify-center gap-1 py-1.5 rounded-md border ${meta.cell} ${
                     holiday ? 'outline outline-2 outline-rose-500 outline-offset-[-2px]' : ''
                   } ${isToday ? 'ring-2 ring-slate-900 dark:ring-white' : ''}`}
@@ -478,8 +478,8 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
               <span
                 key={i}
                 data-holiday-date={holidayDate}
-                title={`${date.getDate()} ${MONTHS_SHORT[monthIndex]} ${year} — I: ${a.I}, II: ${a.II}, III: ${a.III}, Libur: ${a.off}${holiday ? ` — Libur Nasional: ${holiday}` : ''}`}
-                aria-label={`${date.getDate()} ${MONTHS[monthIndex]} ${year}: I ${a.I}, II ${a.II}, III ${a.III}, grup off ${a.off}${holiday ? `; Libur Nasional: ${holiday}` : ''}`}
+                title={`${date.getDate()} ${MONTHS_SHORT[monthIndex]} ${year} — I: ${a.I}, II: ${a.II}, III: ${a.III}, Libur: ${a.off}${holiday ? ` — ${holiday.label === 'LIBUR NASIONAL' ? 'Libur Nasional' : 'Libur ASC'}: ${holiday.name}` : ''}`}
+                aria-label={`${date.getDate()} ${MONTHS[monthIndex]} ${year}: I ${a.I}, II ${a.II}, III ${a.III}, grup off ${a.off}${holiday ? `; ${holiday.label === 'LIBUR NASIONAL' ? 'Libur Nasional' : 'Libur ASC'}: ${holiday.name}` : ''}`}
                 className={`relative flex flex-col items-center justify-center gap-1 py-1.5 px-1 rounded-md border ${
                   isToday
                     ? 'border-slate-900 dark:border-white bg-slate-100 dark:bg-slate-800'
@@ -653,10 +653,10 @@ export const JadwalShift: React.FC<JadwalShiftProps> = ({ now: nowProp }) => {
           </div>
           {monthHolidays.length > 0 && (
             <div className="mt-3 rounded-xl border border-rose-300 bg-rose-50 p-2.5 text-xs dark:border-rose-900 dark:bg-rose-950/30">
-              <p className="mb-1.5 font-black uppercase tracking-wide text-rose-700 dark:text-rose-300">Libur Nasional {MONTHS[month]} {year}</p>
+              <p className="mb-1.5 font-black uppercase tracking-wide text-rose-700 dark:text-rose-300">Libur {MONTHS[month]} {year}</p>
               <ul className="space-y-1 text-slate-700 dark:text-slate-200">
-                {monthHolidays.map(({ date, name }) => (
-                  <li key={date.getDate()}><span className="font-black text-rose-700 dark:text-rose-300">{date.getDate()} {MONTHS[month]}</span> — {name}</li>
+                {monthHolidays.map(({ date, name, label }) => (
+                  <li key={date.getDate()}><span className="font-black text-rose-700 dark:text-rose-300">{date.getDate()} {MONTHS[month]}</span> — {name} ({label === 'LIBUR NASIONAL' ? 'Libur Nasional' : 'Libur ASC'})</li>
                 ))}
               </ul>
             </div>
