@@ -1,5 +1,5 @@
-export type OvertimeStatus = 'scheduled' | 'completed';
-export type OvertimeStatusOverride = 'auto' | OvertimeStatus;
+export type OvertimeStatus = 'scheduled' | 'ongoing' | 'completed';
+export type OvertimeStatusOverride = 'auto' | 'scheduled' | 'completed';
 
 export interface OvertimeStatusEntry {
   date: string;
@@ -109,8 +109,8 @@ export const getOvertimeStatus = (
   entry: OvertimeStatusEntry,
   now: Date = new Date(),
 ): OvertimeStatus => {
-  if (entry.statusOverride === 'scheduled' || entry.statusOverride === 'completed') {
-    return entry.statusOverride;
+  if (entry.statusOverride === 'completed') {
+    return 'completed';
   }
 
   const overtimeDate = parseLocalDate(entry.date);
@@ -131,6 +131,13 @@ export const getOvertimeStatus = (
   if (startMinutes === undefined || endMinutes === undefined) return 'scheduled';
 
   const crossesMidnight = endMinutes <= startMinutes;
+  const start = new Date(
+    overtimeDate.getFullYear(),
+    overtimeDate.getMonth(),
+    overtimeDate.getDate(),
+    Math.floor(startMinutes / 60),
+    startMinutes % 60,
+  );
   const completion = new Date(
     overtimeDate.getFullYear(),
     overtimeDate.getMonth(),
@@ -139,5 +146,6 @@ export const getOvertimeStatus = (
     endMinutes % 60,
   );
 
-  return now.getTime() >= completion.getTime() ? 'completed' : 'scheduled';
+  if (now.getTime() >= completion.getTime()) return 'completed';
+  return now.getTime() >= start.getTime() ? 'ongoing' : 'scheduled';
 };

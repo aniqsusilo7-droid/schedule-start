@@ -35,8 +35,14 @@ test('nilai preset diubah menjadi jam mulai dan selesai', () => {
   assert.equal(parseOvertimeTimePreset('08:00|12:00'), undefined);
 });
 
-test('status otomatis tetap terjadwal sebelum jam lembur selesai', () => {
-  assert.equal(getOvertimeStatus(automaticEntry, new Date(2026, 8, 19, 22, 59)), 'scheduled');
+test('status terjadwal hanya tampil sebelum jam mulai lembur', () => {
+  assert.equal(getOvertimeStatus(automaticEntry, new Date(2026, 8, 19, 18, 59)), 'scheduled');
+  assert.equal(getOvertimeStatus(automaticEntry, new Date(2026, 8, 19, 19, 0)), 'ongoing');
+  assert.equal(getOvertimeStatus(automaticEntry, new Date(2026, 8, 19, 22, 59)), 'ongoing');
+});
+
+test('status selesai setelah jam akhir lembur lewat', () => {
+  assert.equal(getOvertimeStatus(automaticEntry, new Date(2026, 8, 19, 23, 0)), 'completed');
 });
 
 test('tanggal satu digit tetap diproses oleh status otomatis', () => {
@@ -51,15 +57,19 @@ test('status otomatis selesai tepat pada jam akhir lembur', () => {
 
 test('jam akhir lintas tengah malam memakai tanggal berikutnya', () => {
   const overnight = { ...automaticEntry, startTime: '23:00', endTime: '07:00' };
-  assert.equal(getOvertimeStatus(overnight, new Date(2026, 8, 20, 6, 59)), 'scheduled');
+  assert.equal(getOvertimeStatus(overnight, new Date(2026, 8, 19, 22, 59)), 'scheduled');
+  assert.equal(getOvertimeStatus(overnight, new Date(2026, 8, 20, 6, 59)), 'ongoing');
   assert.equal(getOvertimeStatus(overnight, new Date(2026, 8, 20, 7, 0)), 'completed');
 });
 
-test('override manual mengalahkan hasil otomatis', () => {
-  assert.equal(
-    getOvertimeStatus({ ...automaticEntry, statusOverride: 'scheduled' }, new Date(2026, 8, 20, 8, 0)),
-    'scheduled',
-  );
+test('override Terjadwal lama tidak menahan status setelah jam mulai', () => {
+  const legacyOverride = { ...automaticEntry, statusOverride: 'scheduled' as const };
+  assert.equal(getOvertimeStatus(legacyOverride, new Date(2026, 8, 19, 18, 59)), 'scheduled');
+  assert.equal(getOvertimeStatus(legacyOverride, new Date(2026, 8, 19, 19, 0)), 'ongoing');
+  assert.equal(getOvertimeStatus(legacyOverride, new Date(2026, 8, 20, 8, 0)), 'completed');
+});
+
+test('override manual Selesai lama tetap terbaca', () => {
   assert.equal(
     getOvertimeStatus({ ...automaticEntry, statusOverride: 'completed' }, new Date(2026, 8, 18, 8, 0)),
     'completed',
