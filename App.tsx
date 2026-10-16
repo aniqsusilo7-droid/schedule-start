@@ -18,7 +18,6 @@ import {
   MIN_SCHEDULE_COLUMNS,
   stepScheduleColumnCount,
   getNoteIndicatorFontSize,
-  getStageInfoFontSize,
 } from './utils/scheduleColumns';
 import type { BackupQuotaResult } from './utils/backupSchedule';
 import { Settings, RefreshCw, AlertTriangle, Calendar, CalendarDays, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, ArrowRightLeft, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp, Wallet, Menu, History } from 'lucide-react';
@@ -4786,7 +4785,7 @@ const App: React.FC = () => {
                                   {shouldShowOpenModeReminder(item, now) ? (
                                       <div 
                                           className="flex-1 mx-1 self-center overflow-hidden whitespace-nowrap relative marquee-container select-none min-h-[20px] flex items-center" 
-                                          style={{ fontSize: getStageInfoFontSize(config.columnsToDisplay) }}
+                                          style={{ fontSize: '0.7em' }}
                                           title={`Check HWD LEVEL sebelum start${stageInfo ? ` • ${stageInfo}` : ''}`}
                                       >
                                           <div className="flex whitespace-nowrap w-full">
@@ -4828,7 +4827,7 @@ const App: React.FC = () => {
                                           </div>
                                       </div>
                                   ) : stageInfo ? (
-                                      <div className="flex-1 mx-1 self-center bg-yellow-400 text-black font-black text-center animate-pulse rounded px-1 uppercase tracking-tighter border-2 border-red-600 shadow-sm overflow-hidden text-ellipsis whitespace-nowrap" style={{ fontSize: getStageInfoFontSize(config.columnsToDisplay) }}>
+                                      <div className="flex-1 mx-1 self-center bg-yellow-400 text-black font-black text-center animate-pulse rounded px-1 uppercase tracking-tighter border-2 border-red-600 shadow-sm overflow-hidden text-ellipsis whitespace-nowrap" style={{ fontSize: '0.7em' }}>
                                           {stageInfo}
                                       </div>
                                   ) : null}

@@ -25,20 +25,3 @@ export const getNoteIndicatorFontSize = (columnsToDisplay: number): string => {
   if (columnsToDisplay === 9) return '0.40em';
   return '0.36em';
 };
-
-/**
- * Menghitung ukuran font label stage seperti 'SAMPLE BLOWING'
- * agar menyesuaikan dengan lebar kolom tabel.
- */
-export const getStageInfoFontSize = (columnsToDisplay: number): string => {
-  if (columnsToDisplay <= 1) return '0.85em';
-  if (columnsToDisplay === 2) return '0.80em';
-  if (columnsToDisplay === 3) return '0.75em';
-  if (columnsToDisplay === 4) return '0.70em';
-  if (columnsToDisplay === 5) return '0.65em';
-  if (columnsToDisplay === 6) return '0.60em';
-  if (columnsToDisplay === 7) return '0.54em';
-  if (columnsToDisplay === 8) return '0.48em';
-  if (columnsToDisplay === 9) return '0.44em';
-  return '0.40em';
-};
