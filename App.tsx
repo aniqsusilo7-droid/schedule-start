@@ -13,7 +13,13 @@ import { Sidebar, SidebarView, GroupedView } from './components/Sidebar';
 import { useMediaQuery, DESKTOP_QUERY } from './utils/useMediaQuery';
 import { getShiftGroupsNow, getAdministrativeShiftDate, getActiveShifts, SHIFT_SLOTS, ShiftGroup } from './utils/shiftSchedule';
 import { shouldShowOpenModeReminder } from './utils/openModeReminder';
-import { MAX_SCHEDULE_COLUMNS, MIN_SCHEDULE_COLUMNS, stepScheduleColumnCount } from './utils/scheduleColumns';
+import {
+  MAX_SCHEDULE_COLUMNS,
+  MIN_SCHEDULE_COLUMNS,
+  stepScheduleColumnCount,
+  getNoteIndicatorFontSize,
+  getStageInfoFontSize,
+} from './utils/scheduleColumns';
 import type { BackupQuotaResult } from './utils/backupSchedule';
 import { Settings, RefreshCw, AlertTriangle, Calendar, CalendarDays, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, ArrowRightLeft, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp, Wallet, Menu, History } from 'lucide-react';
 import { supabase } from './supabaseClient';
@@ -2813,7 +2819,7 @@ const App: React.FC = () => {
         skipReason: editForm.skipReason,
         mode: editForm.mode,
         grade: editForm.grade !== config.currentGrade ? editForm.grade : undefined,
-        shiftSubsequent: editForm.shiftSubsequent,
+        shiftSubsequent: editForm.isSkipped ? false : editForm.shiftSubsequent,
         manualDelayMinutes: editForm.manualDelayMinutes,
         stageInfo: editForm.stageInfo
       };
@@ -3038,10 +3044,11 @@ const App: React.FC = () => {
 
         let originalTime = new Date(sequenceCursor);
         let effectiveTime = originalTime;
+        const isSkipped = itemConfig?.isSkipped || false;
 
         if (itemConfig?.overrideTime) {
             const overrideDate = new Date(itemConfig.overrideTime);
-            if (itemConfig.shiftSubsequent) {
+            if (itemConfig.shiftSubsequent && !isSkipped) {
                 const diff = overrideDate.getTime() - effectiveTime.getTime();
                 sequenceCursor += diff; 
             }
@@ -3050,7 +3057,6 @@ const App: React.FC = () => {
 
         const deltaMinutes = Math.round((effectiveTime.getTime() - originalTime.getTime()) / 60000);
         let status: 'past' | 'active' | 'future' | 'skipped' = 'future';
-        const isSkipped = itemConfig?.isSkipped || false;
 
         if (isSkipped) {
             status = 'skipped';
@@ -3077,9 +3083,10 @@ const App: React.FC = () => {
           deltaMinutes: deltaMinutes
         });
 
+        sequenceCursor += (runningIntervalMinutes * 60000);
+        lastAddedIntervalMinutes = runningIntervalMinutes;
+
         if (!isSkipped) {
-            sequenceCursor += (runningIntervalMinutes * 60000);
-            lastAddedIntervalMinutes = runningIntervalMinutes;
             currentBatch++;
         }
         
@@ -3266,26 +3273,26 @@ const App: React.FC = () => {
 
           let originalTime = new Date(sequenceCursor);
           let effectiveTime = originalTime;
+          const isSkipped = itemConfig?.isSkipped || false;
 
           if (itemConfig?.overrideTime) {
               const overrideDate = new Date(itemConfig.overrideTime);
-              if (itemConfig.shiftSubsequent) {
+              if (itemConfig.shiftSubsequent && !isSkipped) {
                   const diff = overrideDate.getTime() - effectiveTime.getTime();
                   sequenceCursor += diff; 
               }
               effectiveTime = overrideDate;
           }
 
-          const isSkipped = itemConfig?.isSkipped || false;
-
           list.push({
             startTime: effectiveTime,
             isSkipped
           });
 
+          sequenceCursor += (runningIntervalMinutes * 60000);
+          lastAddedIntervalMinutes = runningIntervalMinutes;
+
           if (!isSkipped) {
-              sequenceCursor += (runningIntervalMinutes * 60000);
-              lastAddedIntervalMinutes = runningIntervalMinutes;
               currentBatch++;
           }
 
@@ -3305,9 +3312,7 @@ const App: React.FC = () => {
         
         const isSkipped = itemConfig?.isSkipped || false;
         
-        if (!isSkipped) {
-          prevCursor -= (totalIntervalMinutes * 60000);
-        }
+        prevCursor -= (totalIntervalMinutes * 60000);
         
         let effectiveTime = new Date(prevCursor);
         if (itemConfig?.overrideTime) {
@@ -3319,7 +3324,9 @@ const App: React.FC = () => {
           isSkipped
         });
 
-        prevBatch--;
+        if (!isSkipped) {
+          prevBatch--;
+        }
         reactorIndex = (reactorIndex - 1 + REACTORS.length) % REACTORS.length;
       }
 
@@ -4631,9 +4638,18 @@ const App: React.FC = () => {
                                 {/* Centered Note Indicator */}
                                 {item.config?.note && (
                                     <div className="absolute inset-x-0 top-0 flex justify-center pointer-events-none z-20">
-                                        <div className="flex items-center gap-0.5 bg-red-600 animate-pulse px-1.5 py-0.5 rounded shadow-md border border-white/50">
-                                            <FileText className="w-3.5 h-3.5 text-white" />
-                                            <span className="text-[0.75em] text-white font-black leading-none uppercase tracking-tighter whitespace-nowrap">CEK NOTE</span>
+                                        <div 
+                                            className="flex items-center gap-[0.2em] bg-red-600 animate-pulse rounded shadow-md border border-white/50 leading-none max-w-[48%] overflow-hidden"
+                                            style={{ 
+                                                fontSize: getNoteIndicatorFontSize(config.columnsToDisplay),
+                                                padding: '0.15em 0.35em'
+                                            }}
+                                            title={`Catatan: ${item.config.note}`}
+                                        >
+                                            <FileText className="w-[1.1em] h-[1.1em] text-white shrink-0" />
+                                            <span className="text-white font-black leading-none uppercase tracking-tighter whitespace-nowrap overflow-hidden text-ellipsis">
+                                                CEK NOTE
+                                            </span>
                                         </div>
                                     </div>
                                 )}
@@ -4770,7 +4786,7 @@ const App: React.FC = () => {
                                   {shouldShowOpenModeReminder(item, now) ? (
                                       <div 
                                           className="flex-1 mx-1 self-center overflow-hidden whitespace-nowrap relative marquee-container select-none min-h-[20px] flex items-center" 
-                                          style={{ fontSize: '0.7em' }}
+                                          style={{ fontSize: getStageInfoFontSize(config.columnsToDisplay) }}
                                           title={`Check HWD LEVEL sebelum start${stageInfo ? ` • ${stageInfo}` : ''}`}
                                       >
                                           <div className="flex whitespace-nowrap w-full">
@@ -4812,7 +4828,7 @@ const App: React.FC = () => {
                                           </div>
                                       </div>
                                   ) : stageInfo ? (
-                                      <div className="flex-1 mx-1 self-center bg-yellow-400 text-black font-black text-center animate-pulse rounded px-1 uppercase tracking-tighter border-2 border-red-600 shadow-sm overflow-hidden text-ellipsis whitespace-nowrap" style={{ fontSize: '0.7em' }}>
+                                      <div className="flex-1 mx-1 self-center bg-yellow-400 text-black font-black text-center animate-pulse rounded px-1 uppercase tracking-tighter border-2 border-red-600 shadow-sm overflow-hidden text-ellipsis whitespace-nowrap" style={{ fontSize: getStageInfoFontSize(config.columnsToDisplay) }}>
                                           {stageInfo}
                                       </div>
                                   ) : null}
