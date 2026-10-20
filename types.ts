@@ -37,6 +37,7 @@ export interface ScheduleItem {
   config?: ItemConfig;
   grade: GradeType; // Resolved grade
   deltaMinutes: number; // Difference from original scheduled time
+  dailyStartNumber?: number; // Urutan start reaktor pada tanggal tersebut
 }
 
 export type AlertStyleType = 'classic' | 'neon' | 'emergency' | 'glass' | 'industrial' | 'holo' | 'matrix' | 'minimal' | 'warning_stripe';

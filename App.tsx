@@ -13,6 +13,7 @@ import { Sidebar, SidebarView, GroupedView } from './components/Sidebar';
 import { useMediaQuery, DESKTOP_QUERY } from './utils/useMediaQuery';
 import { getShiftGroupsNow, getAdministrativeShiftDate, getActiveShifts, SHIFT_SLOTS, ShiftGroup } from './utils/shiftSchedule';
 import { shouldShowOpenModeReminder } from './utils/openModeReminder';
+import { assignDailyStartNumbers } from './utils/dailyStartCounter';
 import {
   MAX_SCHEDULE_COLUMNS,
   MIN_SCHEDULE_COLUMNS,
@@ -3093,6 +3094,14 @@ const App: React.FC = () => {
       }
     }
     
+    assignDailyStartNumbers(matrix, {
+      baseStartTime: baseDate,
+      baseBatchNumber: config.baseBatchNumber,
+      intervalMinutes: totalIntervalMinutes,
+      itemConfigs: config.itemConfigs,
+      reactorsCount: REACTORS.length,
+    });
+
     return { 
         scheduleMatrix: matrix, 
         nextStartParams: { 
@@ -4622,7 +4631,7 @@ const App: React.FC = () => {
                               
                               {/* Top Row: Batch, Date, Grade */}
                               <div className="flex justify-between items-start mb-0.5 relative">
-                                <div className="flex flex-col leading-none z-10 relative">
+                                <div className="flex flex-col items-start leading-none z-10 relative gap-1">
                                    {isSkipped ? (
                                          <div className={`font-black px-1 py-0.5 rounded leading-none ${reactor.color} ${reactor.textColor} border border-white/20 shadow-sm`} style={{ fontSize: '0.85em' }}>
                                              RE-{reactor.id}
@@ -4631,6 +4640,15 @@ const App: React.FC = () => {
                                          <span className={`font-bold font-mono ${isActive ? 'text-white' : (reactor.id === 'S' || reactor.id === 'T' ? (isFuture ? 'text-red-600 dark:text-red-600' : 'text-red-600 dark:text-red-400') : (isFuture ? 'text-red-500 dark:text-red-500' : 'text-red-500 dark:text-red-400'))} ${isPast ? '!text-inherit' : ''}`} style={{ fontSize: '1.0em' }}>
                                              <span className="opacity-50 text-[0.5em] mr-0.5">#</span>{item.batchNumber}
                                          </span>
+                                   )}
+                                   {!isSkipped && item.dailyStartNumber !== undefined && (
+                                     <div 
+                                       className={`font-black px-1.5 py-0.5 rounded leading-none ${isActive ? 'bg-white text-red-600' : `${GRADE_COLORS[item.grade] || 'bg-slate-200'} text-white`} shadow-sm`} 
+                                       style={{ fontSize: '0.9em' }}
+                                       title={`Batch #${item.dailyStartNumber} pada tanggal ${formatDate(getBatchDate(item.startTime))}`}
+                                     >
+                                       {item.dailyStartNumber}
+                                     </div>
                                    )}
                                 </div>
                                 
@@ -4653,7 +4671,7 @@ const App: React.FC = () => {
                                     </div>
                                 )}
 
-                                <div className="text-right z-10">
+                                <div className="text-right z-10 flex flex-col items-end">
                                   <div className={`font-black px-1.5 py-0.5 rounded leading-none ${isActive ? 'bg-white text-red-600' : (isSkipped ? 'bg-stone-300 dark:bg-stone-800 text-stone-600 dark:text-stone-400' : `${GRADE_COLORS[item.grade] || 'bg-slate-200'} text-white`)}`} style={{ fontSize: '0.9em' }}>
                                       {item.grade}
                                   </div>
