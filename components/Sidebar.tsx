@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
 import {
   LayoutGrid, Activity, Database, Calendar, CalendarDays, Wallet, Settings,
-  ArrowRightLeft, Calculator, ExternalLink, ChevronDown, PanelRightClose, PanelRightOpen, X
+  ArrowRightLeft, Calculator, ExternalLink, ChevronDown, PanelRightClose, PanelRightOpen, X, Gauge
 } from 'lucide-react';
 import { GroupKey, ALL_GROUPS } from './Jadwal';
 
@@ -24,7 +24,7 @@ interface InternalMenuItem extends MenuItemBase {
 }
 
 interface ExternalMenuItem extends MenuItemBase {
-  id: 'payrollCalculator';
+  id: 'payrollCalculator' | 'rateTopas';
   href: string;
 }
 
@@ -44,6 +44,15 @@ const SECTIONS: MenuSection[] = [
       { id: 'scheduler', label: 'POLYMER',   Icon: LayoutGrid, activeBg: 'bg-blue-600', activeRing: 'ring-blue-400', iconColor: 'text-blue-500' },
       { id: 'demonomer', label: 'DEMONOMER', Icon: Activity,   activeBg: 'bg-teal-600', activeRing: 'ring-teal-400', iconColor: 'text-teal-500' },
       { id: 'silo',      label: 'SILO',      Icon: Database,   activeBg: 'bg-cyan-600', activeRing: 'ring-cyan-400', iconColor: 'text-cyan-500' },
+      {
+        id: 'rateTopas',
+        label: 'RATE TOPAS',
+        Icon: Gauge,
+        activeBg: 'bg-orange-600',
+        activeRing: 'ring-orange-400',
+        iconColor: 'text-orange-500',
+        href: 'https://bagging-p5.vercel.app/',
+      },
     ],
   },
   {
