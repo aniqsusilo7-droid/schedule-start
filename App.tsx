@@ -3,13 +3,8 @@ import React, { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { REACTORS, GRADE_COLORS } from './constants';
 import { AppState, ScheduleItem, ItemConfig, GradeType, SiloState, SiloData, DemonomerData, AlarmSoundType, AlertStyleType } from './types';
 import { addMinutes, formatDate, formatTime, getBatchDate } from './utils/dateUtils';
-import { Demonomer } from './components/Demonomer';
-import { Silo } from './components/Silo';
 import { ScheduleInfoCarousel } from './components/ScheduleInfoCarousel';
-import { Jadwal, GroupKey, GROUP_THEMES } from './components/Jadwal';
-import { KasGrup } from './components/KasGrup';
-import { JadwalShift } from './components/JadwalShift';
-import { Sidebar, SidebarView, GroupedView } from './components/Sidebar';
+import { Sidebar, SidebarView } from './components/Sidebar';
 import { useMediaQuery, DESKTOP_QUERY } from './utils/useMediaQuery';
 import { getShiftGroupsNow, getAdministrativeShiftDate, getActiveShifts, SHIFT_SLOTS, ShiftGroup } from './utils/shiftSchedule';
 import { shouldShowOpenModeReminder } from './utils/openModeReminder';
@@ -20,21 +15,29 @@ import {
   stepScheduleColumnCount,
   getNoteIndicatorFontSize,
 } from './utils/scheduleColumns';
-import type { BackupQuotaResult } from './utils/backupSchedule';
-import { Settings, RefreshCw, AlertTriangle, Calendar, CalendarDays, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, ArrowRightLeft, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, TrendingUp, Wallet, Menu, History } from 'lucide-react';
+import { Settings, RefreshCw, AlertTriangle, Calendar, CalendarDays, Hash, Volume2, VolumeX, Edit3, X, PlayCircle, Clock as ClockIcon, FileText, Ban, FastForward, PauseCircle, ArrowRightCircle, CheckCircle2, Wrench, RotateCcw, Power, Bell, Timer, ChevronDown, ChevronUp, Info, Tag, ArrowRight, ArrowRightLeft, LayoutGrid, Activity, Database, Type, Sun, Moon, Pause, Play, Save, Gauge, Move, ArrowUp, ArrowDown, Palette, ZoomIn, ZoomOut, Monitor, Maximize2, Check, Calculator, StickyNote, Handshake, Trash2, Sliders, Eye, Sparkles, ShieldAlert, ShieldCheck, Lock, Unlock, KeyRound, TrendingUp, Wallet, Menu, History } from 'lucide-react';
 import { supabase } from './supabaseClient';
 import { Reorder } from 'framer-motion';
-import { Fie2002TrendModal, Fie2002TrendEntry } from './components/Fie2002TrendModal';
 import { DraggableModal } from './components/DraggableModal';
-import { UnitConverter } from './components/UnitConverter';
 import { NumberTicker } from './components/NumberTicker';
-import { AuditLog } from './components/AuditLog';
+
+interface Fie2002TrendEntry {
+  id: string;
+  timestamp: number;
+  timeString: string;
+  hourKey: string;
+  value: number;
+  note?: string;
+}
 import { AuditLogInput, cloneAuditValue, createAuditRow } from './utils/auditLog';
 import { InstallPwaFab } from './components/InstallPwaFab';
-import { DashboardPasswordModal, PasswordModalMode } from './components/DashboardPasswordModal';
-
-const DASHBOARD_PASSWORD_NOTE_ID = '__dashboard_password__';
-const DASHBOARD_INACTIVITY_SECONDS = 300; // 5 menit (300 detik)
+import { PolymerLockScreen, PolymerSecurityModal } from './components/PolymerSecurityModal';
+import { 
+  getPolymerSecurityConfig, 
+  isPolymerSessionUnlocked, 
+  setPolymerSessionUnlocked, 
+  PolymerSecurityConfig 
+} from './utils/polymerAuth';
 
 const GRADES: GradeType[] = ['SM', 'SLK', 'SLP', 'SE', 'SR'];
 const STAGE_OPTIONS = ['Sample Blowing', 'Sample Washing', 'Sample Air Slurry'];
@@ -46,14 +49,7 @@ const MOBILE_CELL_MIN = 104;
 
 /* Label & ikon tiap halaman, dipakai breadcrumb di header. */
 const VIEW_META: Record<SidebarView, { label: string; Icon: React.ComponentType<{ className?: string }>; color: string }> = {
-  scheduler: { label: 'POLYMER',       Icon: LayoutGrid, color: 'text-blue-500' },
-  demonomer: { label: 'DEMONOMER',     Icon: Activity,   color: 'text-teal-500' },
-  silo:      { label: 'SILO',          Icon: Database,   color: 'text-cyan-500' },
-  jadwalShift: { label: 'JADWAL SHIFT', Icon: CalendarDays, color: 'text-rose-500' },
-  jadwal:    { label: 'JADWAL BACKUP', Icon: Calendar,   color: 'text-amber-500' },
-  kas:       { label: 'KAS GRUP',      Icon: Wallet,     color: 'text-violet-500' },
-  unitConverter: { label: 'KONVERSI UNIT', Icon: ArrowRightLeft, color: 'text-cyan-500' },
-  auditLog: { label: 'RIWAYAT PERUBAHAN', Icon: History, color: 'text-orange-500' },
+  scheduler: { label: 'POLYMER', Icon: LayoutGrid, color: 'text-blue-500' },
 };
 
 /* Warna grup mengikuti tema grup di halaman Jadwal/Kas agar konsisten. */
@@ -64,102 +60,46 @@ const SHIFT_GROUP_COLOR: Record<ShiftGroup, string> = {
   D: 'bg-amber-500 text-slate-950',
 };
 
-/** Grup yang memegang tiap shift hari ini. Berganti otomatis tiap tanggal,
-    dan menyorot shift yang sedang berjalan menurut jam saat ini. */
+/** Menampilkan tanggal dan jam berjalan di header. */
 const ShiftToday: React.FC<{ date: Date; className?: string }> = ({ date, className = '' }) => {
-  /* Roster memakai tanggal administratif yang berganti pukul 23:00. Shift I
-     tanggal berikutnya masuk 15 menit lebih awal untuk serah terima. */
-  const assignment = getShiftGroupsNow(date);
   const administrativeDate = getAdministrativeShiftDate(date);
-  const active = getActiveShifts(date);
   const [hours, minutes, seconds] = date
     .toLocaleTimeString('en-GB', { hour12: false })
     .split(':');
-  /* Dua shift aktif berarti sedang dalam 15 menit serah terima. */
-  const isHandover = active.length > 1;
 
   return (
-    /* Basis sengaja tanpa kelas `display`: pemanggil yang menentukan lewat
-       `hidden lg:flex`, supaya tidak ada dua kelas display yang bertabrakan. */
-    <div className={`flex-col rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm overflow-hidden ${className}`}>
-
-      {/* Tanggal: dipindah ke sini dari bawah judul agar jadi satu kartu. */}
-      <div className="flex items-center justify-center gap-2 px-3 py-1 bg-slate-100 dark:bg-slate-900/70 border-b border-slate-200 dark:border-slate-700">
-        <Calendar className="w-[0.85em] h-[0.85em] text-slate-400 dark:text-slate-500 shrink-0" />
-        <span className="text-[0.95em] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 whitespace-nowrap leading-none">
+    <div className={`items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800 shadow-sm overflow-hidden px-4 py-2 ${className}`}>
+      <div className="flex items-center justify-center gap-2.5">
+        <Calendar className="w-[0.95em] h-[0.95em] text-slate-400 dark:text-slate-500 shrink-0" />
+        <span className="text-[1em] font-black uppercase tracking-widest text-slate-600 dark:text-slate-300 whitespace-nowrap leading-none">
           {formatDate(administrativeDate)}
         </span>
-        <span aria-hidden="true" className="h-[1.1em] w-px bg-slate-300 dark:bg-slate-700" />
+        <span aria-hidden="true" className="h-[1.2em] w-px bg-slate-300 dark:bg-slate-700" />
         <time
           dateTime={date.toISOString()}
           aria-label={`Pukul ${hours}:${minutes}:${seconds}`}
-          className="flex items-center gap-1 font-mono font-black text-[0.95em] tracking-wider text-slate-700 dark:text-slate-200 whitespace-nowrap leading-none tabular-nums"
+          className="flex items-center gap-1 font-mono font-black text-[1.05em] tracking-wider text-slate-700 dark:text-slate-200 whitespace-nowrap leading-none tabular-nums"
         >
-          <ClockIcon className="w-[0.85em] h-[0.85em] text-cyan-500 shrink-0" />
+          <ClockIcon className="w-[0.95em] h-[0.95em] text-cyan-500 shrink-0" />
           <span>{hours}</span>
           <span className="text-cyan-500 animate-pulse">:</span>
           <span>{minutes}</span>
           <span className="text-cyan-500 animate-pulse">:</span>
           <span className="text-cyan-600 dark:text-cyan-400">{seconds}</span>
         </time>
-        {isHandover && (
-          <span className="text-[0.42em] font-black uppercase tracking-widest px-1.5 py-0.5 rounded bg-amber-400 text-amber-950 whitespace-nowrap">
-            Serah Terima
-          </span>
-        )}
-      </div>
-
-      <div className="flex flex-1 items-stretch">
-        {SHIFT_SLOTS.map((slot, i) => {
-          const isActive = active.includes(slot);
-          return (
-            <div
-              key={slot}
-              className={`flex-1 flex flex-col min-w-0 transition-colors ${
-                i > 0 ? 'border-l border-slate-200 dark:border-slate-700' : ''
-              }`}
-            >
-              {/* Label shift: tanpa latar, hanya warna teks yang menandai aktif. */}
-              <span className={`px-2.5 lg:px-8 py-1 lg:py-1.5 text-[0.58em] font-black uppercase tracking-widest text-center whitespace-nowrap leading-none ${
-                isActive
-                  ? 'text-emerald-600 dark:text-emerald-400'
-                  : 'text-slate-400 dark:text-slate-500'
-              }`}>
-                Shift {slot}
-              </span>
-
-              {/* Nama grup: warnanya memenuhi lebar dan sisa tinggi sel. */}
-              <span className={`flex-1 flex items-center justify-center px-2 py-1.5 lg:py-2.5 text-[0.75em] font-black uppercase tracking-wider whitespace-nowrap leading-none ${SHIFT_GROUP_COLOR[assignment[slot]]} ${
-                isActive ? '' : 'opacity-40'
-              }`}>
-                Grup {assignment[slot]}
-              </span>
-            </div>
-          );
-        })}
       </div>
     </div>
   );
 };
 
-const Breadcrumb: React.FC<{ view: SidebarView; group: GroupKey }> = ({ view, group }) => {
-  const meta = VIEW_META[view];
-  const showGroup = view === 'jadwal' || view === 'kas';
+const Breadcrumb: React.FC<{ view?: SidebarView }> = ({ view = 'scheduler' }) => {
+  const meta = VIEW_META[view] || VIEW_META.scheduler;
   return (
     <div className="lg:hidden flex items-center gap-2 shrink-0 px-2.5 py-2 rounded-xl bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm">
       <meta.Icon className={`w-3.5 h-3.5 shrink-0 ${meta.color}`} />
-      {/* Di HP label diganti badge grup saja bila ada, supaya tidak
-          mendesak judul keluar layar. */}
-      <span className={`text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300 ${
-        showGroup ? 'hidden' : 'inline'
-      }`}>
+      <span className="text-[11px] font-black uppercase tracking-wider text-slate-600 dark:text-slate-300">
         {meta.label}
       </span>
-      {showGroup && (
-        <span className={`text-[11px] font-black uppercase tracking-wider px-2 py-0.5 rounded-md ${GROUP_THEMES[group].activeTabBg}`}>
-          {group}
-        </span>
-      )}
     </div>
   );
 };
@@ -1114,67 +1054,77 @@ const App: React.FC = () => {
   const isMobileScheduleReadOnly = !isDesktop;
   const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
 
-  // --- Dashboard Password & Auto-Lock State (Stored in Supabase, Session in Memory) ---
-  const [dashboardPassword, setDashboardPassword] = useState<string>('');
-  const [isDashboardUnlocked, setIsDashboardUnlocked] = useState<boolean>(false);
-  const [dashboardLockCountdown, setDashboardLockCountdown] = useState<number>(DASHBOARD_INACTIVITY_SECONDS);
-  const [passwordModalState, setPasswordModalState] = useState<{
-    isOpen: boolean;
-    mode: PasswordModalMode;
-  }>({ isOpen: false, mode: 'unlock' });
-
-  const hasDashboardPassword = Boolean(dashboardPassword && dashboardPassword.trim().length > 0);
-  const isDashboardLocked = !hasDashboardPassword || !isDashboardUnlocked;
-
-  const openPasswordModal = useCallback((mode: PasswordModalMode) => {
-    setPasswordModalState({ isOpen: true, mode });
-  }, []);
-
-  const requireDashboardUnlock = useCallback((): boolean => {
-    if (isDashboardLocked) {
-      setPasswordModalState({ isOpen: true, mode: 'unlock' });
-      return false;
-    }
-    return true;
-  }, [isDashboardLocked]);
-
-  /* Grup shift aktif. Tiap grup adalah halaman tersendiri, jadi kombinasi
-     currentView + currentGroup yang menentukan halaman mana yang tampil. */
-  const [currentGroup, setCurrentGroup] = useState<GroupKey>(() => {
-    const saved = localStorage.getItem('lastActiveGroup');
-    return (saved as GroupKey) || 'GRUP D';
-  });
-
-  const [backupFocusTarget, setBackupFocusTarget] = useState<(BackupQuotaResult & { requestId: number }) | null>(null);
-
   const [sidebarCollapsed, setSidebarCollapsed] = useState<boolean>(
     () => localStorage.getItem('sidebarCollapsed') === '1'
   );
 
   useEffect(() => {
-    localStorage.setItem('lastActiveGroup', currentGroup);
-  }, [currentGroup]);
-
-  useEffect(() => {
     localStorage.setItem('sidebarCollapsed', sidebarCollapsed ? '1' : '0');
   }, [sidebarCollapsed]);
+  // Polymer Dashboard Password Protection State (Firebase Firestore)
+  const [polymerSecurityConfig, setPolymerSecurityConfig] = useState<PolymerSecurityConfig>({ isSet: false });
+  const [isPolymerUnlocked, setIsPolymerUnlocked] = useState<boolean>(() => isPolymerSessionUnlocked());
+  const [isSecurityModalOpen, setIsSecurityModalOpen] = useState(false);
+  const [polymerLockCountdown, setPolymerLockCountdown] = useState<number>(300);
+  const lastPolymerActivityRef = useRef<number>(Date.now());
 
-  const handleSelectGroup = useCallback((view: GroupedView, group: GroupKey) => {
-    setCurrentView(view);
-    setCurrentGroup(group);
-    setBackupFocusTarget(null);
+  const loadPolymerSecurity = useCallback(async () => {
+    try {
+      const sec = await getPolymerSecurityConfig();
+      setPolymerSecurityConfig(sec);
+    } catch (err) {
+      console.error('Failed to load Polymer security config:', err);
+    }
   }, []);
 
-  const handleOpenBackupQuota = useCallback((target: BackupQuotaResult) => {
-    setBackupFocusTarget({ ...target, requestId: Date.now() });
-    setCurrentGroup(target.group);
-    setCurrentView('jadwal');
-  }, []);
+  useEffect(() => {
+    loadPolymerSecurity();
+  }, [loadPolymerSecurity]);
 
-  const handleBackupFocusHandled = useCallback(() => {
-    setBackupFocusTarget(null);
-  }, []);
-  const [isDemonomerPopupOpen, setIsDemonomerPopupOpen] = useState(false);
+  // 5-Minute (300s) Inactivity Auto-Lock Countdown for Polymer Dashboard
+  useEffect(() => {
+    if (!isPolymerUnlocked) {
+      setPolymerLockCountdown(300);
+      return;
+    }
+
+    lastPolymerActivityRef.current = Date.now();
+    setPolymerLockCountdown(300);
+
+    const handleActivity = () => {
+      lastPolymerActivityRef.current = Date.now();
+    };
+
+    window.addEventListener('mousemove', handleActivity, { passive: true });
+    window.addEventListener('mousedown', handleActivity, { passive: true });
+    window.addEventListener('keydown', handleActivity, { passive: true });
+    window.addEventListener('touchstart', handleActivity, { passive: true });
+    window.addEventListener('scroll', handleActivity, { passive: true, capture: true });
+    window.addEventListener('click', handleActivity, { passive: true });
+
+    const interval = setInterval(() => {
+      const elapsedSeconds = Math.floor((Date.now() - lastPolymerActivityRef.current) / 1000);
+      const remaining = Math.max(0, 300 - elapsedSeconds);
+      setPolymerLockCountdown(remaining);
+
+      if (remaining <= 0) {
+        clearInterval(interval);
+        setPolymerSessionUnlocked(false);
+        setIsPolymerUnlocked(false);
+        setIsSecurityModalOpen(false);
+      }
+    }, 1000);
+
+    return () => {
+      window.removeEventListener('mousemove', handleActivity);
+      window.removeEventListener('mousedown', handleActivity);
+      window.removeEventListener('keydown', handleActivity);
+      window.removeEventListener('touchstart', handleActivity);
+      window.removeEventListener('scroll', handleActivity, { capture: true } as EventListenerOptions);
+      window.removeEventListener('click', handleActivity);
+      clearInterval(interval);
+    };
+  }, [isPolymerUnlocked]);
   
   const [stoppedAt, setStoppedAt] = useState<number | null>(() => {
     const saved = localStorage.getItem('app_stopped_at');
@@ -1210,14 +1160,6 @@ const App: React.FC = () => {
   // State for Reactor Note editing
   const [editingReactorNote, setEditingReactorNote] = useState<string | null>(null);
   const [tempReactorNote, setTempReactorNote] = useState("");
-
-  // State for Silo START Confirmation Modal
-  const [startSiloData, setStartSiloData] = useState<{
-      id: 'O' | 'P' | 'Q';
-      lotNumber: string;
-      capacitySet: string;
-      startTime: string;
-  } | null>(null);
   
   // Zoom State (Supabase Persistence)
   const [zoomLevel, setZoomLevel] = useState<number>(1);
@@ -1238,7 +1180,6 @@ const App: React.FC = () => {
     }
   });
 
-  const [isCatalystModalOpen, setIsCatalystModalOpen] = useState(false);
   const [tempCatalystPresets, setTempCatalystPresets] = useState<Record<string, Record<string, string>>>({
     SM: { F: '16,3', H: '25,7' },
     SLP: { F: '', H: '' },
@@ -1263,14 +1204,12 @@ const App: React.FC = () => {
 
   const openGradeChangeModal = () => {
     if (isMobileScheduleReadOnly) return;
-    if (!requireDashboardUnlock()) return;
     setTempSelectedGradeForChange(config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade);
     setIsGradeChangeModalOpen(true);
   };
 
   const handleConfirmGradeChange = () => {
     if (isMobileScheduleReadOnly) return;
-    if (!requireDashboardUnlock()) return;
     const previousGrade = demonomerGrade;
     setDemonomerGrade(tempSelectedGradeForChange);
     handleConfigChange('gradeMode', 'gradeChange');
@@ -1288,7 +1227,6 @@ const App: React.FC = () => {
   };
 
   // --- FIE2002 Hourly Trend State & Persistence ---
-  const [isFie2002TrendOpen, setIsFie2002TrendOpen] = useState(false);
   const [fie2002TrendHistory, setFie2002TrendHistory] = useState<Fie2002TrendEntry[]>(() => {
     try {
       const saved = localStorage.getItem('fie2002_trend_history');
@@ -1509,8 +1447,6 @@ const App: React.FC = () => {
   }, [audioNotification?.show, audioNotification?.message]);
   const [dbSchemaError, setDbSchemaError] = useState<string | null>(null);
   const supabaseColumnsRef = useRef<Set<string>>(new Set());
-  const isCatalystModalOpenRef = useRef(false);
-  const isDemonomerPopupOpenRef = useRef(false);
   const pendingAuditRef = useRef<Map<string, { input: AuditLogInput; timer: ReturnType<typeof setTimeout> }>>(new Map());
 
   // Store active alarm sound in ref to avoid stale closures during first interaction
@@ -1524,9 +1460,9 @@ const App: React.FC = () => {
   const hasInitializedAudioNoticeRef = useRef(false);
   const initialGracePeriodOverRef = useRef(false);
 
-  // When app finishes loading and website is unlocked: initialize audio context silently & request desktop notification permission
+  // When app finishes loading: initialize audio context silently & request desktop notification permission (No sound on initial load/refresh)
   useEffect(() => {
-    if (!isLoading && !isDashboardLocked) {
+    if (!isLoading) {
         initAudioContext();
         setAudioAllowed(true);
 
@@ -1556,15 +1492,7 @@ const App: React.FC = () => {
 
         }
     }
-  }, [isLoading, isDashboardLocked, config.alarmSound]);
-
-  useEffect(() => {
-    isCatalystModalOpenRef.current = isCatalystModalOpen;
-  }, [isCatalystModalOpen]);
-
-  useEffect(() => {
-    isDemonomerPopupOpenRef.current = isDemonomerPopupOpen;
-  }, [isDemonomerPopupOpen]);
+  }, [isLoading, config.alarmSound]);
 
   const lastCycleTimeUpdateRef = useRef<number>(0);
 
@@ -1579,8 +1507,8 @@ const App: React.FC = () => {
 
   useEffect(() => {
     if (!isSettingsOpen) {
-      setSettingsCountdown(120);
-      setIsAlertStyleSectionOpen(false);
+      setSettingsCountdown(prev => prev === 120 ? prev : 120);
+      setIsAlertStyleSectionOpen(prev => prev ? false : prev);
       return;
     }
 
@@ -1748,20 +1676,11 @@ const App: React.FC = () => {
 
     try {
       const notesMap: Record<string, string> = {};
-      let loadedPassword = '';
       if (notesData) {
           notesData.forEach((row: any) => {
-              if (row.reactor_id === DASHBOARD_PASSWORD_NOTE_ID) {
-                  loadedPassword = row.note || '';
-              } else {
-                  notesMap[row.reactor_id] = row.note;
-              }
+              notesMap[row.reactor_id] = row.note;
           });
       }
-      if (!loadedPassword && settingsData?.catalyst_data?.dashboardPassword) {
-          loadedPassword = String(settingsData.catalyst_data.dashboardPassword);
-      }
-      setDashboardPassword(loadedPassword);
 
       const itemConfigsMap: Record<string, ItemConfig> = {};
       if (overridesData) {
@@ -1858,8 +1777,7 @@ const App: React.FC = () => {
                   presets: mergedPresets
               };
 
-              const isEditingCatalyst = isCatalystModalOpenRef.current || 
-                  (isFocusedOnInput && (activeEl.closest('.catalyst-widget-container') || activeEl.closest('.catalyst-modal-container')));
+              const isEditingCatalyst = Boolean(isFocusedOnInput && (activeEl.closest('.catalyst-widget-container') || activeEl.closest('.catalyst-modal-container')));
 
               if (!isEditingCatalyst) {
                   setCatalystData(updatedCatalyst);
@@ -1877,8 +1795,7 @@ const App: React.FC = () => {
 
           // Load Demonomer Data
           if (settingsData.demonomer_data) {
-              const isEditingDemonomer = isDemonomerPopupOpenRef.current || 
-                  (isFocusedOnInput && activeEl.closest('.demonomer-widget-container'));
+              const isEditingDemonomer = Boolean(isFocusedOnInput && activeEl.closest('.demonomer-widget-container'));
               if (!isEditingDemonomer) {
                   setDemonomerData(settingsData.demonomer_data);
               }
@@ -2087,7 +2004,6 @@ const App: React.FC = () => {
       isMobileScheduleReadOnly &&
       (currentView === 'scheduler' || key === 'currentGrade' || key === 'gradeMode')
     ) return;
-    if (key !== 'theme' && !requireDashboardUnlock()) return;
     const previousValue = config[key];
     setConfig((prev) => ({ ...prev, [key]: value }));
 
@@ -2148,7 +2064,6 @@ const App: React.FC = () => {
 
   const handleDemonomerGradeChange = (grade: GradeType) => {
       if (isMobileScheduleReadOnly) return;
-      if (!requireDashboardUnlock()) return;
       if (config.gradeMode === 'normal') {
           handleConfigChange('currentGrade', grade);
           return;
@@ -2188,13 +2103,13 @@ const App: React.FC = () => {
   useEffect(() => {
     if (config.isStopped) {
       if (stoppedAt) {
-        setNow(new Date(stoppedAt));
+        setNow(prev => prev.getTime() === stoppedAt ? prev : new Date(stoppedAt));
       } else {
         const freezeTs = Date.now();
         setStoppedAt(freezeTs);
         localStorage.setItem('app_stopped_at', String(freezeTs));
         localStorage.setItem('app_is_stopped', 'true');
-        setNow(new Date(freezeTs));
+        setNow(prev => prev.getTime() === freezeTs ? prev : new Date(freezeTs));
       }
       return;
     }
@@ -2327,158 +2242,7 @@ const App: React.FC = () => {
       setEditingReactorNote(null);
       setIsResetModalOpen(false);
       setIsGradeChangeModalOpen(false);
-      setIsCatalystModalOpen(false);
-      setIsDemonomerPopupOpen(false);
-      setStartSiloData(null);
   }, [isDesktop]);
-
-  // --- Kunci Sekarang & 5 Menit Inactivity Auto-Lock ---
-  const lockDashboardNow = useCallback(() => {
-      setIsDashboardUnlocked(false);
-      setDashboardLockCountdown(DASHBOARD_INACTIVITY_SECONDS);
-      setPasswordModalState({ isOpen: false, mode: 'unlock' });
-      setIsSettingsOpen(false);
-      setSelectedItem(null);
-      setEditingReactorNote(null);
-      setIsResetModalOpen(false);
-      setIsGradeChangeModalOpen(false);
-      setIsCatalystModalOpen(false);
-      setIsDemonomerPopupOpen(false);
-      setStartSiloData(null);
-      setTestAlertStyle(null);
-      setAudioNotification(null);
-      if (typeof window !== 'undefined' && 'speechSynthesis' in window) {
-          window.speechSynthesis.cancel();
-      }
-      if (globalAudioCtx && globalAudioCtx.state === 'running') {
-          globalAudioCtx.suspend().catch(() => {});
-      }
-  }, []);
-
-  useEffect(() => {
-      if (!hasDashboardPassword || !isDashboardUnlocked) {
-          setDashboardLockCountdown(DASHBOARD_INACTIVITY_SECONDS);
-          return;
-      }
-
-      const resetLockCountdown = () => {
-          setDashboardLockCountdown(DASHBOARD_INACTIVITY_SECONDS);
-      };
-
-      const activityEvents = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll', 'wheel', 'click'];
-      activityEvents.forEach(ev => window.addEventListener(ev, resetLockCountdown, { passive: true }));
-
-      const interval = setInterval(() => {
-          setDashboardLockCountdown(prev => {
-              if (prev <= 1) {
-                  clearInterval(interval);
-                  lockDashboardNow();
-                  return DASHBOARD_INACTIVITY_SECONDS;
-              }
-              return prev - 1;
-          });
-      }, 1000);
-
-      return () => {
-          activityEvents.forEach(ev => window.removeEventListener(ev, resetLockCountdown));
-          clearInterval(interval);
-      };
-  }, [hasDashboardPassword, isDashboardUnlocked, lockDashboardNow]);
-
-  // Kunci otomatis saat membuka halaman/tab website baru (visibilitychange -> hidden)
-  useEffect(() => {
-      const handleVisibilityChange = () => {
-          if (document.visibilityState === 'hidden' && hasDashboardPassword && isDashboardUnlocked) {
-              lockDashboardNow();
-          }
-      };
-      document.addEventListener('visibilitychange', handleVisibilityChange);
-      return () => document.removeEventListener('visibilitychange', handleVisibilityChange);
-  }, [hasDashboardPassword, isDashboardUnlocked, lockDashboardNow]);
-
-  const handleUnlockDashboard = useCallback((inputPassword: string): boolean => {
-      if (inputPassword === dashboardPassword) {
-          initAudioContext();
-          setIsDashboardUnlocked(true);
-          setDashboardLockCountdown(DASHBOARD_INACTIVITY_SECONDS);
-          setPasswordModalState({ isOpen: false, mode: 'unlock' });
-          setAudioNotification({
-              show: true,
-              message: 'Akses Website Dibuka',
-              subMessage: 'Selamat datang di Dashboard. Otomatis mengunci kembali jika 5 menit tidak ada aktivitas.',
-              type: 'success',
-          });
-          return true;
-      }
-      return false;
-  }, [dashboardPassword]);
-
-  const handleSaveDashboardPassword = useCallback(async (
-      newPassword: string,
-      oldPassword?: string
-  ): Promise<{ success: boolean; error?: string }> => {
-      if (hasDashboardPassword && oldPassword !== undefined && oldPassword !== dashboardPassword) {
-          return { success: false, error: 'Password lama yang dimasukkan salah.' };
-      }
-
-      const cleanPassword = newPassword.trim();
-      if (!cleanPassword) {
-          return { success: false, error: 'Password baru tidak boleh kosong.' };
-      }
-
-      try {
-          const isCreating = !hasDashboardPassword;
-
-          const { error: noteError } = await supabase
-              .from('reactor_notes')
-              .upsert({
-                  reactor_id: DASHBOARD_PASSWORD_NOTE_ID,
-                  note: cleanPassword,
-                  updated_at: new Date(),
-              });
-
-          if (noteError) {
-              console.error('Error saving dashboard password to Supabase:', noteError);
-              return { success: false, error: 'Gagal menyimpan password ke database.' };
-          }
-
-          const updatedCatalyst = {
-              ...catalystData,
-              dashboardPassword: cleanPassword,
-          };
-          setCatalystData(updatedCatalyst);
-          void updateGlobalSetting({ catalyst_data: updatedCatalyst });
-
-          initAudioContext();
-          setDashboardPassword(cleanPassword);
-          setIsDashboardUnlocked(true);
-          setDashboardLockCountdown(DASHBOARD_INACTIVITY_SECONDS);
-          setPasswordModalState({ isOpen: false, mode: 'unlock' });
-
-          void writeAuditLog({
-              eventType: 'settings.updated',
-              entityType: 'dashboard_security',
-              entityId: 'dashboard_password',
-              summary: isCreating
-                  ? 'Password keamanan dashboard dibuat dan disimpan ke database'
-                  : 'Password keamanan dashboard diperbarui di database',
-              beforeData: { hasPassword: !isCreating },
-              afterData: { hasPassword: true, updatedAt: new Date().toISOString() },
-          });
-
-          setAudioNotification({
-              show: true,
-              message: isCreating ? 'Password Dashboard Dibuat' : 'Password Dashboard Diperbarui',
-              subMessage: 'Password berhasil disimpan ke database yang terhubung.',
-              type: 'success',
-          });
-
-          return { success: true };
-      } catch (err) {
-          console.error('Unexpected error saving dashboard password:', err);
-          return { success: false, error: 'Terjadi kesalahan saat menyimpan password ke database.' };
-      }
-  }, [hasDashboardPassword, dashboardPassword, catalystData]);
 
   const toggleTheme = () => {
       handleConfigChange('theme', config.theme === 'light' ? 'dark' : 'light');
@@ -2512,7 +2276,6 @@ const App: React.FC = () => {
 
   const handleResetSequence = (item?: ScheduleItem) => {
       if (isMobileScheduleReadOnly) return;
-      if (!requireDashboardUnlock()) return;
       let batchVal = config.baseBatchNumber;
       let localIso = '';
 
@@ -2535,7 +2298,6 @@ const App: React.FC = () => {
 
   const submitResetSequence = async () => {
       if (isMobileScheduleReadOnly) return;
-      if (!requireDashboardUnlock()) return;
       try {
           if (!resetParams.time) {
               setDbSchemaError("Silakan isi Waktu Mulai (New Start Time) yang valid.");
@@ -2604,7 +2366,6 @@ const App: React.FC = () => {
   // --- Catalyst Handlers ---
   const handleCatalystChange = (row: 'f' | 'h' | 'g', field: 'netto' | 'bruto', val: string) => {
     if (isMobileScheduleReadOnly) return;
-    if (!requireDashboardUnlock()) return;
     const previousValue = catalystData[row]?.[field];
     const newData = {
       ...catalystData,
@@ -2626,15 +2387,7 @@ const App: React.FC = () => {
   };
 
   const openCatalystModal = () => {
-      if (isMobileScheduleReadOnly) return;
-      if (!requireDashboardUnlock()) return;
-      if (catalystData.presets) {
-          setTempCatalystPresets(prev => ({
-              ...prev,
-              ...catalystData.presets
-          }));
-      }
-      setIsCatalystModalOpen(true);
+      // Catalyst modal popup removed per user request
   };
 
   const handleTempPresetChange = (grade: string, catKey: string, val: string) => {
@@ -2668,7 +2421,6 @@ const App: React.FC = () => {
           });
         }
       });
-      setIsCatalystModalOpen(false);
   };
 
   const applyCatalystPreset = (grade: string) => {
@@ -2697,7 +2449,6 @@ const App: React.FC = () => {
           });
         }
       });
-      setIsCatalystModalOpen(false);
   };
 
   // --- Cycle Time Logic ---
@@ -2730,7 +2481,6 @@ const App: React.FC = () => {
   };
 
   const handleCycleTimeChange = (id: number, field: string, value: string) => {
-      if (!requireDashboardUnlock()) return;
       lastCycleTimeUpdateRef.current = Date.now();
       const previousRow = cycleTimeData.find(row => row.id === id);
       const newData = cycleTimeData.map(row => row.id === id ? { ...row, [field]: value } : row);
@@ -2750,56 +2500,31 @@ const App: React.FC = () => {
   };
 
   // --- Silo Handlers ---
-  
-  // 1. Initial Click Handler: Opens the Confirmation Modal
-  const handleSiloSwitch = (newSiloId: 'O' | 'P' | 'Q') => {
+  const handleSiloSwitch = async (newSiloId: 'O' | 'P' | 'Q') => {
       if (isMobileScheduleReadOnly) return;
-      if (!requireDashboardUnlock()) return;
       if (newSiloId === siloState.activeSilo) return;
 
       const currentTime = new Date().toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' });
-      
-      // Initialize the modal with default values
-      setStartSiloData({
-          id: newSiloId,
-          lotNumber: '', // Empty initially
-          capacitySet: '', // Empty initially
-          startTime: currentTime
-      });
-  };
-
-  // 2. Commit Handler: Executed when user confirms inside the Modal
-  const handleConfirmSiloStart = async () => {
-      if (isMobileScheduleReadOnly) return;
-      if (!requireDashboardUnlock()) return;
-      if (!startSiloData) return;
-
       const previousSiloId = siloState.activeSilo;
-      const { id: newSiloId, lotNumber, capacitySet, startTime } = startSiloData;
-
-      // Logic to switch silos
       const updatedSilos = { ...siloState.silos };
       
-      // Update new silo with form data
+      // Update new silo with current start time without modal popup
       updatedSilos[newSiloId] = {
           ...updatedSilos[newSiloId],
-          lotNumber: lotNumber,
-          capacitySet: capacitySet,
-          startTime: startTime,
-          finishTime: null, // Clear finish time for new active
-          percentage: '', // Reset progress for new batch
-          totalUpdate: '' // Reset update for new batch
+          startTime: currentTime,
+          finishTime: null,
+          percentage: '',
+          totalUpdate: ''
       };
 
-      // Update previous silo with finish time if exists (matches new start time)
       if (previousSiloId) {
           updatedSilos[previousSiloId] = {
               ...updatedSilos[previousSiloId],
-              finishTime: startTime
+              finishTime: currentTime
           };
       }
 
-      const newSiloState = {
+      const newSiloState: SiloState = {
           activeSilo: newSiloId,
           silos: updatedSilos
       };
@@ -2823,14 +2548,10 @@ const App: React.FC = () => {
               },
           });
       }
-
-      // Close Modal
-      setStartSiloData(null);
   };
 
   const handleSiloDataChange = (siloId: 'O' | 'P' | 'Q', field: keyof SiloData, value: any) => {
       if (isMobileScheduleReadOnly) return;
-      if (!requireDashboardUnlock()) return;
       const previousValue = siloState.silos[siloId][field];
       const newSiloState = {
           ...siloState,
@@ -2860,7 +2581,6 @@ const App: React.FC = () => {
   // --- Demonomer Handlers ---
   const handleDemonomerChange = (field: keyof DemonomerData, value: any) => {
       if (isMobileScheduleReadOnly) return;
-      if (!requireDashboardUnlock()) return;
       const previousValue = demonomerData[field];
       const newData = { ...demonomerData, [field]: value };
       setDemonomerData(newData);
@@ -2887,14 +2607,12 @@ const App: React.FC = () => {
   // --- Reactor Note Handlers ---
   const openReactorNoteModal = (reactorId: string) => {
       if (isMobileScheduleReadOnly) return;
-      if (!requireDashboardUnlock()) return;
       setEditingReactorNote(reactorId);
       setTempReactorNote(config.reactorNotes[reactorId] || "");
   };
   
   const saveReactorNote = async () => {
       if (isMobileScheduleReadOnly) return;
-      if (!requireDashboardUnlock()) return;
       if (editingReactorNote) {
           setConfig(prev => ({
               ...prev,
@@ -2924,7 +2642,6 @@ const App: React.FC = () => {
   // --- Modal Handlers ---
   const openRescheduleModal = (item: ScheduleItem) => {
     if (isMobileScheduleReadOnly) return;
-    if (!requireDashboardUnlock()) return;
     setSelectedItem(item);
     setShouldBlinkNote(true);
     setTimeout(() => setShouldBlinkNote(false), 5000);
@@ -3384,7 +3101,7 @@ const App: React.FC = () => {
     } else {
       hasInitialScrolledTimelineRef.current = false;
     }
-  }, [currentView, scrollToNowPosition]);
+  }, [currentView]);
 
   /* Tabel scheduler saat layar sempit: kolom paling kiri berisi batch yang
      sudah lewat, sehingga jadwal yang akan start tertutup dan harus digeser
@@ -3647,11 +3364,11 @@ const App: React.FC = () => {
          }, 3000); 
          return () => clearTimeout(timer);
      }
-  }, [isScheduleCompleted, nextStartParams, config.isStopped, isLoading]);
+   }, [isScheduleCompleted, nextStartParams.batch, nextStartParams.time, config.isStopped, isLoading]);
 
   // Audio Logic
   useEffect(() => {
-    if (!config.audioEnabled || config.isStopped || isDashboardLocked) return;
+    if (!config.audioEnabled || config.isStopped) return;
 
     // Don't play alarm sound in the first seconds of page load to prevent noisy refresh
     const isInitialGracePeriod = !initialGracePeriodOverRef.current;
@@ -3669,9 +3386,9 @@ const App: React.FC = () => {
             const ctx = initAudioContext();
             if (ctx) {
                 if (ctx.state === 'suspended') {
-                    setAudioAllowed(false);
+                    setAudioAllowed(prev => prev ? false : prev);
                 } else {
-                    setAudioAllowed(true);
+                    setAudioAllowed(prev => !prev ? true : prev);
                 }
             }
         }
@@ -3680,7 +3397,7 @@ const App: React.FC = () => {
     if (announcedBatches.current.size > 50) {
         announcedBatches.current.clear();
     }
-  }, [scheduleMatrix, config.audioEnabled, config.isStopped, isDashboardLocked]);
+  }, [scheduleMatrix, config.audioEnabled, config.isStopped]);
 
   // Handler to enable audio manually without loud blast
   const enableAudio = () => {
@@ -3702,7 +3419,7 @@ const App: React.FC = () => {
 
   // Full Screen Alert Logic
   const fullScreenAlertItem = useMemo(() => {
-      if (config.isStopped || config.alertThresholdSeconds <= 0 || isDashboardLocked) return null;
+      if (config.isStopped || config.alertThresholdSeconds <= 0) return null;
       const allItems = Object.values(scheduleMatrix).flat() as ScheduleItem[];
       const impendingItem = allItems.find(item => {
           if (item.status === 'skipped' || item.status === 'past') return false;
@@ -3711,7 +3428,7 @@ const App: React.FC = () => {
           return secondsUntilStart > 0 && secondsUntilStart <= config.alertThresholdSeconds;
       });
       return impendingItem || null;
-  }, [scheduleMatrix, now, config.isStopped, config.alertThresholdSeconds, dismissedAlerts, isDashboardLocked]);
+  }, [scheduleMatrix, now, config.isStopped, config.alertThresholdSeconds, dismissedAlerts]);
 
   /* Start reaktor terdekat yang belum lewat, untuk countdown di header.
      scheduleMatrix dikelompokkan per reaktor, jadi hasil flat() tidak urut
@@ -3784,7 +3501,7 @@ const App: React.FC = () => {
                   console.warn("Desktop notification trigger failed:", e);
               }
           }
-      } else if (!fullScreenAlertItem) {
+      } else if (!fullScreenAlertItem && lastAlertedId !== null) {
           setLastAlertedId(null);
       }
   }, [fullScreenAlertItem, lastAlertedId, config.audioEnabled, config.alarmSound, now]);
@@ -3817,22 +3534,6 @@ const App: React.FC = () => {
               <RefreshCw className="w-12 h-12 text-blue-600 animate-spin mb-4" />
               <div className="text-slate-500 font-bold animate-pulse">Connecting to Supabase...</div>
           </div>
-      );
-  }
-
-  // Full-Screen Password Gate sebelum masuk ke website
-  if (!hasDashboardPassword || !isDashboardUnlocked) {
-      return (
-          <DashboardPasswordModal
-              isOpen={true}
-              fullScreenGate={true}
-              mode={!hasDashboardPassword ? 'create' : passwordModalState.mode === 'change' ? 'change' : 'unlock'}
-              hasPassword={hasDashboardPassword}
-              onClose={() => setPasswordModalState({ isOpen: false, mode: 'unlock' })}
-              onChangeMode={(newMode) => setPasswordModalState({ isOpen: true, mode: newMode })}
-              onUnlock={handleUnlockDashboard}
-              onSavePassword={handleSaveDashboardPassword}
-          />
       );
   }
 
@@ -3943,22 +3644,14 @@ const App: React.FC = () => {
                <span className={`transition-all duration-700 ${currentColorScheme.schedule}`}>SCHEDULE</span> 
                <span className={`transition-all duration-700 ${currentColorScheme.start}`}>START</span>
             </h1>
-
-            {/* Reaktor + tanggal disembunyikan di HP; tanggal sudah ada di daftar
-                batch dan barisnya memakan lebar yang dibutuhkan judul. */}
-            <div className="hidden lg:flex items-center gap-4 mt-1 border-t-2 border-slate-200/80 dark:border-slate-700/80 pt-1 w-full justify-center">
-                <span className={`text-[0.85em] font-black tracking-widest uppercase transition-colors duration-700 ${currentColorScheme.reaktor}`}>
-                    REAKTOR PVC 5
-                </span>
-            </div>
           </div>
 
-          {/* Right Section: Breadcrumb — navigasi pindah seluruhnya ke sidebar kanan */}
+          {/* Right Section: Shift Info & Mobile Drawer */}
           <div className="flex shrink-0 lg:flex-1 items-center lg:items-stretch justify-end gap-2 order-2 lg:order-3">
               <ShiftToday date={now} className="hidden lg:flex" />
-              <Breadcrumb view={currentView} group={currentGroup} />
+              <Breadcrumb view={currentView} />
 
-              {/* Pembuka drawer. Di desktop sidebar selalu terlihat, jadi disembunyikan. */}
+              {/* Pembuka drawer di HP */}
               <button
                 type="button"
                 onClick={() => setIsMobileNavOpen(true)}
@@ -4183,6 +3876,9 @@ const App: React.FC = () => {
                 </button>
               </div>
             </div>
+
+            {/* Grade Selection Mode inside Settings */}
+            {renderGradeSelectionWidget()}
 
             {/* Cycle Parameters & Alert Timing */}
             <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200 dark:border-slate-700 shadow-xs">
@@ -4468,13 +4164,12 @@ const App: React.FC = () => {
       const activeSiloData = siloState.activeSilo ? siloState.silos[siloState.activeSilo] : null;
       return (
           <div className="flex flex-col shadow-sm rounded-xl border border-slate-200 dark:border-slate-700">
-              <button 
-                  onClick={() => setCurrentView('silo')}
-                  className="bg-amber-500 hover:bg-amber-600 text-white font-bold text-[0.85em] px-3 py-2 text-center rounded-t-xl flex items-center justify-center gap-2 transition-colors cursor-pointer w-full uppercase tracking-tight"
+              <div 
+                  className="bg-amber-500 text-white font-bold text-[0.85em] px-3 py-2 text-center rounded-t-xl flex items-center justify-center gap-2 w-full uppercase tracking-tight select-none"
               >
-                  <Maximize2 className="w-3 h-3" />
-                  SILO SETTING
-              </button>
+                  <Database className="w-3.5 h-3.5" />
+                  SILO MONITOR
+              </div>
               <div className="flex min-h-0">
                   <div className="bg-white dark:bg-slate-800 text-slate-800 dark:text-white font-black p-2 flex items-center justify-center w-full rounded-b-xl relative overflow-hidden group">
                        <span className="text-[5.46rem] mr-2 drop-shadow-sm text-cyan-600 dark:text-cyan-400 animate-pulse leading-none">{siloState.activeSilo || '-'}</span>
@@ -4511,15 +4206,8 @@ const App: React.FC = () => {
   const renderSteamWidget = () => {
       return (
           <div className="flex flex-col shadow-sm rounded-xl w-full border border-slate-200 dark:border-slate-700 demonomer-widget-container">
-              <button 
-                  disabled={isMobileScheduleReadOnly}
-                  onClick={() => {
-                      if (isMobileScheduleReadOnly) return;
-                      if (!requireDashboardUnlock()) return;
-                      setIsDemonomerPopupOpen(true);
-                  }}
-                  title={isMobileScheduleReadOnly ? 'Adjust Steam hanya dapat diubah dari desktop' : isDashboardLocked ? 'Dashboard terkunci — klik untuk memasukkan password' : 'Buka Adjust Steam'}
-                  className={`bg-teal-600 text-white font-bold text-[0.85em] px-2 py-2 text-center rounded-t-xl flex items-center justify-center gap-1 uppercase tracking-tight transition-colors w-full relative focus-visible:ring-2 focus-visible:ring-teal-300 focus-visible:ring-inset ${isMobileScheduleReadOnly ? 'cursor-not-allowed opacity-65' : 'hover:bg-teal-700 cursor-pointer'}`}
+              <div 
+                  className="bg-teal-600 text-white font-bold text-[0.85em] px-2 py-2 text-center rounded-t-xl flex items-center justify-center gap-1 uppercase tracking-tight select-none w-full relative"
               >
                   <Activity className="w-3 h-3" />
                   ADJUST STEAM
@@ -4528,29 +4216,23 @@ const App: React.FC = () => {
                           {activeDemonomerGrade}
                       </span>
                   )}
-              </button>
+              </div>
               <div className="bg-white dark:bg-slate-800 rounded-b-xl p-1.5 flex flex-col gap-1.5 justify-center">
                   <div className="bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white p-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-inner flex flex-col justify-center">
                       <label 
-                          onClick={() => setIsFie2002TrendOpen(true)}
-                          className="text-[0.85em] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-center gap-1 mb-0.5 cursor-pointer hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors group"
-                          title="Klik tulisan FIE2002 untuk melihat Grafik Trend Perjam"
+                          className="text-[0.85em] font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider flex items-center justify-center gap-1 mb-0.5 select-none"
                       >
                           FIE2002
-                          <TrendingUp className="w-3.5 h-3.5 text-cyan-500 animate-pulse group-hover:scale-125 transition-transform" />
                       </label>
                       <input 
                           type="number"
                           step="0.1"
-                          readOnly={isMobileScheduleReadOnly || isDashboardLocked}
-                          aria-readonly={isMobileScheduleReadOnly || isDashboardLocked}
+                          readOnly={isMobileScheduleReadOnly}
+                          aria-readonly={isMobileScheduleReadOnly}
                           aria-label="Nilai FIE2002"
                           value={demonomerData.f2002}
-                          onClick={() => {
-                              if (!isMobileScheduleReadOnly && isDashboardLocked) requireDashboardUnlock();
-                          }}
                           onChange={(e) => handleDemonomerChange('f2002', parseFloat(e.target.value) || 0)}
-                          className={`w-full bg-transparent text-3xl font-black text-center outline-none drop-shadow-sm appearance-none ${isMobileScheduleReadOnly || isDashboardLocked ? 'cursor-pointer' : ''}`}
+                          className={`w-full bg-transparent text-3xl font-black text-center outline-none drop-shadow-sm appearance-none ${isMobileScheduleReadOnly ? 'cursor-default' : ''}`}
                       />
                   </div>
                   <div className="bg-slate-50 dark:bg-slate-900/50 text-slate-900 dark:text-white p-1 rounded-lg border border-slate-200 dark:border-slate-700 shadow-inner flex flex-col justify-center">
@@ -4575,19 +4257,15 @@ const App: React.FC = () => {
   const renderCatalystMiniWidget = () => {
       return (
           <div className="flex flex-col flex-1 shadow-sm rounded-xl border border-slate-200 dark:border-slate-700 overflow-hidden bg-white dark:bg-slate-800 catalyst-widget-container min-h-0">
-              <button
-                  type="button"
-                  disabled={isMobileScheduleReadOnly}
-                  onClick={openCatalystModal}
-                  className={`bg-indigo-600 text-white font-bold text-[0.8em] px-3 py-2 text-center flex items-center justify-between gap-2 uppercase tracking-tight transition-colors shrink-0 focus-visible:ring-2 focus-visible:ring-indigo-300 focus-visible:ring-inset ${isMobileScheduleReadOnly ? 'cursor-not-allowed opacity-65' : 'hover:bg-indigo-700 cursor-pointer'}`}
-                  title={isMobileScheduleReadOnly ? 'Catalyst Data hanya dapat diubah dari desktop' : isDashboardLocked ? 'Dashboard terkunci — klik untuk memasukkan password' : 'Click to open Catalyst Presets Settings'}
+              <div
+                  className="bg-indigo-600 text-white font-bold text-[0.8em] px-3 py-2 text-center flex items-center justify-between gap-2 uppercase tracking-tight select-none shrink-0"
               >
                   <span className="flex items-center gap-2">
                       <Activity className="w-3 h-3 animate-pulse" />
                       CATALYST DATA
                   </span>
                   <Sliders className="w-3.5 h-3.5 opacity-80" />
-              </button>
+              </div>
               <div className="p-2 flex-1 flex flex-col justify-center">
                   <table className="w-full border-collapse h-full">
                       <thead>
@@ -4606,13 +4284,10 @@ const App: React.FC = () => {
                                   <td className="py-1 px-1">
                                       <input 
                                           type="text" 
-                                          readOnly={isMobileScheduleReadOnly || isDashboardLocked}
-                                          aria-readonly={isMobileScheduleReadOnly || isDashboardLocked}
+                                          readOnly={isMobileScheduleReadOnly}
+                                          aria-readonly={isMobileScheduleReadOnly}
                                           aria-label={`Catalyst ${key.toUpperCase()} netto`}
                                           value={catalystData[key]?.netto || ''} 
-                                          onClick={() => {
-                                              if (!isMobileScheduleReadOnly && isDashboardLocked) requireDashboardUnlock();
-                                          }}
                                           onChange={(e) => handleCatalystChange(key, 'netto', e.target.value)}
                                           className="w-full bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-white text-center font-bold py-1 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 text-[1.1em]"
                                       />
@@ -4620,13 +4295,10 @@ const App: React.FC = () => {
                                   <td className="py-1 px-1">
                                       <input 
                                           type="text" 
-                                          readOnly={isMobileScheduleReadOnly || isDashboardLocked}
-                                          aria-readonly={isMobileScheduleReadOnly || isDashboardLocked}
+                                          readOnly={isMobileScheduleReadOnly}
+                                          aria-readonly={isMobileScheduleReadOnly}
                                           aria-label={`Catalyst ${key.toUpperCase()} bruto`}
                                           value={catalystData[key]?.bruto || ''} 
-                                          onClick={() => {
-                                              if (!isMobileScheduleReadOnly && isDashboardLocked) requireDashboardUnlock();
-                                          }}
                                           onChange={(e) => handleCatalystChange(key, 'bruto', e.target.value)}
                                           className="w-full bg-slate-50 dark:bg-slate-900/50 text-slate-800 dark:text-white text-center font-bold py-1 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500 text-[1.1em]"
                                       />
@@ -4654,13 +4326,13 @@ const App: React.FC = () => {
 
     return (
         <div
-          className="w-full lg:h-full flex flex-col lg:flex-row gap-2"
+          className="w-full lg:h-full flex flex-col"
           /* tableFontSize disetel untuk layar kontrol besar; di HP dibatasi
              supaya isi sel tidak saling tindih. */
           style={{ fontSize: `${isDesktop ? config.tableFontSize : Math.min(config.tableFontSize, 13)}px` }}
         >
-          {/* LEFT SIDE: 80% Table */}
-          <div className="w-full lg:w-[80%] flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
+          {/* FULL 100% Table */}
+          <div className="w-full flex-1 flex flex-col bg-white dark:bg-slate-800 rounded-xl shadow-lg border border-slate-200 dark:border-slate-700 overflow-hidden transition-colors">
             
              {/* MARQUEE BAR: Placed between header and table rows */}
              <div className={`w-full ${currentColorScheme.marqueeBg} border-b ${currentColorScheme.marqueeBorder} overflow-hidden h-10 relative flex items-center transition-all duration-1000`}>
@@ -5092,14 +4764,6 @@ const App: React.FC = () => {
               </table>
             </div>
           </div>
-
-          {/* RIGHT SIDE: 20% Widgets */}
-          <div className="w-full lg:w-[20%] grid grid-cols-2 lg:flex lg:flex-col gap-2 lg:h-full">
-              {renderGradeSelectionWidget()}
-              {renderSiloWidget()}
-              {renderSteamWidget()}
-              {renderCatalystMiniWidget()}
-          </div>
         </div>
     );
   };
@@ -5328,7 +4992,6 @@ const App: React.FC = () => {
                                         <th 
                                             className="cycle-time-header border-b-2 border-slate-200 dark:border-slate-700 px-0.5 py-1 bg-slate-50 dark:bg-slate-800/50 text-slate-600 dark:text-slate-300 uppercase tracking-wider text-[0.75em] leading-tight cursor-pointer hover:text-blue-500 transition-colors"
                                             onClick={() => {
-                                                if (!requireDashboardUnlock()) return;
                                                 setTempFormula(demonomerData.cycleTimeFormula);
                                                 setIsFormulaModalOpen(true);
                                             }}
@@ -5370,13 +5033,6 @@ const App: React.FC = () => {
                                                 <td className="p-[2px]">
                                                     <input 
                                                         type="time" 
-                                                        readOnly={isDashboardLocked}
-                                                        onClick={(e) => {
-                                                            if (isDashboardLocked) {
-                                                                e.preventDefault();
-                                                                requireDashboardUnlock();
-                                                            }
-                                                        }}
                                                         className={cycleTimeInputClass}
                                                         value={row.ns} 
                                                         onChange={(e) => handleCycleTimeChange(row.id, 'ns', e.target.value)}
@@ -5385,13 +5041,6 @@ const App: React.FC = () => {
                                                 <td className="p-[2px]">
                                                     <input 
                                                         type="time" 
-                                                        readOnly={isDashboardLocked}
-                                                        onClick={(e) => {
-                                                            if (isDashboardLocked) {
-                                                                e.preventDefault();
-                                                                requireDashboardUnlock();
-                                                            }
-                                                        }}
                                                         className={cycleTimeInputClass}
                                                         value={row.readyBlowing} 
                                                         onChange={(e) => handleCycleTimeChange(row.id, 'readyBlowing', e.target.value)}
@@ -5400,13 +5049,6 @@ const App: React.FC = () => {
                                                 <td className="p-[2px]">
                                                     <input 
                                                         type="time" 
-                                                        readOnly={isDashboardLocked}
-                                                        onClick={(e) => {
-                                                            if (isDashboardLocked) {
-                                                                e.preventDefault();
-                                                                requireDashboardUnlock();
-                                                            }
-                                                        }}
                                                         className={`${cycleTimeInputClass} !bg-green-50 dark:!bg-green-900/20 !text-green-900 dark:!text-green-100 focus:!ring-green-500/50`}
                                                         value={row.blowing} 
                                                         onChange={(e) => handleCycleTimeChange(row.id, 'blowing', e.target.value)}
@@ -5420,13 +5062,6 @@ const App: React.FC = () => {
                                                 <td className="p-[2px]">
                                                     <input 
                                                         type="time" 
-                                                        readOnly={isDashboardLocked}
-                                                        onClick={(e) => {
-                                                            if (isDashboardLocked) {
-                                                                e.preventDefault();
-                                                                requireDashboardUnlock();
-                                                            }
-                                                        }}
                                                         className={cycleTimeInputClass}
                                                         value={row.blowingComplete} 
                                                         onChange={(e) => handleCycleTimeChange(row.id, 'blowingComplete', e.target.value)}
@@ -5446,7 +5081,6 @@ const App: React.FC = () => {
                             <div className="flex justify-end mt-0.5">
                                 <button 
                                     onClick={() => {
-                                        if (!requireDashboardUnlock()) return;
                                         if (window.confirm("Apakah Anda yakin ingin mengosongkan semua data cycle time?")) {
                                             const clearedData = [
                                                 { id: 1, ns: '', readyBlowing: '', blowing: '', blowingComplete: '' },
@@ -5484,29 +5118,11 @@ const App: React.FC = () => {
                    </div>
 
                    {/* 2. KESEPAKATAN WIDGET */}
-                   <div
-                     className="min-w-0 flex flex-col"
-                     onClickCapture={(e) => {
-                       if (!isDashboardLocked) return;
-                       const target = e.target as HTMLElement | null;
-                       const btn = target?.closest('button, input, textarea');
-                       if (btn && btn.closest('.kesepakatan-container')) {
-                         e.stopPropagation();
-                         e.preventDefault();
-                         requireDashboardUnlock();
-                       }
-                     }}
-                   >
-                     <ScheduleInfoCarousel
-                        currentGrade={activeDemonomerGrade}
-                        shiftGroups={getShiftGroupsNow(now)}
-                        onOpenBackup={handleOpenBackupQuota}
-                     />
-                   </div>
+                   <ScheduleInfoCarousel
+                      currentGrade={activeDemonomerGrade}
+                      shiftGroups={getShiftGroupsNow(now)}
+                   />
                </div>
-
-               {/* 3. CONFLICT TIMELINE TABLE */}
-               {renderConflictTimeline()}
            </div>
       );
   };
@@ -5517,39 +5133,12 @@ const App: React.FC = () => {
           case 'header': content = renderHeader(); break;
           case 'scheduler': content = renderScheduler(); break;
           case 'catalyst': content = renderCatalyst(); break;
-          case 'demonomer': content = (
-            <Demonomer 
-                readOnly={isMobileScheduleReadOnly || isDashboardLocked}
-                currentGrade={config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade} 
-                onGradeChange={handleDemonomerGradeChange}
-                data={demonomerData}
-                onDataChange={handleDemonomerChange}
-                gradeMode={config.gradeMode}
-                onGradeModeChange={(m) => {
-                    if (m === 'gradeChange') {
-                        openGradeChangeModal();
-                    } else {
-                        handleConfigChange('gradeMode', 'normal');
-                    }
-                }}
-                onOpenFieTrend={() => setIsFie2002TrendOpen(true)}
-            />
-          ); break;
-          case 'silo': content = (
-            <Silo 
-                readOnly={isMobileScheduleReadOnly || isDashboardLocked}
-                activeSilo={siloState.activeSilo}
-                silos={siloState.silos}
-                onDataChange={handleSiloDataChange}
-                onSiloSelect={handleSiloSwitch}
-            />
-          ); break;
           default: content = null;
       }
 
       if (!content) return null;
 
-      return <div key={sectionId} className={sectionId === 'scheduler' && currentView === 'scheduler' ? 'h-full' : ''}>{content}</div>;
+      return <div key={sectionId} className={sectionId === 'scheduler' ? 'h-full' : ''}>{content}</div>;
   };
 
   return (
@@ -6145,11 +5734,11 @@ const App: React.FC = () => {
       )}
 
       {/* Dynamic Layout Rendering */}
-      <div className={`flex-1 flex flex-row min-h-0 gap-2 ${currentView === 'scheduler' ? 'overflow-auto lg:overflow-visible p-1' : 'overflow-auto lg:overflow-visible p-2'}`}>
+      <div className="flex-1 flex flex-row min-h-0 gap-2 overflow-auto lg:overflow-visible p-1">
 
           {/* Kolom kiri: header + konten. Sidebar jadi saudara kandungnya,
               bukan anak di bawah header, supaya tingginya sampai atas. */}
-          <div className={`flex-1 flex flex-col min-w-0 min-h-0 ${currentView === 'scheduler' ? 'gap-1' : 'gap-4'}`}>
+          <div className="flex-1 flex flex-col min-w-0 min-h-0 gap-1">
               {/* Header */}
               {renderSection('header', 0)}
 
@@ -6157,66 +5746,20 @@ const App: React.FC = () => {
                 className="flex-1 flex flex-col min-w-0 lg:min-h-0 lg:overflow-auto"
                 /* Zoom 0.8 khusus tabel scheduler di desktop; di HP tabelnya
                    sudah diganti kartu, mengecilkannya lagi bikin tak terbaca. */
-                style={isDesktop && currentView === 'scheduler' ? { zoom: 0.8 } : undefined}
+                style={isDesktop ? { zoom: 0.8 } : undefined}
               >
-              {currentView === 'scheduler' && (
-                  <>
-                      <div className="flex-1 min-h-0">{renderSection('scheduler', 1)}</div>
-                      {renderSection('catalyst', 2)}
-                  </>
-              )}
-
-              {currentView === 'demonomer' && (
-                <Demonomer 
-                    readOnly={isMobileScheduleReadOnly || isDashboardLocked}
-                    currentGrade={config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade} 
-                    onGradeChange={handleDemonomerGradeChange}
-                    data={demonomerData}
-                    onDataChange={handleDemonomerChange}
-                    gradeMode={config.gradeMode}
-                    onGradeModeChange={(m) => handleConfigChange('gradeMode', m)}
-                    onOpenFieTrend={() => setIsFie2002TrendOpen(true)}
-                />
-              )}
-
-              {currentView === 'silo' && (
-                <div className="silo-container">
-                    <Silo 
-                        readOnly={isMobileScheduleReadOnly || isDashboardLocked}
-                        activeSilo={siloState.activeSilo}
-                        silos={siloState.silos}
-                        onDataChange={handleSiloDataChange}
-                        onSiloSelect={handleSiloSwitch}
-                    />
-                </div>
-              )}
-
-              {currentView === 'jadwalShift' && (
-                <JadwalShift now={now} />
-              )}
-
-              {currentView === 'jadwal' && (
-                <Jadwal
-                  key={currentGroup}
-                  activeGroup={currentGroup}
-                  focusTarget={backupFocusTarget?.group === currentGroup ? backupFocusTarget : null}
-                  onFocusTargetHandled={handleBackupFocusHandled}
-                />
-              )}
-
-              {currentView === 'kas' && (
-                <div className="bg-slate-50 dark:bg-slate-950 rounded-2xl shadow-lg border border-slate-200 dark:border-slate-800 p-4 lg:p-6 min-h-[500px]">
-                  <KasGrup key={currentGroup} activeGroup={currentGroup} />
-                </div>
-              )}
-
-              {currentView === 'unitConverter' && (
-                <UnitConverter />
-              )}
-
-              {currentView === 'auditLog' && (
-                <AuditLog />
-              )}
+                  <div className="flex-1 min-h-0">
+                    {!isPolymerUnlocked ? (
+                      <PolymerLockScreen 
+                        config={polymerSecurityConfig} 
+                        onUnlocked={() => setIsPolymerUnlocked(true)} 
+                        onRefreshConfig={loadPolymerSecurity} 
+                      />
+                    ) : (
+                      renderSection('scheduler', 1)
+                    )}
+                  </div>
+                  {isPolymerUnlocked && renderSection('catalyst', 2)}
               </div>
           </div>
 
@@ -6224,72 +5767,27 @@ const App: React.FC = () => {
               Saudara kandung kolom kiri, jadi tingginya penuh sampai atas. */}
           <Sidebar
                 currentView={currentView}
-                currentGroup={currentGroup}
                 collapsed={sidebarCollapsed}
                 onToggleCollapsed={() => setSidebarCollapsed(v => !v)}
                 onSelectView={setCurrentView}
-                onSelectGroup={handleSelectGroup}
                 isSettingsOpen={isSettingsOpen}
                 onToggleSettings={() => {
-                  if (!isDesktop) return;
-                  if (!requireDashboardUnlock()) return;
-                  setIsSettingsOpen(o => !o);
+                  if (isDesktop) setIsSettingsOpen(o => !o);
                 }}
                 settingsDisabled={isMobileScheduleReadOnly}
+                isSecurityModalOpen={isSecurityModalOpen}
+                onOpenSecurityModal={() => setIsSecurityModalOpen(true)}
+                isPolymerUnlocked={isPolymerUnlocked}
+                lockCountdown={polymerLockCountdown}
+                onLockNow={() => {
+                  setPolymerSessionUnlocked(false);
+                  setIsPolymerUnlocked(false);
+                }}
                 isMobile={!isDesktop}
                 mobileOpen={isMobileNavOpen}
                 onMobileClose={() => setIsMobileNavOpen(false)}
-                hasDashboardPassword={hasDashboardPassword}
-                isDashboardLocked={isDashboardLocked}
-                dashboardLockCountdown={dashboardLockCountdown}
-                onLockDashboardNow={lockDashboardNow}
-                onOpenPasswordModal={openPasswordModal}
           />
       </div>
-
-      <div className="max-w-7xl mx-auto mt-6 pb-6 text-center text-slate-400 dark:text-slate-500 text-sm font-bold">
-          2025 | SCHEDULE START PVC 5
-      </div>
-
-      {/* --- DEMONOMER POPUP (ADJUST STEAM) --- */}
-      {isDemonomerPopupOpen && (
-          <div className="fixed inset-0 pointer-events-none z-[80] flex items-center justify-center p-4 animate-in fade-in duration-200">
-              <DraggableModal className="w-full max-w-4xl flex flex-col max-h-[90vh]">
-                  <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-4xl overflow-hidden flex flex-col ring-4 ring-teal-500/50">
-                      <div className="bg-teal-600 text-white px-5 py-3.5 flex items-center justify-between shrink-0 cursor-grab active:cursor-grabbing">
-                          <h3 className="text-sm sm:text-base font-black flex items-center gap-2 uppercase tracking-tight">
-                              <Activity className="w-5 h-5 text-yellow-300 animate-pulse shrink-0" />
-                              <span>ADJUST STEAM (DEMONOMER)</span>
-                              <span className="hidden lg:inline px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-1 whitespace-nowrap">
-                                  ✋ Tahan &amp; Drag
-                              </span>
-                          </h3>
-                          <button onClick={() => setIsDemonomerPopupOpen(false)} className="p-1.5 text-white/80 hover:text-white hover:bg-white/20 rounded-lg transition-colors cursor-pointer" title="Tutup Adjust Steam">
-                              <X className="w-5 h-5" />
-                          </button>
-                      </div>
-                      <div className="flex-1 overflow-y-auto p-4 sm:p-5 max-h-[78vh]">
-                          <Demonomer 
-                              readOnly={isMobileScheduleReadOnly || isDashboardLocked}
-                              currentGrade={config.gradeMode === 'normal' ? config.currentGrade : demonomerGrade} 
-                              onGradeChange={handleDemonomerGradeChange}
-                              data={demonomerData}
-                              onDataChange={handleDemonomerChange}
-                              gradeMode={config.gradeMode}
-                              onGradeModeChange={(m) => {
-                                  if (m === 'gradeChange') {
-                                      openGradeChangeModal();
-                                  } else {
-                                      handleConfigChange('gradeMode', 'normal');
-                                  }
-                              }}
-                              onOpenFieTrend={() => setIsFie2002TrendOpen(true)}
-                          />
-                      </div>
-                  </div>
-              </DraggableModal>
-          </div>
-      )}
 
       {/* --- GRADE CHANGE CONFIRMATION MODAL --- */}
       {isGradeChangeModalOpen && (
@@ -6405,246 +5903,7 @@ const App: React.FC = () => {
           </div>
       )}
 
-      {/* --- CATALYST PRESETS MODAL --- */}
-      {isCatalystModalOpen && (
-          <div className="fixed inset-0 pointer-events-none z-[70] flex items-center justify-center p-4 animate-in fade-in duration-200">
-              <DraggableModal className="w-full max-w-xl">
-                  <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-xl overflow-hidden transform transition-all scale-100 ring-4 ring-indigo-500/50 catalyst-modal-container">
-                      <div className="bg-indigo-600 text-white p-5 flex items-center justify-between cursor-grab active:cursor-grabbing">
-                          <h3 className="text-xl font-black flex items-center gap-2">
-                              <Sliders className="w-6 h-6 text-yellow-300 animate-pulse" />
-                              PRESET CATALYST PER GRADE
-                              <span className="hidden lg:inline px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
-                                  ✋ Tahan &amp; Drag
-                              </span>
-                          </h3>
-                          <button onClick={() => setIsCatalystModalOpen(false)} className="p-1.5 hover:bg-white/20 rounded-full transition-colors">
-                              <X className="w-5 h-5" />
-                          </button>
-                      </div>
-                  <div className="p-5 space-y-4">
-                      <p className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-wider">
-                          Atur jumlah catalyst untuk setiap grade di bawah ini. Anda dapat meng-apply langsung ke tabel polymer atau menyimpan preset ke database.
-                      </p>
-                      
-                      <div className="border border-slate-200 dark:border-slate-700 rounded-xl overflow-hidden">
-                          <table className="w-full text-left border-collapse">
-                              <thead>
-                                  <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 text-slate-500 dark:text-slate-400 font-bold text-[0.8em]">
-                                      <th className="p-3 uppercase">Grade</th>
-                                      <th className="p-3 uppercase">Catalyst 1</th>
-                                      <th className="p-3 uppercase">Catalyst 2</th>
-                                      <th className="p-3 text-center uppercase">Aksi</th>
-                                  </tr>
-                              </thead>
-                              <tbody className="divide-y divide-slate-150 dark:divide-slate-800">
-                                  {/* SM Row */}
-                                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                                      <td className="p-3 font-black text-slate-800 dark:text-white">SM</td>
-                                      <td className="p-3">
-                                          <div className="flex items-center gap-1.5">
-                                              <span className="text-xs font-black text-slate-400 uppercase">F:</span>
-                                              <input 
-                                                  type="text" 
-                                                  value={tempCatalystPresets.SM?.F || ''} 
-                                                  onChange={(e) => handleTempPresetChange('SM', 'F', e.target.value)}
-                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
-                                                  placeholder="0"
-                                              />
-                                          </div>
-                                      </td>
-                                      <td className="p-3">
-                                          <div className="flex items-center gap-1.5">
-                                              <span className="text-xs font-black text-slate-400 uppercase">H:</span>
-                                              <input 
-                                                  type="text" 
-                                                  value={tempCatalystPresets.SM?.H || ''} 
-                                                  onChange={(e) => handleTempPresetChange('SM', 'H', e.target.value)}
-                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
-                                                  placeholder="0"
-                                              />
-                                          </div>
-                                      </td>
-                                      <td className="p-3 text-center">
-                                          <button 
-                                              onClick={() => applyCatalystPreset('SM')}
-                                              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 dark:text-indigo-400 rounded-lg font-black text-[0.75em] uppercase tracking-wider transition-colors border border-indigo-200/50 dark:border-indigo-800/50"
-                                          >
-                                              Apply
-                                          </button>
-                                      </td>
-                                  </tr>
 
-                                  {/* SLP Row */}
-                                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                                      <td className="p-3 font-black text-slate-800 dark:text-white">SLP</td>
-                                      <td className="p-3">
-                                          <div className="flex items-center gap-1.5">
-                                              <span className="text-xs font-black text-slate-400 uppercase">F:</span>
-                                              <input 
-                                                  type="text" 
-                                                  value={tempCatalystPresets.SLP?.F || ''} 
-                                                  onChange={(e) => handleTempPresetChange('SLP', 'F', e.target.value)}
-                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
-                                                  placeholder="XX"
-                                              />
-                                          </div>
-                                      </td>
-                                      <td className="p-3">
-                                          <div className="flex items-center gap-1.5">
-                                              <span className="text-xs font-black text-slate-400 uppercase">H:</span>
-                                              <input 
-                                                  type="text" 
-                                                  value={tempCatalystPresets.SLP?.H || ''} 
-                                                  onChange={(e) => handleTempPresetChange('SLP', 'H', e.target.value)}
-                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
-                                                  placeholder="XX"
-                                              />
-                                          </div>
-                                      </td>
-                                      <td className="p-3 text-center">
-                                          <button 
-                                              onClick={() => applyCatalystPreset('SLP')}
-                                              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 dark:text-indigo-400 rounded-lg font-black text-[0.75em] uppercase tracking-wider transition-colors border border-indigo-200/50 dark:border-indigo-800/50"
-                                          >
-                                              Apply
-                                          </button>
-                                      </td>
-                                  </tr>
-
-                                  {/* SLK Row */}
-                                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                                      <td className="p-3 font-black text-slate-800 dark:text-white">SLK</td>
-                                      <td className="p-3">
-                                          <div className="flex items-center gap-1.5">
-                                              <span className="text-xs font-black text-slate-400 uppercase">F:</span>
-                                              <input 
-                                                  type="text" 
-                                                  value={tempCatalystPresets.SLK?.F || ''} 
-                                                  onChange={(e) => handleTempPresetChange('SLK', 'F', e.target.value)}
-                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
-                                                  placeholder="XX"
-                                              />
-                                          </div>
-                                      </td>
-                                      <td className="p-3">
-                                          <div className="flex items-center gap-1.5">
-                                              <span className="text-xs font-black text-slate-400 uppercase">H:</span>
-                                              <input 
-                                                  type="text" 
-                                                  value={tempCatalystPresets.SLK?.H || ''} 
-                                                  onChange={(e) => handleTempPresetChange('SLK', 'H', e.target.value)}
-                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
-                                                  placeholder="XX"
-                                              />
-                                          </div>
-                                      </td>
-                                      <td className="p-3 text-center">
-                                          <button 
-                                              onClick={() => applyCatalystPreset('SLK')}
-                                              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 dark:text-indigo-400 rounded-lg font-black text-[0.75em] uppercase tracking-wider transition-colors border border-indigo-200/50 dark:border-indigo-800/50"
-                                          >
-                                              Apply
-                                          </button>
-                                      </td>
-                                  </tr>
-
-                                  {/* SE Row */}
-                                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                                      <td className="p-3 font-black text-slate-800 dark:text-white">SE</td>
-                                      <td className="p-3">
-                                          <div className="flex items-center gap-1.5">
-                                              <span className="text-xs font-black text-slate-400 uppercase">F:</span>
-                                              <input 
-                                                  type="text" 
-                                                  value={tempCatalystPresets.SE?.F || ''} 
-                                                  onChange={(e) => handleTempPresetChange('SE', 'F', e.target.value)}
-                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
-                                                  placeholder="XX"
-                                              />
-                                          </div>
-                                      </td>
-                                      <td className="p-3">
-                                          <div className="flex items-center gap-1.5">
-                                              <span className="text-xs font-black text-slate-400 uppercase">G:</span>
-                                              <input 
-                                                  type="text" 
-                                                  value={tempCatalystPresets.SE?.G || ''} 
-                                                  onChange={(e) => handleTempPresetChange('SE', 'G', e.target.value)}
-                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
-                                                  placeholder="XX"
-                                              />
-                                          </div>
-                                      </td>
-                                      <td className="p-3 text-center">
-                                          <button 
-                                              onClick={() => applyCatalystPreset('SE')}
-                                              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 dark:text-indigo-400 rounded-lg font-black text-[0.75em] uppercase tracking-wider transition-colors border border-indigo-200/50 dark:border-indigo-800/50"
-                                          >
-                                              Apply
-                                          </button>
-                                      </td>
-                                  </tr>
-
-                                  {/* SR Row */}
-                                  <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                                      <td className="p-3 font-black text-slate-800 dark:text-white">SR</td>
-                                      <td className="p-3">
-                                          <div className="flex items-center gap-1.5">
-                                              <span className="text-xs font-black text-slate-400 uppercase">F:</span>
-                                              <input 
-                                                  type="text" 
-                                                  value={tempCatalystPresets.SR?.F || ''} 
-                                                  onChange={(e) => handleTempPresetChange('SR', 'F', e.target.value)}
-                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
-                                                  placeholder="XX"
-                                              />
-                                          </div>
-                                      </td>
-                                      <td className="p-3">
-                                          <div className="flex items-center gap-1.5">
-                                              <span className="text-xs font-black text-slate-400 uppercase">G:</span>
-                                              <input 
-                                                  type="text" 
-                                                  value={tempCatalystPresets.SR?.G || ''} 
-                                                  onChange={(e) => handleTempPresetChange('SR', 'G', e.target.value)}
-                                                  className="w-24 bg-slate-50 dark:bg-slate-800 text-slate-800 dark:text-white text-center font-bold px-2 py-1.5 rounded border border-slate-200 dark:border-slate-700 outline-none focus:ring-2 focus:ring-indigo-500"
-                                                  placeholder="XX"
-                                              />
-                                          </div>
-                                      </td>
-                                      <td className="p-3 text-center">
-                                          <button 
-                                              onClick={() => applyCatalystPreset('SR')}
-                                              className="px-3 py-1.5 bg-indigo-50 hover:bg-indigo-100 text-indigo-600 dark:bg-indigo-900/20 dark:hover:bg-indigo-900/40 dark:text-indigo-400 rounded-lg font-black text-[0.75em] uppercase tracking-wider transition-colors border border-indigo-200/50 dark:border-indigo-800/50"
-                                          >
-                                              Apply
-                                          </button>
-                                      </td>
-                                  </tr>
-                              </tbody>
-                          </table>
-                      </div>
-
-                      <div className="flex gap-3 pt-2">
-                          <button 
-                              onClick={() => setIsCatalystModalOpen(false)}
-                              className="flex-1 px-6 py-3 rounded-xl font-black text-slate-500 dark:text-slate-400 bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 transition-all uppercase tracking-widest text-sm"
-                          >
-                              BATAL
-                          </button>
-                          <button 
-                              onClick={saveCatalystPresets}
-                              className="flex-1 px-6 py-3 rounded-xl font-black text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 transition-all uppercase tracking-widest text-sm"
-                          >
-                              SIMPAN PRESETS
-                          </button>
-                      </div>
-                  </div>
-              </div>
-          </DraggableModal>
-      </div>
-  )}
 
       {/* --- EDIT RUMUS MODAL --- */}
       {isFormulaModalOpen && (
@@ -6704,133 +5963,7 @@ const App: React.FC = () => {
           </div>
       )}
 
-      {/* --- START SILO CONFIRMATION MODAL --- */}
-      {startSiloData && (
-          <div className="fixed inset-0 pointer-events-none z-[60] flex items-center justify-center p-4 animate-in fade-in duration-200">
-              <DraggableModal className="w-full max-w-md">
-                  <div className="bg-white dark:bg-slate-900 rounded-2xl shadow-2xl w-full max-w-md overflow-hidden transform transition-all scale-100 ring-4 ring-emerald-500/50">
-                      {/* Header */}
-                      <div className="bg-emerald-600 text-white p-6 flex items-center justify-between cursor-grab active:cursor-grabbing">
-                          <div>
-                              <h3 className="text-2xl font-black flex items-center gap-2">
-                                  <PlayCircle className="w-8 h-8 text-yellow-300" />
-                                  START SILO {startSiloData.id}
-                                  <span className="hidden lg:inline px-2 py-0.5 text-[10px] bg-white/20 text-white font-bold rounded border border-white/30 select-none ml-2">
-                                      ✋ Tahan &amp; Drag
-                                  </span>
-                              </h3>
-                              <p className="text-emerald-100 font-bold text-sm mt-1">Please confirm start details.</p>
-                          </div>
-                          <button onClick={() => setStartSiloData(null)} className="bg-white/20 hover:bg-white/30 p-2 rounded-full transition-colors">
-                              <X className="w-6 h-6" />
-                          </button>
-                      </div>
 
-                  {/* Body */}
-                  <div className="p-6 space-y-6">
-                      
-                      {/* Lot Number Input */}
-                      <div className="space-y-2">
-                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">Lot Number</label>
-                          <input 
-                              type="text" 
-                              autoFocus
-                              value={startSiloData.lotNumber}
-                              onChange={(e) => setStartSiloData({...startSiloData, lotNumber: e.target.value.toUpperCase()})}
-                              placeholder="e.g. E5ZB16"
-                              className="w-full text-center text-3xl font-black p-3 rounded-xl border-2 border-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 outline-none uppercase dark:bg-slate-800 dark:border-slate-700 dark:text-white"
-                          />
-                      </div>
-
-                      {/* Capacity Input */}
-                      <div className="space-y-2">
-                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block">Capacity Set (T)</label>
-                          <input 
-                              type="number" 
-                              value={startSiloData.capacitySet}
-                              onChange={(e) => setStartSiloData({...startSiloData, capacitySet: e.target.value})}
-                              placeholder="e.g. 270"
-                              className="w-full text-center text-3xl font-black p-3 rounded-xl border-2 border-slate-300 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-100 outline-none dark:bg-slate-800 dark:border-slate-700 dark:text-white"
-                          />
-                      </div>
-
-                      {/* Time Input */}
-                      <div className="space-y-2 bg-slate-100 dark:bg-slate-800 p-3 rounded-xl border border-slate-200 dark:border-slate-700 text-center">
-                          <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest block mb-1">Start Time Confirmation</label>
-                          
-                          <div className="flex items-center justify-center gap-2 font-mono py-2 bg-white dark:bg-slate-900 rounded-lg border border-slate-200 dark:border-slate-800 shadow-inner w-full">
-                              {(() => {
-                                  const timeString = startSiloData.startTime || '00:00';
-                                  const parts = timeString.split(':');
-                                  const hourVal = parts[0] ?? '00';
-                                  const minuteVal = parts[1] ?? '00';
-                                  
-                                  const updateTime = (h: string, m: string) => {
-                                      setStartSiloData({ ...startSiloData, startTime: `${h}:${m}` });
-                                  };
-
-                                  const handleBlur = () => {
-                                      const paddedH = (hourVal || '00').padStart(2, '0');
-                                      const paddedM = (minuteVal || '00').padStart(2, '0');
-                                      setStartSiloData({ ...startSiloData, startTime: `${paddedH}:${paddedM}` });
-                                  };
-
-                                  return (
-                                      <div className="flex items-center justify-center gap-1">
-                                          <input 
-                                              type="text"
-                                              maxLength={2}
-                                              value={hourVal}
-                                              onChange={(e) => {
-                                                  const val = e.target.value.replace(/\D/g, '');
-                                                  updateTime(val, minuteVal);
-                                              }}
-                                              onBlur={handleBlur}
-                                              className="w-12 bg-transparent text-center font-mono font-black text-3xl text-red-600 dark:text-red-500 focus:outline-none focus:ring-2 focus:ring-red-300 rounded"
-                                              placeholder="00"
-                                          />
-                                          <span className="text-red-600 dark:text-red-500 text-3xl font-bold animate-pulse">:</span>
-                                          <input 
-                                              type="text"
-                                              maxLength={2}
-                                              value={minuteVal}
-                                              onChange={(e) => {
-                                                  const val = e.target.value.replace(/\D/g, '');
-                                                  updateTime(hourVal, val);
-                                              }}
-                                              onBlur={handleBlur}
-                                              className="w-12 bg-transparent text-center font-mono font-black text-3xl text-red-600 dark:text-red-500 focus:outline-none focus:ring-2 focus:ring-red-300 rounded"
-                                              placeholder="00"
-                                          />
-                                      </div>
-                                  );
-                              })()}
-                          </div>
-                      </div>
-
-                  </div>
-
-                  {/* Footer */}
-                  <div className="p-4 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 flex gap-3">
-                      <button 
-                        onClick={() => setStartSiloData(null)}
-                        className="flex-1 py-4 font-bold text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-slate-200"
-                      >
-                          CANCEL
-                      </button>
-                      <button 
-                        onClick={handleConfirmSiloStart}
-                        disabled={!startSiloData.lotNumber || !startSiloData.capacitySet}
-                        className="flex-[2] bg-emerald-600 hover:bg-emerald-700 text-white font-black text-lg py-4 rounded-xl shadow-lg disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transform active:scale-95 transition-all"
-                      >
-                          <Check className="w-6 h-6" />
-                          CONFIRM & START
-                      </button>
-                  </div>
-              </div>
-          </DraggableModal>
-      </div>
-  )}
 
       {/* ... [Reschedule Modal] ... */}
       {selectedItem && (
@@ -7241,16 +6374,17 @@ const App: React.FC = () => {
       </div>
   )}
 
-      {/* --- FIE2002 HOURLY TREND MODAL --- */}
-      <Fie2002TrendModal 
-          readOnly={isMobileScheduleReadOnly}
-          isOpen={isFie2002TrendOpen}
-          onClose={() => setIsFie2002TrendOpen(false)}
-          currentValue={demonomerData.f2002}
-          history={fie2002TrendHistory}
-          onAddManualEntry={handleAddManualFieTrend}
-          onClearHistory={handleClearFieTrend}
-          onResetDefaultHistory={handleResetDefaultFieTrend}
+      {/* --- POLYMER SECURITY / PASSWORD MODAL --- */}
+      <PolymerSecurityModal 
+          isOpen={isSecurityModalOpen}
+          onClose={() => setIsSecurityModalOpen(false)}
+          config={polymerSecurityConfig}
+          onConfigUpdated={loadPolymerSecurity}
+          lockCountdown={polymerLockCountdown}
+          onLockNow={() => {
+            setPolymerSessionUnlocked(false);
+            setIsPolymerUnlocked(false);
+          }}
       />
 
       {/* --- FLOATING AUDIO NOTIFICATION TOAST --- */}
@@ -7290,17 +6424,6 @@ const App: React.FC = () => {
 
       {/* --- SETTINGS POPUP MODAL --- */}
       {renderSettingsModal()}
-
-      {/* --- DASHBOARD PASSWORD MODAL (CREATE / UNLOCK / CHANGE) --- */}
-      <DashboardPasswordModal
-          isOpen={passwordModalState.isOpen}
-          mode={passwordModalState.mode}
-          hasPassword={hasDashboardPassword}
-          onClose={() => setPasswordModalState(prev => ({ ...prev, isOpen: false }))}
-          onChangeMode={(newMode) => setPasswordModalState({ isOpen: true, mode: newMode })}
-          onUnlock={handleUnlockDashboard}
-          onSavePassword={handleSaveDashboardPassword}
-      />
 
       {/* --- MOBILE PWA INSTALL FAB (Pojok Kiri Bawah Mobile) --- */}
       <InstallPwaFab />
