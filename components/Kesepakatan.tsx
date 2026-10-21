@@ -260,11 +260,6 @@ export const Kesepakatan: React.FC<KesepakatanProps> = ({
                                 ) : (
                                     <span>{`${shift.name} ( ${shift.time} )`}</span>
                                 )}
-                                {group && (
-                                    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[0.82em] font-black leading-none tracking-wider shadow-sm ${GROUP_BADGE_STYLE[group]}`}>
-                                        GRUP {group}
-                                    </span>
-                                )}
                             </div>
 
                             {/* Start Times Grid */}

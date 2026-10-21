@@ -20,6 +20,8 @@ const EASE_OUT = [0.16, 1, 0.3, 1] as const;
 
 const joinClasses = (...classes: Array<string | undefined>) => classes.filter(Boolean).join(' ');
 
+const IN_VIEW_OPTIONS = { once: true, amount: 0.6 } as const;
+
 export const NumberTicker = memo(function NumberTicker({
   value,
   pad,
@@ -33,13 +35,13 @@ export const NumberTicker = memo(function NumberTicker({
   digitClassName,
 }: NumberTickerProps) {
   const containerRef = useRef<HTMLSpanElement>(null);
-  const inView = useInView(containerRef, { once: true, amount: 0.6 });
+  const inView = useInView(containerRef, IN_VIEW_OPTIONS);
   const [armed, setArmed] = useState(!startOnView);
   const [entered, setEntered] = useState(false);
 
   useEffect(() => {
-    if (startOnView && inView) setArmed(true);
-  }, [inView, startOnView]);
+    if (startOnView && inView && !armed) setArmed(true);
+  }, [inView, startOnView, armed]);
 
   const text = useMemo(() => {
     const rounded = Math.max(0, Math.round(value));

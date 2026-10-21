@@ -56,6 +56,18 @@
         "updated_at": { "type": "string" }
       },
       "required": ["id"]
+    },
+    "DashboardSecurity": {
+      "title": "Dashboard Security",
+      "description": "Password and access control configuration for the Polymer dashboard",
+      "type": "object",
+      "properties": {
+        "password": { "type": "string" },
+        "isSet": { "type": "boolean" },
+        "hint": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["password", "isSet"]
     }
   },
   "firestore": {
@@ -70,6 +82,10 @@
     "/schedule_overrides/{overrideId}": {
       "schema": "ScheduleOverride",
       "description": "Stores cycle overrides indexed by reactor ID or slot identifier"
+    },
+    "/dashboard_security/{documentId}": {
+      "schema": "DashboardSecurity",
+      "description": "Stores dashboard access password and configuration"
     }
   }
 }

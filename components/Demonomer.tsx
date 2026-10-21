@@ -149,14 +149,9 @@ export const Demonomer: React.FC<DemonomerProps> = ({ readOnly = false, currentG
                   <thead>
                       <tr>
                           <th 
-                            className="w-[18%] border-b border-slate-200 dark:border-slate-800 p-2 bg-slate-50/70 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 uppercase tracking-wider text-[11px] font-bold cursor-pointer hover:text-cyan-600 dark:hover:text-cyan-400 transition-colors group"
-                            onClick={onOpenFieTrend}
-                            title="Klik tulisan FIE2002 untuk melihat Grafik Trend Perjam"
+                            className="w-[18%] border-b border-slate-200 dark:border-slate-800 p-2 bg-slate-50/70 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 uppercase tracking-wider text-[11px] font-bold"
                           >
-                            <div className="flex items-center justify-center gap-1">
-                              <span>FIE2002</span>
-                              <TrendingUp className="w-3.5 h-3.5 text-cyan-500 animate-pulse group-hover:scale-125 transition-transform" />
-                            </div>
+                            <span>FIE2002</span>
                           </th>
                           <th className="w-[20%] border-b border-slate-200 dark:border-slate-800 p-2 bg-slate-50/70 dark:bg-slate-800/40 text-slate-600 dark:text-slate-400 uppercase tracking-wider text-[11px] font-bold">
                             AI2802
