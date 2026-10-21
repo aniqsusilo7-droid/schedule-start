@@ -1,12 +1,10 @@
 import React from 'react';
 import { Kesepakatan } from './Kesepakatan';
 import type { ShiftGroup, ShiftSlot } from '../utils/shiftSchedule';
-import type { BackupQuotaResult } from '../utils/backupSchedule';
 
 interface ScheduleInfoCarouselProps {
   currentGrade?: string;
   shiftGroups?: Record<ShiftSlot, ShiftGroup>;
-  onOpenBackup?: (target: BackupQuotaResult) => void;
 }
 
 export const ScheduleInfoCarousel: React.FC<ScheduleInfoCarouselProps> = ({
