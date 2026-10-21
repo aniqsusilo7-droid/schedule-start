@@ -1,7 +1,7 @@
 import React from 'react';
 import {
   LayoutGrid, Settings, ShieldCheck, Lock,
-  Calculator, ExternalLink, PanelRightClose, PanelRightOpen, X, Gauge
+  Calculator, ExternalLink, PanelRightClose, PanelRightOpen, X
 } from 'lucide-react';
 
 export type SidebarView = 'scheduler';
@@ -19,7 +19,7 @@ interface InternalMenuItem extends MenuItemBase {
 }
 
 interface ExternalMenuItem extends MenuItemBase {
-  id: 'payrollCalculator' | 'rateTopas';
+  id: 'payrollCalculator';
   href: string;
 }
 
@@ -37,15 +37,6 @@ const SECTIONS: MenuSection[] = [
     title: 'Proses',
     items: [
       { id: 'scheduler', label: 'POLYMER', Icon: LayoutGrid, activeBg: 'bg-blue-600', activeRing: 'ring-blue-400', iconColor: 'text-blue-500' },
-      {
-        id: 'rateTopas',
-        label: 'RATE TOPAS',
-        Icon: Gauge,
-        activeBg: 'bg-orange-600',
-        activeRing: 'ring-orange-400',
-        iconColor: 'text-orange-500',
-        href: 'https://bagging-p5.vercel.app/',
-      },
     ],
   },
   {
