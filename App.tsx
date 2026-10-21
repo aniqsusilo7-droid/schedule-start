@@ -4637,9 +4637,13 @@ const App: React.FC = () => {
                                              RE-{reactor.id}
                                          </div>
                                    ) : (
-                                         <span className={`font-bold font-mono ${isActive ? 'text-white' : (reactor.id === 'S' || reactor.id === 'T' ? (isFuture ? 'text-red-600 dark:text-red-600' : 'text-red-600 dark:text-red-400') : (isFuture ? 'text-red-500 dark:text-red-500' : 'text-red-500 dark:text-red-400'))} ${isPast ? '!text-inherit' : ''}`} style={{ fontSize: '1.0em' }}>
-                                             <span className="opacity-50 text-[0.5em] mr-0.5">#</span>{item.batchNumber}
-                                         </span>
+                                         <div 
+                                           className={`font-black px-1.5 py-0.5 rounded leading-none ${isActive ? 'bg-white text-red-600' : `${GRADE_COLORS[item.grade] || 'bg-slate-200'} text-white`} shadow-sm`} 
+                                           style={{ fontSize: '0.9em' }}
+                                           title={`Batch #${item.batchNumber} (${item.grade})`}
+                                         >
+                                             <span className="opacity-75 text-[0.75em] mr-0.5">#</span>{item.batchNumber}
+                                         </div>
                                    )}
                                    {!isSkipped && item.dailyStartNumber !== undefined && (
                                      <div 
