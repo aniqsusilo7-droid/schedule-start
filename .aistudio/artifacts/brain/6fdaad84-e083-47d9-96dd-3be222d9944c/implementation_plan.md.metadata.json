@@ -1,0 +1,6 @@
+{
+  "summary":  "Rencana implementasi layar kunci password penuh (Full-Screen Password Gate) sebelum masuk ke website Schedule Start Reaktor PVC 5, dilengkapi pembuatan & perubahan password yang tersimpan di database Supabase, penghentian alarm saat terkunci, serta fitur Kunci Sekarang dan auto-lock countdown 5 menit di Side Toolbar.",
+  "updatedAt":  "2026-10-21T10:49:49.912377271Z",
+  "requestFeedback":  true,
+  "userFacing":  true
+}

@@ -1,4 +1,4 @@
-const CACHE_NAME = 'pvc5-pwa-v1';
+const CACHE_NAME = 'pvc5-pwa-v4-clean';
 
 const STATIC_PRECACHE = [
   '/',
@@ -57,42 +57,26 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // Navigation requests: Network-First with Offline Fallback
-  if (request.mode === 'navigate') {
-    event.respondWith(
-      fetch(request)
-        .then((response) => {
-          if (response && response.status === 200) {
-            const clone = response.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          }
-          return response;
-        })
-        .catch(async () => {
-          const cachedResponse = await caches.match(request);
-          if (cachedResponse) return cachedResponse;
+  // Network-First for all navigation and static assets so new GitHub/Vercel deployments
+  // always load the newest code and never conflict with old cached bundles.
+  event.respondWith(
+    fetch(request)
+      .then((networkResponse) => {
+        if (networkResponse && networkResponse.status === 200) {
+          const clone = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
+        }
+        return networkResponse;
+      })
+      .catch(async () => {
+        const cachedResponse = await caches.match(request);
+        if (cachedResponse) return cachedResponse;
+        if (request.mode === 'navigate') {
           const fallback = await caches.match('/');
           if (fallback) return fallback;
           return caches.match('/index.html');
-        })
-    );
-    return;
-  }
-
-  // Static Assets (JS, CSS, Images, Fonts): Stale-While-Revalidate
-  event.respondWith(
-    caches.match(request).then((cachedResponse) => {
-      const fetchPromise = fetch(request)
-        .then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            const clone = networkResponse.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(request, clone));
-          }
-          return networkResponse;
-        })
-        .catch(() => cachedResponse);
-
-      return cachedResponse || fetchPromise;
-    })
+        }
+        return Response.error();
+      })
   );
 });
